@@ -108,6 +108,7 @@ export default function Home() {
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [chartPeriod, setChartPeriod] = useState("Last 6 months");
+  const [showNotifications, setShowNotifications] = useState(false);
   const supabaseConfigured = Boolean(createClient());
   const canManageAnimals = !isLive || ["admin", "veterinarian", "bhw"].includes(authUser?.role ?? "");
 
@@ -339,7 +340,7 @@ export default function Home() {
       </aside>
 
       <section className="content-area">
-        <header className="topbar"><div className="crumb">Operations <span>/</span> {activeTab}</div><div className="top-actions"><button className="icon-button" aria-label="Notifications" onClick={() => { setActiveTab("Overview"); setShowNotice(true); }}><Bell size={18} /><span className="notification-dot" /></button><button className="profile-button" onClick={() => authUser ? signOut() : setActiveTab("Feedback")}><CircleUserRound size={20} /> <span>{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span></button></div></header>
+        <header className="topbar"><div className="crumb">Operations <span>/</span> {activeTab}</div><div className="top-actions"><button className="icon-button" aria-label="Notifications" aria-expanded={showNotifications} onClick={() => setShowNotifications((current) => !current)}><Bell size={18} /><span className="notification-dot" /></button><button className="profile-button" onClick={() => authUser ? signOut() : setActiveTab("Feedback")}><CircleUserRound size={20} /> <span>{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span></button></div>{showNotifications && <div className="notification-panel"><div className="notification-panel-head"><strong>Notifications</strong><button onClick={() => setShowNotifications(false)}>Close</button></div><div className="notification-item"><span className="notification-icon"><Syringe size={15} /></span><span><strong>{dashboardStats.dueSoon} vaccinations due soon</strong><small>Review the vaccination plan for upcoming visits.</small></span></div><div className="notification-item"><span className="notification-icon danger"><Bell size={15} /></span><span><strong>{dashboardStats.overdue} overdue records</strong><small>Prioritize follow-up in the Risk Analysis workspace.</small></span></div></div>}</header>
         <div className="page-content">
           <div className="page-heading"><div><p className="eyebrow">THURSDAY, SEPTEMBER 11, 2026</p><h1>{activeTab === "Overview" ? `Good morning, ${authUser?.fullName.split(" ")[0] ?? "Maria"}.` : activeTab}</h1><p className="heading-sub">{activeTab === "Overview" ? "Here is what needs your attention across the barangay." : "Barangay Estefania animal health operations"}</p></div>{canManageAnimals && <button className="primary-button" onClick={() => setShowRegister(true)}><Plus size={17} /> Register animal</button>}</div>
 
