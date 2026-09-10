@@ -99,7 +99,10 @@ export default function Home() {
   const [authUser, setAuthUser] = useState<{ id: string; email: string; fullName: string; role: string } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [authMode, setAuthMode] = useState<"landing" | "signin" | "register">("landing");
+  const [registrationSent, setRegistrationSent] = useState(false);
   const [authForm, setAuthForm] = useState({ email: "", password: "" });
+  const [registrationForm, setRegistrationForm] = useState({ fullName: "", email: "", password: "" });
   const [form, setForm] = useState({ name: "", species: "Dog" as Animal["species"], owner: "", purok: demoPuroks[0], vaccineDate: "", nextDue: "" });
   const [liveStats, setLiveStats] = useState<DashboardStats | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState("");
@@ -190,6 +193,27 @@ export default function Home() {
     window.location.reload();
   }
 
+  async function signUp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const supabase = createClient();
+    if (!supabase) return;
+    setAuthError("");
+    if (registrationForm.password.length < 8) {
+      setAuthError("Password must be at least 8 characters long.");
+      return;
+    }
+    const { error } = await supabase.auth.signUp({
+      email: registrationForm.email,
+      password: registrationForm.password,
+      options: { data: { full_name: registrationForm.fullName } },
+    });
+    if (error) {
+      setAuthError(error.message);
+      return;
+    }
+    setRegistrationSent(true);
+  }
+
   async function signOut() {
     const supabase = createClient();
     if (supabase) await supabase.auth.signOut();
@@ -242,7 +266,8 @@ export default function Home() {
   }
 
   if (supabaseConfigured && authChecked && !authUser) {
-    return <main className="auth-shell"><section className="auth-card"><div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>VacciTrack</span></div><p className="eyebrow">BARANGAY ANIMAL HEALTH</p><h1>Sign in to VacciTrack</h1><p className="heading-sub">Access the live animal registry and vaccination plan.</p><form className="auth-form" onSubmit={signIn}><label>Email<input required type="email" autoComplete="email" value={authForm.email} onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })} /></label><label>Password<input required type="password" autoComplete="current-password" value={authForm.password} onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} /></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Sign in</button></form></section></main>;
+    if (authMode === "landing") return <Landing onSignIn={() => { setAuthError(""); setAuthMode("signin"); }} onRegister={() => { setAuthError(""); setRegistrationSent(false); setAuthMode("register"); }} />;
+    return <main className="auth-shell"><section className="auth-card"><button className="auth-back" onClick={() => { setAuthError(""); setAuthMode("landing"); }}>← Back to VacciTrack</button><div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>VacciTrack</span></div>{authMode === "signin" ? <><p className="eyebrow">BARANGAY ANIMAL HEALTH</p><h1>Sign in to VacciTrack</h1><p className="heading-sub">Access the live animal registry and vaccination plan.</p><form className="auth-form" onSubmit={signIn}><label>Email<input required type="email" autoComplete="email" value={authForm.email} onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })} /></label><label>Password<input required type="password" autoComplete="current-password" value={authForm.password} onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} /></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Sign in</button></form><button className="auth-switch" onClick={() => { setAuthError(""); setAuthMode("register"); }}>Create an account</button></> : registrationSent ? <div className="confirmation"><CheckCircle2 size={30} /><h1>Check your email</h1><p>We sent a confirmation link to <strong>{registrationForm.email}</strong>. Confirm it before signing in.</p><button className="primary-button" onClick={() => { setRegistrationSent(false); setAuthMode("signin"); }}>Back to sign in</button></div> : <><p className="eyebrow">COMMUNITY ACCESS</p><h1>Create your account</h1><p className="heading-sub">Register to manage your animals and receive vaccination reminders.</p><form className="auth-form" onSubmit={signUp}><label>Full name<input required maxLength={120} value={registrationForm.fullName} onChange={(event) => setRegistrationForm({ ...registrationForm, fullName: event.target.value })} /></label><label>Email<input required type="email" autoComplete="email" value={registrationForm.email} onChange={(event) => setRegistrationForm({ ...registrationForm, email: event.target.value })} /></label><label>Password<input required minLength={8} type="password" autoComplete="new-password" value={registrationForm.password} onChange={(event) => setRegistrationForm({ ...registrationForm, password: event.target.value })} /></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Create account</button></form><button className="auth-switch" onClick={() => { setAuthError(""); setAuthMode("signin"); }}>Already have an account? Sign in</button></>}</section></main>;
   }
 
   async function registerAnimal(event: FormEvent<HTMLFormElement>) {
@@ -351,4 +376,8 @@ export default function Home() {
 
 function Coverage({ name, value, count }: { name: string; value: number; count: string }) {
   return <div className="coverage-row"><div className="coverage-meta"><span>{name}</span><strong>{count} <em>{value}%</em></strong></div><div className="progress"><span style={{ width: `${value}%` }} /></div></div>;
+}
+
+function Landing({ onSignIn, onRegister }: { onSignIn: () => void; onRegister: () => void }) {
+  return <main className="landing-page"><header className="landing-nav"><button className="landing-brand" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}><span className="landing-brand-mark">✣</span><span><strong>VacciTrack</strong><small>BRGY. ESTEFANIA</small></span></button><nav aria-label="Public navigation"><a href="#capabilities">Capabilities</a><a href="#why-it-matters">Why it matters</a><button className="landing-nav-action" onClick={onSignIn}>Sign in <span>→</span></button></nav><button className="landing-menu-toggle" aria-label="Create an account" onClick={onRegister}>Join us</button></header><section className="landing-hero"><div className="landing-hero-image" /><div className="landing-hero-overlay" /><div className="landing-hero-content"><div className="landing-kicker landing-kicker-light">● &nbsp; CLOUD-BASED &nbsp;·&nbsp; BARANGAY ESTEFANIA, BACOLOD CITY 6100</div><h1>Animal Vaccination<br /><em>Monitoring System</em></h1><p>Real-time tracking of immunization compliance for dogs and cats across every purok, with coverage reports and practical planning tools.</p><div className="landing-hero-actions"><button className="landing-primary-action" onClick={onSignIn}>Access the system <span>→</span></button><button className="landing-secondary-action" onClick={onRegister}>Create an account <span>↓</span></button></div></div></section><section className="landing-stats"><div><strong>1,240<span>+</span></strong><small>Animals registered</small></div><div><strong>87<span>%</span></strong><small>Vaccination coverage</small></div><div><strong>6</strong><small>Puroks monitored</small></div><div><strong>4,800<span>+</span></strong><small>Alerts supported</small></div></section><section className="landing-features" id="capabilities"><div className="landing-section-intro"><div className="landing-kicker">SYSTEM CAPABILITIES</div><h2>Everything needed for<br /><em>effective herd immunity</em></h2><p>VacciTrack centralizes animal health data for barangay teams and pet owners in one accessible platform.</p></div><div className="landing-feature-grid"><article><span>⌖</span><h3>Coverage mapping</h3><p>See vaccination coverage across puroks and prioritize field visits.</p></article><article><span>✣</span><h3>Vaccination tracking</h3><p>Maintain a clear record of vaccination dates and upcoming due dates.</p></article><article><span>◌</span><h3>Planning tools</h3><p>Identify overdue animals and organize the next vaccination drive.</p></article><article><span>▤</span><h3>Reports and risk</h3><p>Compare coverage and spot areas below the 70% target.</p></article><article><span>♧</span><h3>Role-based access</h3><p>Keep staff workflows protected with Supabase authentication and RLS.</p></article><article><span>☁</span><h3>Cloud infrastructure</h3><p>Access the latest registry from any device through Vercel and Supabase.</p></article></div></section><section className="landing-why" id="why-it-matters"><div className="landing-why-image" /><div className="landing-why-content"><div className="landing-kicker">WHY IT MATTERS</div><h2>Protecting community health,<br /><em>one animal at a time</em></h2><p>Rabies is preventable with proper vaccination. Systematic tracking closes the gaps.</p><ul><li>Purok-level coverage helps health workers decide where to go next.</li><li>Owners can keep their animal records current and easy to review.</li><li>Cloud-backed records reduce the risk of losing critical health data.</li></ul><button className="landing-primary-action" onClick={onRegister}>Join the registry <span>→</span></button></div></section><footer className="landing-footer"><div><strong>VacciTrack</strong> · Barangay Estefania Animal Vaccination Monitoring System</div><div>© 2026 Barangay Estefania, Bacolod City 6100</div></footer></main>;
 }
