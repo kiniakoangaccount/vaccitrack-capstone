@@ -1,4 +1,4 @@
-# Fieldwatch
+# VacciTrack
 
 A Vercel-ready animal vaccination monitoring dashboard built with Next.js, TypeScript, Tailwind CSS, and Supabase.
 

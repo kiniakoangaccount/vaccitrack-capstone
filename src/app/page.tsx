@@ -124,7 +124,7 @@ export default function Home() {
 
       const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).maybeSingle();
       if (!mounted) return;
-      setAuthUser({ id: user.id, email: user.email ?? "", fullName: profile?.full_name ?? user.email ?? "Fieldwatch user", role: profile?.role ?? "viewer" });
+      setAuthUser({ id: user.id, email: user.email ?? "", fullName: profile?.full_name ?? user.email ?? "VacciTrack user", role: profile?.role ?? "viewer" });
       setAuthChecked(true);
 
       const today = new Date();
@@ -237,11 +237,11 @@ export default function Home() {
   }
   
   if (supabaseConfigured && !authChecked) {
-    return <main className="auth-shell"><section className="auth-card auth-loading"><div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>fieldwatch</span></div><p className="heading-sub">Connecting to Supabase...</p></section></main>;
+    return <main className="auth-shell"><section className="auth-card auth-loading"><div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>VacciTrack</span></div><p className="heading-sub">Connecting to Supabase...</p></section></main>;
   }
 
   if (supabaseConfigured && authChecked && !authUser) {
-    return <main className="auth-shell"><section className="auth-card"><div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>fieldwatch</span></div><p className="eyebrow">BARANGAY ANIMAL HEALTH</p><h1>Sign in to Fieldwatch</h1><p className="heading-sub">Access the live animal registry and vaccination plan.</p><form className="auth-form" onSubmit={signIn}><label>Email<input required type="email" autoComplete="email" value={authForm.email} onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })} /></label><label>Password<input required type="password" autoComplete="current-password" value={authForm.password} onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} /></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Sign in</button></form></section></main>;
+    return <main className="auth-shell"><section className="auth-card"><div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>VacciTrack</span></div><p className="eyebrow">BARANGAY ANIMAL HEALTH</p><h1>Sign in to VacciTrack</h1><p className="heading-sub">Access the live animal registry and vaccination plan.</p><form className="auth-form" onSubmit={signIn}><label>Email<input required type="email" autoComplete="email" value={authForm.email} onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })} /></label><label>Password<input required type="password" autoComplete="current-password" value={authForm.password} onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} /></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Sign in</button></form></section></main>;
   }
 
   async function registerAnimal(event: FormEvent<HTMLFormElement>) {
@@ -294,7 +294,7 @@ export default function Home() {
   return (
     <main className="app-shell">
       <aside className="sidebar">
-        <div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>fieldwatch</span></div>
+        <div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>VacciTrack</span></div>
         <div className="workspace"><span className="workspace-dot" /> Barangay Estefania <ChevronDown size={15} /></div>
         <div className={`data-mode ${isLive ? "live" : "demo"}`}><span /> {isLive ? "Connected to Supabase" : "Demo data"}</div>
         <nav className="side-nav" aria-label="Main navigation">

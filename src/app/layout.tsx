@@ -6,7 +6,7 @@ const bodyFont = DM_Sans({ subsets: ["latin"], variable: "--font-body" });
 const displayFont = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
 
 export const metadata: Metadata = {
-  title: "Fieldwatch | Animal Health Monitor",
+  title: "VacciTrack | Animal Health Monitor",
   description: "A focused vaccination monitoring dashboard for barangay field teams.",
 };
 
