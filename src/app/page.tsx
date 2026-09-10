@@ -181,7 +181,8 @@ export default function Home() {
       } else if (error.message.toLowerCase().includes("fetch") || error.message.toLowerCase().includes("network")) {
         setAuthError("The deployed app cannot reach Supabase. Check the Vercel Project URL and Publishable key, then redeploy.");
       } else {
-        setAuthError("Sign-in failed. Check your Supabase Auth user and deployment settings.");
+        console.error("Supabase sign-in failed", { code: error.code, status: error.status, message: error.message });
+        setAuthError(`Supabase sign-in error${error.code ? ` (${error.code})` : ""}: ${error.message}`);
       }
       return;
     }
