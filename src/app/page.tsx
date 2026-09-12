@@ -56,6 +56,7 @@ type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Reports" | "Risk" | 
 
 type SupabaseError = { code?: string; message: string };
 type SupabaseAuthResponse = { data: { user: { id: string; email?: string } | null }; error: SupabaseError | null };
+type AccountStatus = "active" | "disabled" | "pending";
 
 const animals: Animal[] = [
   { id: "demo-bantay", name: "Bantay", species: "Dog", owner: "Ramon Dela Cruz", contact: "09171234567", impoundArea: "", purok: "The Palisades", vaccinated: true, status: "Vaccinated", nextDueDate: "2026-10-18", nextDue: "Oct 18, 2026" },
@@ -102,14 +103,14 @@ export default function Home() {
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [loadError, setLoadError] = useState("");
-  const [authUser, setAuthUser] = useState<{ id: string; email: string; fullName: string; role: string } | null>(null);
+  const [authUser, setAuthUser] = useState<{ id: string; email: string; fullName: string; role: string; status: AccountStatus } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authMode, setAuthMode] = useState<"landing" | "signin" | "register">("landing");
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   const [registrationSent, setRegistrationSent] = useState(false);
   const [authForm, setAuthForm] = useState({ email: "", password: "" });
-  const [registrationForm, setRegistrationForm] = useState({ fullName: "", email: "", password: "" });
+  const [registrationForm, setRegistrationForm] = useState({ username: "", fullName: "", email: "", contact: "", idDocument: "", password: "" });
   const [form, setForm] = useState({ name: "", species: "Dog" as Animal["species"], owner: "", contact: "", impoundArea: "", purok: demoPuroks[0], vaccineDate: "", nextDue: "" });
   const [liveStats, setLiveStats] = useState<DashboardStats | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState("");
@@ -146,9 +147,16 @@ export default function Home() {
         return;
       }
 
-      const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).maybeSingle();
+      const { data: profile } = await supabase.from("profiles").select("full_name, role, status").eq("id", user.id).maybeSingle();
       if (!mounted) return;
-      setAuthUser({ id: user.id, email: user.email ?? "", fullName: profile?.full_name ?? user.email ?? "VacciTrack user", role: profile?.role ?? "viewer" });
+      const status = (profile?.status ?? "pending") as AccountStatus;
+      if (status !== "active") {
+        await supabase.auth.signOut();
+        setAuthError(status === "pending" ? "Your civilian account is pending administrator verification." : "This account is disabled. Contact the barangay administrator.");
+        setAuthChecked(true);
+        return;
+      }
+      setAuthUser({ id: user.id, email: user.email ?? "", fullName: profile?.full_name ?? user.email ?? "VacciTrack user", role: profile?.role ?? "viewer", status });
       setAuthChecked(true);
 
       const today = new Date();
@@ -224,10 +232,22 @@ export default function Home() {
       setAuthError("Password must be at least 8 characters long.");
       return;
     }
+    if (!/^[a-zA-Z0-9_.-]{3,80}$/.test(registrationForm.username)) {
+      setAuthError("Username must be 3–80 characters and use only letters, numbers, dots, underscores, or hyphens.");
+      return;
+    }
+    if (!/^09\d{9}$/.test(registrationForm.contact)) {
+      setAuthError("Enter a valid 11-digit Philippine mobile number starting with 09.");
+      return;
+    }
+    if (!registrationForm.idDocument.trim()) {
+      setAuthError("Enter the valid ID reference required for administrator verification.");
+      return;
+    }
     const { error } = await supabase.auth.signUp({
       email: registrationForm.email,
       password: registrationForm.password,
-      options: { data: { full_name: registrationForm.fullName } },
+      options: { data: { full_name: registrationForm.fullName, username: registrationForm.username, contact_number: registrationForm.contact, id_document_reference: registrationForm.idDocument.trim(), requested_role: "client" } },
     });
     if (error) {
       setAuthError(error.message);
