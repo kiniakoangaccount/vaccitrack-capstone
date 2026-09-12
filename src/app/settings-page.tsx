@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Plus, Edit2, MapPin, Save, X } from "lucide-react";
-import { createClient } from "@/lib/supabase";
 
 export default function SettingsPage() {
   const supabase = createClient();
@@ -85,7 +84,7 @@ function BreedManager() {
     setLoading(false);
   };
 
-  useState2(() => { load(); }, []);
+  useEffect(() => { load(); }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,12 +152,8 @@ function BreedManager() {
   );
 }
 
-import { createClient as createAdminClient } from "@/lib/supabase-admin";
-import { useState as useState2 } from "react";
-
 function PurokManager() {
   const supabase = createClient();
-  const admin = createAdminClient();
   const [puroks, setPuroks] = useState<{ id: number; name: string; latitude: string; longitude: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -170,11 +165,11 @@ function PurokManager() {
     if (!supabase) return;
     setLoading(true);
     const { data } = await supabase.from("puroks").select("id, name, latitude, longitude").order("name");
-    setPuroks((data ?? []).map((r) => ({ id: r.id, name: r.name ?? "", latitude: String(r.latitude ?? ""), longitude: String(r.longitude ?? "") })));
+    setPuroks(((data ?? []) as { id: number; name: string | null; latitude: number | null; longitude: number | null }[]).map((r) => ({ id: r.id, name: r.name ?? "", latitude: String(r.latitude ?? ""), longitude: String(r.longitude ?? "") })));
     setLoading(false);
   };
 
-  useState2(() => { load(); }, []);
+  useEffect(() => { load(); }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -256,7 +251,7 @@ function VaccineManager() {
     setLoading(false);
   };
 
-  useState2(() => { load(); }, []);
+  useEffect(() => { load(); }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

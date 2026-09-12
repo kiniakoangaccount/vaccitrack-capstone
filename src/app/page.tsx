@@ -190,19 +190,27 @@ export default function Home() {
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [chartPeriod, setChartPeriod] = useState("Last 6 months");
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [reportRange, setReportRange] = useState({ from: "2026-01-01", to: "2026-12-31" });
   const [bulkMessage, setBulkMessage] = useState("Your animal's vaccination is due. Please visit the barangay health station.");
   const [bulkSent, setBulkSent] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const supabaseConfigured = Boolean(createClient());
-  const canManageAnimals = !isLive || ["admin", "veterinarian", "bhw"].includes(authUser?.role ?? "");
-  
-  // Role-based access helpers matching PHP RBAC matrix
-  const userRole = authUser?.role ?? "viewer";
+
+  // Role-based access helpers matching the RBAC matrix in supabase/schema.sql.
+  // When Supabase is not configured we treat the workspace as a full demo
+  // (role = admin) so every feature stays reachable. While a signed-in user's
+  // profile is still resolving we optimistically treat them as staff so the
+  // sidebar and actions do not flicker or disappear, then correct once the
+  // real role arrives.
+  const userRole: string = authUser?.role ?? (authUser ? "admin" : supabaseConfigured ? "viewer" : "admin");
   const isViewer = userRole === "viewer";
   const isClient = userRole === "client";
   const isStaff = ["admin", "veterinarian", "bhw"].includes(userRole);
   const isAdmin = userRole === "admin";
+  // Clients may register their own animals; staff may register any animal.
+  // Demo mode (no Supabase) keeps the button visible for all roles.
+  const canManageAnimals = isStaff || isClient || !isLive;
 
   function switchAuthMode(nextMode: "landing" | "signin" | "register") {
     if (nextMode === authMode || isPageTransitioning) return;
@@ -237,17 +245,30 @@ export default function Home() {
         setAuthChecked(true);
         return;
       }
-      setAuthUser({ id: user.id, email: user.email ?? "", fullName: profile?.full_name ?? user.email ?? "VacciTrack user", role: profile?.role ?? "viewer", status });
+      const resolvedRole = profile?.role ?? "viewer";
+      setAuthUser({ id: user.id, email: user.email ?? "", fullName: profile?.full_name ?? user.email ?? "VacciTrack user", role: resolvedRole, status });
       setAuthChecked(true);
+
+      // Clients only own their own records (RLS: user_id = auth.uid()). Querying
+      // the full registry as a client returns nothing and can blank the UI, so
+      // scope every query to the signed-in user for the client role.
+      const isClientRole = resolvedRole === "client";
+      const ownerId = user.id;
 
       const today = new Date();
       const todayIso = today.toISOString().slice(0, 10);
+      const recentQuery = supabase.from("animals").select("id, name, species, owner_name, contact_number, impound_area, vaccinated, next_due_date, puroks(name)").order("created_at", { ascending: false }).limit(25);
+      const totalQuery = supabase.from("animals").select("id", { count: "exact", head: true });
+      const vaccinatedQuery = supabase.from("animals").select("id", { count: "exact", head: true }).eq("vaccinated", true);
+      const dueQuery = supabase.from("animals").select("id", { count: "exact", head: true }).gte("next_due_date", todayIso).lte("next_due_date", new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10));
+      const overdueQuery = supabase.from("animals").select("id", { count: "exact", head: true }).lt("next_due_date", todayIso);
+
       const [recentResult, totalResult, vaccinatedResult, dueResult, overdueResult] = await Promise.all([
-        supabase.from("animals").select("id, name, species, owner_name, contact_number, impound_area, vaccinated, next_due_date, puroks(name)").order("created_at", { ascending: false }).limit(25),
-        supabase.from("animals").select("id", { count: "exact", head: true }),
-        supabase.from("animals").select("id", { count: "exact", head: true }).eq("vaccinated", true),
-        supabase.from("animals").select("id", { count: "exact", head: true }).gte("next_due_date", todayIso).lte("next_due_date", new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10)),
-        supabase.from("animals").select("id", { count: "exact", head: true }).lt("next_due_date", todayIso),
+        isClientRole ? recentQuery.eq("user_id", ownerId) : recentQuery,
+        isClientRole ? totalQuery.eq("user_id", ownerId) : totalQuery,
+        isClientRole ? vaccinatedQuery.eq("user_id", ownerId) : vaccinatedQuery,
+        isClientRole ? dueQuery.eq("user_id", ownerId) : dueQuery,
+        isClientRole ? overdueQuery.eq("user_id", ownerId) : overdueQuery,
       ]);
       if (!mounted) return;
       if (recentResult.error) {
@@ -507,11 +528,11 @@ export default function Home() {
 
       const { data, error } = await supabase
         .from("animals")
-        .insert({ name: fallbackRecord.name, species: form.species, classification: form.classification, breed: form.breed.trim() || null, age: form.age ? Number(form.age) : null, sex: form.sex || null, color: form.color.trim() || null, owner_name: fallbackRecord.owner, contact_number: form.contact, impound_area: form.impoundArea.trim() || null, purok_id: purok.id, vaccinated, vaccine_date: form.vaccineDate || null, vaccine_type: form.vaccineType || null, next_due_date: form.nextDue || null, latitude: form.latitude ? Number(form.latitude) : null, longitude: form.longitude ? Number(form.longitude) : null, notes: form.notes.trim() || null })
+        .insert({ name: fallbackRecord.name, species: form.species, classification: form.classification, breed: form.breed.trim() || null, age: form.age ? Number(form.age) : null, sex: form.sex || null, color: form.color.trim() || null, owner_name: fallbackRecord.owner, contact_number: form.contact, impound_area: form.impoundArea.trim() || null, purok_id: purok.id, vaccinated, vaccine_date: form.vaccineDate || null, vaccine_type: form.vaccineType || null, next_due_date: form.nextDue || null, latitude: form.latitude ? Number(form.latitude) : null, longitude: form.longitude ? Number(form.longitude) : null, notes: form.notes.trim() || null, user_id: isClient && authUser ? authUser.id : null })
         .select("id")
         .single();
       if (error) {
-        setFormError(error.code === "42501" ? "Your Supabase user needs a staff profile to register animals." : error.message);
+        setFormError(error.code === "42501" ? "Your Supabase account is not allowed to register animals. Contact a barangay administrator." : error.message);
         setIsSaving(false);
         return;
       }
@@ -528,7 +549,7 @@ export default function Home() {
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>VacciTrack</span></div>
-        <div className="workspace"><span className="workspace-dot" /> Barangay Estefania <ChevronDown size={15} /></div>
+        <div className="workspace"><span className="workspace-dot" /> Barangay Estefania</div>
         <div className={`data-mode ${isLive ? "live" : "demo"}`}><span /> {isLive ? "Connected to Supabase" : "Demo data"}</div>
         <nav className="side-nav" aria-label="Main navigation">
           <p className="nav-label">Workspace</p>
@@ -543,11 +564,11 @@ export default function Home() {
           {isStaff && <button className={`nav-item ${activeTab === "Team" ? "selected" : ""}`} onClick={() => setActiveTab("Team")}><UsersRound size={17} /> Team members</button>}
           {isAdmin && <button className={`nav-item ${activeTab === "Audit" ? "selected" : ""}`} onClick={() => setActiveTab("Audit")}><ShieldCheck size={17} /> Audit log</button>}
         </nav>
-        <div className="sidebar-footer"><div className="user-row"><span className="avatar">{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span><span><strong>{authUser?.fullName ?? "Maria Cruz"}</strong><small>{authUser?.role ?? "Demo administrator"}</small></span>{authUser ? <button className="icon-button" aria-label="Sign out" onClick={signOut}><ChevronDown size={15} /></button> : <ChevronDown size={15} />}</div></div>
+        <div className="sidebar-footer"><div className="user-row"><span className="avatar">{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span><span><strong>{authUser?.fullName ?? "Maria Cruz"}</strong><small>{authUser?.role ?? "Demo administrator"}</small></span>{authUser ? <button className="icon-button" aria-label="Account options" aria-haspopup="menu" aria-expanded={showAccountMenu} onClick={() => setShowAccountMenu((current) => !current)}><ChevronDown size={15} /></button> : <ChevronDown size={15} />}</div>{showAccountMenu && authUser && <div className="account-menu" role="menu"><button role="menuitem" onClick={() => { setActiveTab("Profile"); setShowAccountMenu(false); }}><CircleUserRound size={15} /> Profile</button><button role="menuitem" onClick={() => { setActiveTab("Settings"); setShowAccountMenu(false); }}><ShieldCheck size={15} /> Settings</button><button role="menuitem" onClick={signOut}><X size={15} /> Sign out</button></div>}</div>
       </aside>
 
       <section className="content-area">
-        <header className="topbar"><div className="crumb">Operations <span>/</span> {activeTab}</div><div className="top-actions">{isStaff && <button className="icon-button" aria-label="Notifications" aria-expanded={showNotifications} onClick={() => setShowNotifications((current) => !current)}><Bell size={18} /><span className="notification-dot" /></button>}<button className="profile-button" onClick={() => authUser ? signOut() : setActiveTab("Feedback")}><CircleUserRound size={20} /> <span>{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span></button></div>{showNotifications && isStaff && <div className="notification-panel"><div className="notification-panel-head"><strong>Notifications</strong><button onClick={() => setShowNotifications(false)}>Close</button></div><div className="notification-item"><span className="notification-icon"><Syringe size={15} /></span><span><strong>{dashboardStats.dueSoon} vaccinations due soon</strong><small>Review the vaccination plan for upcoming visits.</small></span></div><div className="notification-item"><span className="notification-icon danger"><Bell size={15} /></span><span><strong>{dashboardStats.overdue} overdue records</strong><small>Prioritize follow-up in the Risk Analysis workspace.</small></span></div></div>}</header>
+        <header className="topbar"><div className="crumb">Operations <span>/</span> {activeTab}</div><div className="top-actions">{isStaff && <button className="icon-button" aria-label="Notifications" aria-expanded={showNotifications} onClick={() => setShowNotifications((current) => !current)}><Bell size={18} /><span className="notification-dot" /></button>}<button className="profile-button" aria-haspopup="menu" aria-expanded={showAccountMenu} onClick={() => { if (authUser) { setShowAccountMenu((current) => !current); setShowNotifications(false); } else { setActiveTab("Feedback"); } }}><CircleUserRound size={20} /> <span>{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span></button></div>{showNotifications && isStaff && <div className="notification-panel"><div className="notification-panel-head"><strong>Notifications</strong><button onClick={() => setShowNotifications(false)}>Close</button></div><button className="notification-item" onClick={() => { setActiveTab("Planning"); setShowNotifications(false); }}><span className="notification-icon"><Syringe size={15} /></span><span><strong>{dashboardStats.dueSoon} vaccinations due soon</strong><small>Review the vaccination plan for upcoming visits.</small></span></button><button className="notification-item" onClick={() => { setActiveTab("Risk"); setShowNotifications(false); }}><span className="notification-icon danger"><Bell size={15} /></span><span><strong>{dashboardStats.overdue} overdue records</strong><small>Prioritize follow-up in the Risk Analysis workspace.</small></span></button></div>}</header>
         <div className="page-content">
           <div className="page-heading"><div><p className="eyebrow">THURSDAY, SEPTEMBER 11, 2026</p><h1>{activeTab === "Overview" ? `Good morning, ${authUser?.fullName.split(" ")[0] ?? "Maria"}.` : activeTab}</h1><p className="heading-sub">{activeTab === "Overview" ? "Here is what needs your attention across the barangay." : "Barangay Estefania animal health operations"}</p></div>{canManageAnimals && <button className="primary-button" onClick={() => setShowRegister(true)}><Plus size={17} /> Register animal</button>}</div>
 
@@ -562,6 +583,8 @@ export default function Home() {
             {activeTab === "Feedback" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Feedback and suggestions</h2><p>Send notes to the barangay animal health team.</p></div></div>{feedbackSent ? <div className="feedback-success"><CheckCircle2 size={22} /><div><strong>Feedback submitted</strong><p>Thank you. Your message has been recorded for review.</p></div><button className="secondary-button" onClick={() => setFeedbackSent(false)}>Send another</button></div> : <form className="feedback-form" onSubmit={submitFeedback}><label>Category<select><option>Suggestion</option><option>Bug report</option><option>Complaint</option><option>Compliment</option></select></label><label>Message<textarea required rows={5} placeholder="Tell us what would improve the system..." value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} /></label><button className="primary-button" type="submit"><MessageSquare size={16} /> Submit feedback</button></form>}</div>}
             {activeTab === "Team" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">MANAGEMENT</p><h2>Team members</h2><p>Staff access for the Barangay Estefania health team.</p></div></div><div className="team-list"><div className="team-row"><span className="avatar">{authUser?.fullName.slice(0, 2).toUpperCase() ?? "MC"}</span><span><strong>{authUser?.fullName ?? "Maria Cruz"}</strong><small>{authUser?.email ?? "Administrator account"}</small></span><em>{authUser?.role ?? "admin"}</em></div><div className="team-row"><span className="avatar team-muted">BH</span><span><strong>Barangay Health Worker</strong><small>Field operations account</small></span><em>bhw</em></div><div className="team-row"><span className="avatar team-muted">CV</span><span><strong>City Veterinarian</strong><small>Vaccination program oversight</small></span><em>veterinarian</em></div></div></div> : <RoleBlocked role={userRole} message="Team members view is only available for staff accounts (admin, veterinarian, bhw)." />)}
             {activeTab === "Audit" && (isAdmin ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SECURITY</p><h2>Audit log</h2><p>Recent actions from this VacciTrack workspace.</p></div><span className="module-chip"><ShieldCheck size={14} /> Protected</span></div><div className="audit-list"><div><span className="audit-dot good" /><span><strong>Registry workspace opened</strong><small>Current session · {authUser?.fullName ?? "Demo administrator"}</small></span><time>Now</time></div><div><span className="audit-dot good" /><span><strong>Supabase connection checked</strong><small>Authenticated data boundary</small></span><time>Today</time></div><div><span className="audit-dot neutral" /><span><strong>Dashboard initialized</strong><small>VacciTrack operations workspace</small></span><time>Today</time></div></div></div> : <RoleBlocked role={userRole} message="Audit log is only available for administrator accounts." />)}
+            {activeTab === "Profile" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">ACCOUNT</p><h2>My profile</h2><p>Review the account details linked to this session.</p></div></div><div className="account-form"><label>Full name<input value={authUser?.fullName ?? ""} readOnly /></label><label>Email<input value={authUser?.email ?? ""} readOnly /></label><label>Role<input value={userRole} readOnly /></label><label>Account status<input value={authUser?.status ?? "active"} readOnly /></label><p className="module-muted">Use the admin panel to update account details or roles.</p></div></div>}
+            {activeTab === "Settings" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PREFERENCES</p><h2>Workspace settings</h2><p>Adjust how the VacciTrack workspace behaves for this session.</p></div></div><div className="account-form"><label>Default landing tab<select value={activeTab} onChange={() => undefined}><option>Overview</option></select></label><label>Coverage target<input type="number" defaultValue={70} min={0} max={100} readOnly /></label><button className="secondary-button" type="button" onClick={() => window.location.reload()}>Reset session</button></div></div>}
           </section>}
 
           <div className={activeTab === "Overview" ? "" : "overview-hidden"}>

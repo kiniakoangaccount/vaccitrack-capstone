@@ -2,6 +2,13 @@
 
 import { createAdminClient } from "@/lib/supabase-admin";
 
+function getPurokName(puroks: unknown): string {
+  if (!puroks) return "";
+  if (Array.isArray(puroks)) return puroks[0]?.name ?? "";
+  if (typeof puroks === "object" && "name" in puroks) return String((puroks as { name: unknown }).name ?? "");
+  return "";
+}
+
 export async function writeAuditLog(
   userId: string,
   action: "INSERT" | "UPDATE" | "DELETE" | "SMS_SENT" | "SMS_ATTEMPT",
@@ -70,7 +77,7 @@ export async function exportAnimalsCsv(
     return s;
   };
   const body = (data ?? []).map((r) => [
-    r.id, r.name, r.species, r.classification ?? "", r.breed ?? "", r.age ?? "", r.sex ?? "", r.color ?? "", r.owner_name, r.contact_number ?? "", r.impound_area ?? "", (r.puroks as { name: string } | { name: string }[] | null)?.name ?? "", r.vaccinated, r.vaccine_date ?? "", r.next_due_date ?? "", r.vaccine_type ?? "", r.latitude ?? "", r.longitude ?? "", r.notes ?? "",
+    r.id, r.name, r.species, r.classification ?? "", r.breed ?? "", r.age ?? "", r.sex ?? "", r.color ?? "", r.owner_name, r.contact_number ?? "", r.impound_area ?? "", getPurokName((r as { puroks?: unknown }).puroks), r.vaccinated, r.vaccine_date ?? "", r.next_due_date ?? "", r.vaccine_type ?? "", r.latitude ?? "", r.longitude ?? "", r.notes ?? "",
   ].map(escaped).join(","));
 
   const buffer = Buffer.from([header, ...body].join("\n"), "utf-8");

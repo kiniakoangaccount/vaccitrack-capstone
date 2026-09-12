@@ -241,7 +241,19 @@ export default async function AdminDashboardPage({
                 </a>
               </div>
 
-                             <div className="admin-info-grid">`r`n                 <div className="admin-info-card">`r`n                   <div className="admin-info-head"><ShieldCheck size={16} /><span>Recent activity</span></div>`r`n                   <p className="admin-muted">The audit log shows every create, update, delete, and SMS operation across the system.</p>`r`n                   <a href="/x7k2/dashboard?tab=audit" className="admin-link">View audit log <span>?</span></a>`r`n                 </div>`r`n                 <div className="admin-info-card">`r`n                   <div className="admin-info-head"><CheckCircle2 size={16} /><span>SMS simulation</span></div>`r`n                   <p className="admin-muted">Send a test SMS-style alert to preview how notification messages will appear to animal owners.</p>`r`n                   {supaCfg ? <SmsSimForm /> : <p className="admin-muted">Enable Supabase to use SMS simulation.</p>}`r`n                 </div>`r`n               </div>`r`n<div className="admin-info-panel">
+              <div className="admin-info-grid">
+                <div className="admin-info-card">
+                  <div className="admin-info-head"><ShieldCheck size={16} /><span>Recent activity</span></div>
+                  <p className="admin-muted">The audit log shows every create, update, delete, and SMS operation across the system.</p>
+                  <a href="/x7k2/dashboard?tab=audit" className="admin-link">View audit log <span>→</span></a>
+                </div>
+                <div className="admin-info-card">
+                  <div className="admin-info-head"><CheckCircle2 size={16} /><span>SMS simulation</span></div>
+                  <p className="admin-muted">Send a test SMS-style alert to preview how notification messages will appear to animal owners.</p>
+                  {supaCfg ? <SmsSimForm /> : <p className="admin-muted">Enable Supabase to use SMS simulation.</p>}
+                </div>
+              </div>
+              <div className="admin-info-panel">
                 <ShieldCheck size={18} />
                 <div>
                   <strong>Administrator session active</strong>
@@ -288,7 +300,24 @@ export default async function AdminDashboardPage({
           )}
 
           {/* ── AUDIT LOG ── */}
-          function NotConfigured() {
+          {tab === "audit" && (
+            <>
+              <div className="admin-page-heading">
+                <p className="eyebrow">SECURITY & TRACEABILITY</p>
+                <h1>Audit log</h1>
+                <p className="heading-sub">Every create, update, delete, and SMS operation recorded across the system.</p>
+              </div>
+              {!supaCfg ? <NotConfigured /> : <AuditPanel />}
+            </>
+          )}
+
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function NotConfigured() {
   return (
     <div className="admin-not-configured">
       <XCircle size={26} />
@@ -296,20 +325,4 @@ export default async function AdminDashboardPage({
       <p>Add <code>SUPABASE_SERVICE_ROLE_KEY</code> to your <code>.env.local</code> to enable live data.</p>
     </div>
   );
-}
-
-async function handleSmsSimulation(formData: FormData) {
-  "use server";
-  const session = await getAdminSession();
-  if (!session) return;
-  const db = createAdminClient();
-  if (!db) return;
-  const recipient = (formData.get("recipient") as string)?.trim() || "";
-  const message = (formData.get("message") as string)?.trim() || "";
-  const checkAnnotations = formData.get("checkAnnotations") === "on";
-  if (!recipient || !message) return;
-  await simulateSmsAlert(session.id, recipient, message);
-  if (checkAnnotations) {
-    await writeAuditLog(session.id, "SMS_SENT", "animals", undefined, `SMS simulation with animal annotation check — recipient ${recipient}`);
-  }
 }

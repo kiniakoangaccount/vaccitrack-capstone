@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { fetchAuditLogPage } from "../audit-actions";
+import { useState, useEffect } from "react";
+import { fetchAuditLogPage } from "../../audit-actions";
 import { ShieldCheck, ChevronLeft, ChevronRight, Filter, ScanLine, Trash2, Pencil, Bell, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface AuditRow {
@@ -31,31 +31,14 @@ const actionStyles: Record<string, string> = {
   "SMS_ATTEMPT": "audit-sms",
 };
 
-export default function AuditPanel() {
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
-  const [rows, setRows] = useState<AuditRow[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ action: "", tableName: "", userId: "", startDate: "", endDate: "" });
+type AuditFilterState = { action: string; tableName: string; userId: string; startDate: string; endDate: string };
 
-  const load = async () => {
-    setLoading(true);
-    const result = await fetchAuditLogPage({ page, limit, ...filters });
-    setRows(result.rows);
-    setTotal(result.total);
-    setLoading(false);
-  };
-
-  return null;
-}
-
-export function AuditFilters({ filters, onChange }: { filters: { action?: string; tableName?: string; userId?: string; startDate?: string; endDate?: string }; onChange: (next: { action?: string; tableName?: string; userId?: string; startDate?: string; endDate?: string }) => void }) {
+export function AuditFilters({ filters, onChange }: { filters: AuditFilterState; onChange: (next: AuditFilterState) => void }) {
   return (
     <div className="admin-filter-bar">
       <div className="admin-filter-group">
         <label>Action filter
-          <select value={filters.action ?? ""} onChange={(e) => onChange({ ...filters, action: e.target.value || undefined })}>
+          <select value={filters.action} onChange={(e) => onChange({ ...filters, action: e.target.value })}>
             <option value="">All actions</option>
             <option value="INSERT">Create</option>
             <option value="UPDATE">Update</option>
@@ -67,7 +50,7 @@ export function AuditFilters({ filters, onChange }: { filters: { action?: string
       </div>
       <div className="admin-filter-group">
         <label>Table filter
-          <select value={filters.tableName ?? ""} onChange={(e) => onChange({ ...filters, tableName: e.target.value || undefined })}>
+          <select value={filters.tableName} onChange={(e) => onChange({ ...filters, tableName: e.target.value })}>
             <option value="">All tables</option>
             <option value="users">users</option>
             <option value="profiles">profiles</option>
@@ -81,12 +64,12 @@ export function AuditFilters({ filters, onChange }: { filters: { action?: string
       </div>
       <div className="admin-filter-group">
         <label>Date from
-          <input type="date" value={filters.startDate ?? ""} onChange={(e) => onChange({ ...filters, startDate: e.target.value || undefined })} />
+          <input type="date" value={filters.startDate} onChange={(e) => onChange({ ...filters, startDate: e.target.value })} />
         </label>
       </div>
       <div className="admin-filter-group">
         <label>Date to
-          <input type="date" value={filters.endDate ?? ""} onChange={(e) => onChange({ ...filters, endDate: e.target.value || undefined })} />
+          <input type="date" value={filters.endDate} onChange={(e) => onChange({ ...filters, endDate: e.target.value })} />
         </label>
       </div>
     </div>
@@ -115,7 +98,7 @@ export function AuditEmpty({ message }: { message?: string }) {
   );
 }
 
-export function AuditPanel() {
+export default function AuditPanel() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [rows, setRows] = useState<AuditRow[]>([]);
@@ -123,13 +106,21 @@ export function AuditPanel() {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ action: "", tableName: "", userId: "", startDate: "", endDate: "" });
 
-  const load = async () => {
-    setLoading(true);
-    const result = await fetchAuditLogPage({ page, limit, ...filters });
-    setRows(result.rows);
-    setTotal(result.total);
-    setLoading(false);
-  };
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      const result = await fetchAuditLogPage({ page, limit, ...filters });
+      if (cancelled) return;
+      setRows(result.rows);
+      setTotal(result.total);
+      setLoading(false);
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [page, limit, filters]);
 
   return (
     <div className="admin-panel audit-panel">

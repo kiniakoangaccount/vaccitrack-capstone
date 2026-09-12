@@ -3,10 +3,47 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { updateProfile, updatePassword } from "./profile-actions";
-import { ShieldCheck, Bell, Eye, EyeOff, User, Mail, Phone, Key, CheckCircle2, AlertCircle } from "lucide-react";
+import { ShieldCheck, Bell, Eye, EyeOff, User, Mail, Phone, Key, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
 
 export default function ProfilePage() {
   const supabase = createClient();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  return (
+    <main className="app-shell">
+      <aside className="sidebar">
+        <div className="brand"><span className="brand-mark"><ShieldCheck size={20} /></span><span>VacciTrack</span></div>
+        <div className="workspace"><span className="workspace-dot" /> Barangay Estefania</div>
+        <div className={`data-mode ${supabase ? "live" : "demo"}`}><span /> {supabase ? "Connected to Supabase" : "Demo mode"}</div>
+        <nav className="side-nav" aria-label="Main navigation">
+          <p className="nav-label">Workspace</p>
+          <a href="/" className="nav-item"><User size={17} /> My account</a>
+          <a href="/settings" className="nav-item"><Bell size={17} /> Account settings</a>
+        </nav>
+        <div className="sidebar-footer"><div className="user-row"><span className="avatar">UP</span><span><strong>VacciTrack user</strong><small>Demo account</small></span><EyeOff size={15} /></div></div>
+      </aside>
+
+      <section className="content-area">
+        <header className="topbar"><div className="crumb">Account <span>/</span> Profile</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><Eye size={18} /></button></div></header>
+
+        <div className="page-content">
+          <div className="page-heading">
+            <p className="eyebrow">MY ACCOUNT</p>
+            <h1>Profile and security</h1>
+            <p className="heading-sub">Update your contact details and password.</p>
+          </div>
+
+          {error && <div className="notice danger"><AlertCircle size={18} /><span>{error}</span></div>}
+          {success && <div className="notice"><CheckCircle2 size={18} /><span>{success}</span></div>}
+
+          <div className="account-page">
             <section className="account-section">
               <p className="eyebrow">CONTACT DETAILS</p>
               <h2>Personal information</h2>
@@ -17,7 +54,9 @@ export default function ProfilePage() {
                 setError("");
                 setSuccess("");
                 setSaving(true);
-                const result = await updateProfile({
+                const { data: { user } } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
+                if (!user) { setSaving(false); setError("You must be signed in to update your profile."); return; }
+                const result = await updateProfile(user.id, {
                   fullName: (e.currentTarget as HTMLFormElement).fullName.value.trim(),
                   email: (e.currentTarget as HTMLFormElement).email.value.trim(),
                   contact: (e.currentTarget as HTMLFormElement).contact.value.trim(),
@@ -96,40 +135,3 @@ export default function ProfilePage() {
     </main>
   );
 }
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand"><span className="brand-mark"><ShieldCheck size={20} /></span><span>VacciTrack</span></div>
-        <div className="workspace"><span className="workspace-dot" /> Barangay Estefania <ChevronDown size={15} /></div>
-        <div className={`data-mode ${supabase ? "live" : "demo"}`}><span /> {supabase ? "Connected to Supabase" : "Demo mode"}</div>
-        <nav className="side-nav" aria-label="Main navigation">
-          <p className="nav-label">Workspace</p>
-          <a href="/" className="nav-item"><User size={17} /> My account</a>
-          <a href="/settings" className="nav-item"><Bell size={17} /> Account settings</a>
-        </nav>
-        <div className="sidebar-footer"><div className="user-row"><span className="avatar">UP</span><span><strong>VacciTrack user</strong><small>Demo account</small></span><EyeOff size={15} /></div></div>
-      </aside>
-
-      <section className="content-area">
-        <header className="topbar"><div className="crumb">Account <span>/</span> Profile</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><Eye size={18} /></button></div></header>
-
-        <div className="page-content">
-          <div className="page-heading">
-            <p className="eyebrow">MY ACCOUNT</p>
-            <h1>Profile and security</h1>
-            <p className="heading-sub">Update your contact details and password.</p>
-          </div>
-
-          {error && <div className="notice danger"><AlertCircle size={18} /><span>{error}</span></div>}
-          {success && <div className="notice"><CheckCircle2 size={18} /><span>{success}</span></div>}
-
-          <div className="account-page">

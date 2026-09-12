@@ -4,10 +4,10 @@ import { useState } from "react";
 import { Send, CheckCircle2, AlertTriangle } from "lucide-react";
 
 interface SmsSimFormProps {
-  onSimulated: () => void;
+  onSimulated?: () => void;
 }
 
-export function SmsSimForm({ onSimulated }: SmsSimFormProps) {
+export function SmsSimForm({ onSimulated }: SmsSimFormProps = {}) {
   const [recipient, setRecipient] = useState("");
   const [message, setMessage] = useState("");
   const [checkAnnotations, setCheckAnnotations] = useState(false);
@@ -18,15 +18,15 @@ export function SmsSimForm({ onSimulated }: SmsSimFormProps) {
     e.preventDefault();
     if (!recipient || !message) return;
     setStatus("sending");
-    const form = new FormData(e.currentTarget);
-    form.set("recipient", recipient);
-    form.set("message", message);
-    form.set("checkAnnotations", checkAnnotations ? "on" : "off");
+    const params = new URLSearchParams();
+    params.set("recipient", recipient);
+    params.set("message", message);
+    params.set("checkAnnotations", checkAnnotations ? "on" : "off");
     try {
       const res = await fetch("/x7k2/dashboard?tab=overview", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(form).toString(),
+        body: params.toString(),
       });
       if (res.ok) {
         setStatus("success");
@@ -34,7 +34,7 @@ export function SmsSimForm({ onSimulated }: SmsSimFormProps) {
         setRecipient("");
         setMessage("");
         setCheckAnnotations(false);
-        onSimulated();
+        onSimulated?.();
       } else {
         setStatus("error");
         setLastResult("Unable to record the simulation. Try again.");
