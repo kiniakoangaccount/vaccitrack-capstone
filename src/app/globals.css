@@ -238,6 +238,115 @@ button { cursor: pointer; }
 .admin-feedback-delete:hover:not(:disabled) { color: var(--red); background: #fceeed; border-color: #e8aaa5; }
 .admin-feedback-delete:disabled { opacity: .5; cursor: wait; }
 
+/* ── Audit log styling ─────────────────────────────────────────────────── */
+.audit-panel .admin-filter-bar { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; margin-top: 10px; }
+.audit-panel .admin-filter-group label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--muted); }
+.audit-panel .admin-filter-group select, .audit-panel .admin-filter-group input { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); font-size: 12px; color: var(--ink); }
+.audit-panel .admin-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.audit-panel .admin-table .audit-time { white-space: nowrap; font-size: 11px; color: var(--muted); }
+.audit-panel .admin-table .audit-notes { max-width: 260px; }
+.audit-panel .admin-table td { vertical-align: top; }
+.status.audit-create { color: var(--green); }
+.status.audit-update { color: var(--blue); }
+.status.audit-delete { color: var(--red); }
+.status.audit-sms { color: var(--amber); }
+.admin-page-bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 4px; border-top: 1px solid var(--line); margin-top: 4px; }
+.admin-page-info { display: flex; flex-direction: column; gap: 2px; }
+.admin-page-controls { display: flex; align-items: center; gap: 8px; }
+.admin-page-number { font-size: 12px; color: var(--muted); padding: 0 8px; }
+
+/* ── SMS simulation ───────────────────────────────────────────────────── */
+.sms-sim-form { display: grid; gap: 10px; margin-top: 14px; }
+.sms-sim-rows { display: grid; gap: 8px; }
+.sms-sim-row { display: flex; gap: 8px; align-items: center; }
+.sms-sim-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); font-size: 12px; color: var(--ink); }
+.sms-sim-row input[type="checkbox"] { width: auto; cursor: pointer; }
+.sms-sim-actions { display: flex; gap: 8px; align-items: center; }
+.sms-sim-status { font-size: 12px; margin-top: 8px; min-height: 18px; }
+.sms-sim-status.success { color: var(--green); }
+.sms-sim-status.error { color: var(--red); }
+
+/* ── Coordinates + map toolbar helpers ─────────────────────────────────── */
+.coordinate-field { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+.coordinate-field input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); font-size: 12px; color: var(--ink); }
+.coordinate-field input::placeholder { color: var(--muted); }
+
+/* ── Animal registry detail link ───────────────────────────────────────── */
+.animal-name-link { display: inline-flex; align-items: baseline; gap: 6px; background: transparent; border: 0; padding: 0; color: var(--ink); font-family: inherit; cursor: pointer; }
+.animal-name-link:hover strong { color: var(--green-dark); }
+.animal-name-link .small { color: var(--muted); }
+
+/* ── Leaflet map integration ────────────────────────────────────────────── */
+.leaflet-map-wrap { height: 420px; position: relative; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); overflow: hidden; }
+.leaflet-map-toolbar { display: flex; gap: 12px; padding: 12px; border-bottom: 1px solid var(--line); background: var(--paper); flex-wrap: wrap; }
+.leaflet-map-search { flex: 1; min-width: 220px; }
+.leaflet-map-search input { width: 100%; max-width: 320px; }
+.leaflet-map-toggles { display: inline-flex; gap: 6px; }
+.leaflet-toggle { padding: 6px 12px; font-size: 12px; }
+.leaflet-map-canvas { flex: 1; min-height: 0; }
+.leaflet-popup { position: absolute; bottom: 12px; left: 12px; right: 12px; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; box-shadow: 0 6px 20px rgba(20, 40, 25, 0.12); display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.leaflet-popup-close { margin-left: auto; color: var(--muted); cursor: pointer; }
+.leaflet-popup-close:hover { color: var(--ink); }
+
+/* ── Animal detail panel ────────────────────────────────────────────────── */
+.detail-panel { max-width: 900px; margin: 24px auto; width: 100%; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 40px rgba(20, 40, 25, 0.18); overflow: hidden; }
+.detail-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--paper); }
+.detail-head h2 { margin: 0; font-size: 17px; }
+.detail-body { padding: 20px; }
+.detail-section { display: grid; gap: 14px; margin-bottom: 22px; }
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.detail-field { display: flex; flex-direction: column; gap: 4px; }
+.detail-field .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+.detail-field .value { font-size: 14px; }
+.detail-notes { background: var(--landing-soft); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--ink); }
+.detail-vaccine-list { display: grid; gap: 8px; }
+.detail-timeline { position: relative; padding-left: 22px; border-left: 2px solid var(--line); }
+.detail-timeline-item { position: relative; padding-bottom: 12px; }
+.detail-timeline-item:last-child { padding-bottom: 0; }
+.detail-timeline::before { content: ""; }
+.detail-timeline-item::before { content: ""; position: absolute; left: -15px; top: 4px; width: 11px; height: 11px; border-radius: 50%; background: var(--green); border: 2px solid var(--paper); }
+.detail-timeline-item.future::before { background: var(--amber); }
+.detail-timeline-item.past::before { background: var(--red); }
+.detail-timeline-date { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.detail-add-form label { margin-bottom: 10px; }
+.detail-add-form input, .detail-add-form select { margin-top: 4px; }
+
+/* ── Notifications empty state ──────────────────────────────────────────── */
+.notification-empty { display: flex; align-items: center; gap: 8px; color: var(--muted); padding: 8px 4px; }
+.notification-empty span { font-size: 12px; }
+
+/* ── Profile / settings page shell ──────────────────────────────────────── */
+.account-page { max-width: 480px; margin: 24px auto; }
+.account-section { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 22px; }
+.account-input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); font-size: 13px; color: var(--ink); }
+.account-input::placeholder { color: var(--muted); }
+.account-form { display: grid; gap: 14px; margin-top: 16px; }
+.account-actions { display: flex; gap: 8px; margin-top: 10px; }
+.account-help { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.role-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--landing-soft); color: var(--ink); }
+
+.settings-page { display: grid; gap: 22px; }
+.settings-section { border-top: 1px solid var(--line); padding-top: 22px; }
+.settings-card { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+.settings-head { margin-bottom: 18px; }
+.settings-head h2 { margin: 0; font-size: 15px; }
+.settings-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.settings-form { display: grid; gap: 10px; margin-bottom: 14px; }
+.settings-coords { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+.settings-grid-2 { display: grid; gap: 8px; grid-template-columns: 1fr 140px; }
+.settings-actions { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.settings-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.settings-empty-row { color: var(--muted); font-size: 12px; padding: 8px 4px; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+.settings-row-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.settings-row-name { font-size: 13px; }
+.settings-row-meta { font-size: 11px; color: var(--muted); }
+.settings-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--blue); margin-right: 5px; }
+.settings-species-tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; background: var(--landing-soft); color: var(--ink); }
+.settings-row-actions { display: flex; gap: 6px; }
+.settings-empty { display: flex; flex-direction: column; gap: 8px; padding: 24px; color: var(--muted); background: var(--landing-soft); border-radius: 10px; border: 1px dashed var(--line); }
+.settings-empty p { margin: 0; font-size: 12px; }
+
 /* ── Spinner ─────────────────────────────────────────────────────────── */
 @keyframes admin-spin { to { transform: rotate(360deg); } }
 .admin-spin { animation: admin-spin .7s linear infinite; }

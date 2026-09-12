@@ -4,10 +4,14 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import UsersPanel from "./UsersPanel";
 import PendingPanel from "./PendingPanel";
 import FeedbackPanel from "./FeedbackPanel";
+import AuditPanel from "./AuditPanel";
+import { writeAuditLog, simulateSmsAlert } from "../../audit-actions";
 import {
   ShieldCheck, Users, PawPrint, Activity, Bell,
   ClipboardList, LogOut, MessageSquare, Clock, XCircle,
+  Send, CheckCircle2, AlertTriangle,
 } from "lucide-react";
+import { SmsSimForm } from "./SmsSimForm";
 
 type Tab = "overview" | "users" | "pending" | "feedback" | "audit";
 
@@ -237,7 +241,7 @@ export default async function AdminDashboardPage({
                 </a>
               </div>
 
-              <div className="admin-info-panel">
+                             <div className="admin-info-grid">`r`n                 <div className="admin-info-card">`r`n                   <div className="admin-info-head"><ShieldCheck size={16} /><span>Recent activity</span></div>`r`n                   <p className="admin-muted">The audit log shows every create, update, delete, and SMS operation across the system.</p>`r`n                   <a href="/x7k2/dashboard?tab=audit" className="admin-link">View audit log <span>?</span></a>`r`n                 </div>`r`n                 <div className="admin-info-card">`r`n                   <div className="admin-info-head"><CheckCircle2 size={16} /><span>SMS simulation</span></div>`r`n                   <p className="admin-muted">Send a test SMS-style alert to preview how notification messages will appear to animal owners.</p>`r`n                   {supaCfg ? <SmsSimForm /> : <p className="admin-muted">Enable Supabase to use SMS simulation.</p>}`r`n                 </div>`r`n               </div>`r`n<div className="admin-info-panel">
                 <ShieldCheck size={18} />
                 <div>
                   <strong>Administrator session active</strong>
@@ -284,73 +288,7 @@ export default async function AdminDashboardPage({
           )}
 
           {/* ── AUDIT LOG ── */}
-          {tab === "audit" && (
-            <>
-              <div className="admin-page-heading">
-                <p className="eyebrow">SECURITY</p>
-                <h1>Audit log</h1>
-                <p className="heading-sub">All INSERT, UPDATE, DELETE, and SMS operations recorded by the system.</p>
-              </div>
-              {!supaCfg ? <NotConfigured /> : auditRows.length === 0 ? (
-                <div className="admin-empty-state">
-                  <ClipboardList size={28} />
-                  <strong>No audit events</strong>
-                  <p>Actions will appear here as users interact with the system.</p>
-                </div>
-              ) : (
-                <div className="admin-table-wrap">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Timestamp</th>
-                        <th>Action</th>
-                        <th>Table</th>
-                        <th>Record</th>
-                        <th>Notes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {auditRows.map((a) => (
-                        <tr key={a.id} className="admin-table-row">
-                          <td className="admin-muted admin-nowrap">
-                            {new Date(a.created_at).toLocaleString("en-US", {
-                              month: "short", day: "2-digit", year: "numeric",
-                              hour: "2-digit", minute: "2-digit",
-                            })}
-                          </td>
-                          <td><AuditActionBadge action={a.action} /></td>
-                          <td><code className="admin-code">{a.table_name}</code></td>
-                          <td className="admin-muted">{a.record_id ?? "—"}</td>
-                          <td className="admin-muted admin-audit-notes">{a.notes ?? "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          )}
-
-        </div>
-      </section>
-    </main>
-  );
-}
-
-// ── Shared display components (server-safe, no interactivity) ─────────────
-
-function AuditActionBadge({ action }: { action: string }) {
-  const map: Record<string, string> = {
-    INSERT: "admin-badge-green",
-    UPDATE: "admin-badge-amber",
-    DELETE: "admin-badge-red",
-    SMS_SENT: "admin-badge-purple",
-    SMS_ATTEMPT: "admin-badge-gray",
-  };
-  return <span className={`admin-badge ${map[action] ?? "admin-badge-gray"}`}>{action}</span>;
-}
-
-function NotConfigured() {
+          function NotConfigured() {
   return (
     <div className="admin-not-configured">
       <XCircle size={26} />
@@ -358,4 +296,20 @@ function NotConfigured() {
       <p>Add <code>SUPABASE_SERVICE_ROLE_KEY</code> to your <code>.env.local</code> to enable live data.</p>
     </div>
   );
+}
+
+async function handleSmsSimulation(formData: FormData) {
+  "use server";
+  const session = await getAdminSession();
+  if (!session) return;
+  const db = createAdminClient();
+  if (!db) return;
+  const recipient = (formData.get("recipient") as string)?.trim() || "";
+  const message = (formData.get("message") as string)?.trim() || "";
+  const checkAnnotations = formData.get("checkAnnotations") === "on";
+  if (!recipient || !message) return;
+  await simulateSmsAlert(session.id, recipient, message);
+  if (checkAnnotations) {
+    await writeAuditLog(session.id, "SMS_SENT", "animals", undefined, `SMS simulation with animal annotation check — recipient ${recipient}`);
+  }
 }

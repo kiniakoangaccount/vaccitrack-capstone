@@ -31,6 +31,11 @@ type Animal = {
   id: number | string;
   name: string;
   species: "Dog" | "Cat";
+  classification?: "Pet" | "Stray";
+  breed?: string;
+  age?: number;
+  sex?: string;
+  color?: string;
   owner: string;
   purok: string;
   vaccinated: boolean;
@@ -39,17 +44,30 @@ type Animal = {
   nextDue: string;
   contact: string;
   impoundArea: string;
+  vaccineType?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  notes?: string;
 };
 
 type SupabaseAnimalRecord = {
   id: number;
   name: string;
   species: Animal["species"];
+  classification?: Animal["classification"];
+  breed?: string | null;
+  age?: number | null;
+  sex?: string | null;
+  color?: string | null;
   owner_name: string;
   vaccinated: boolean;
   next_due_date: string | null;
   contact_number: string | null;
   impound_area: string | null;
+  vaccine_type?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  notes?: string | null;
   puroks: { name: string } | { name: string }[] | null;
 };
 
@@ -73,15 +91,71 @@ type SupabaseError = { code?: string; message: string };
 type SupabaseAuthResponse = { data: { user: { id: string; email?: string } | null }; error: SupabaseError | null };
 type AccountStatus = "active" | "disabled" | "pending";
 
-const animals: Animal[] = [
-  { id: "demo-bantay", name: "Bantay", species: "Dog", owner: "Ramon Dela Cruz", contact: "09171234567", impoundArea: "", purok: "The Palisades", vaccinated: true, status: "Vaccinated", nextDueDate: "2026-10-18", nextDue: "Oct 18, 2026" },
-  { id: "demo-miming", name: "Miming", species: "Cat", owner: "Liza Santos", contact: "09181234567", impoundArea: "", purok: "Bagong Silang North", vaccinated: true, status: "Due soon", nextDueDate: "2026-09-23", nextDue: "Sep 23, 2026" },
-  { id: "demo-brownie", name: "Brownie", species: "Dog", owner: "Joel Mercado", contact: "09191234567", impoundArea: "Barangay impound kennel A", purok: "Zamora Street", vaccinated: false, status: "Overdue", nextDueDate: "2026-08-30", nextDue: "Aug 30, 2026" },
-  { id: "demo-luna", name: "Luna", species: "Dog", owner: "Ana Villareal", contact: "09201234567", impoundArea: "", purok: "Celine Homes East", vaccinated: true, status: "Vaccinated", nextDueDate: "2026-11-04", nextDue: "Nov 04, 2026" },
-  { id: "demo-toby", name: "Toby", species: "Dog", owner: "Mark Flores", contact: "09211234567", impoundArea: "", purok: "The Palisades", vaccinated: true, status: "Due soon", nextDueDate: "2026-09-27", nextDue: "Sep 27, 2026" },
+const demoPuroks = [
+  { id: 1, name: "The Palisades", latitude: 10.6685542, longitude: 122.9855123 },
+  { id: 2, name: "Bagong Silang North", latitude: 10.6695881, longitude: 122.987599 },
+  { id: 3, name: "Celine Homes East", latitude: 10.6705123, longitude: 122.9865456 },
+  { id: 4, name: "Bagong Silang South", latitude: 10.6675999, longitude: 122.9880111 },
+  { id: 5, name: "Zamora Street", latitude: 10.6710222, longitude: 122.9850333 },
+  { id: 6, name: "Celine Homes West", latitude: 10.6690444, longitude: 122.9890555 },
 ];
 
-const demoPuroks = ["The Palisades", "Bagong Silang North", "Celine Homes East", "Bagong Silang South", "Zamora Street", "Celine Homes West"];
+const demoBreeds = [
+  { id: 1, name: "Aspin", species: "Dog" },
+  { id: 2, name: "Labrador", species: "Dog" },
+  { id: 3, name: "Shih Tzu", species: "Dog" },
+  { id: 4, name: "Pomeranian", species: "Dog" },
+  { id: 5, name: "Persian", species: "Cat" },
+  { id: 6, name: "Siamese", species: "Cat" },
+  { id: 7, name: "Puspin", species: "Cat" },
+  { id: 8, name: "Maine Coon", species: "Cat" },
+];
+
+const demoSexes = ["Male", "Female", "Neutered male", "Neutered female"];
+
+const demoVaccines = [
+  "Rabisin (Anti-Rabies)",
+  "Nobivac DHPPi (Dog Core 5-in-1)",
+  "Purevax RCP (Cat Core Booster)",
+  "Nobivac Rabies",
+  "Vanguard Plus 5/L (Dog Core)",
+];
+
+const programChecklist = [
+  { id: "p1", title: "Purok coverage baseline updated", done: true },
+  { id: "p2", title: "Vaccine stocks verified for January drive", done: true },
+  { id: "p3", title: "Barangay BHW assignments confirmed", done: true },
+  { id: "p4", title: "Field data collection forms printed", done: false },
+  { id: "p5", title: "Community announcement posted", done: false },
+  { id: "p6", title: "Vaccination site layout prepared", done: false },
+  { id: "p7", title: "Post-vaccination monitoring schedule set", done: false },
+];
+
+const programAssigned = [
+  { purok: "The Palisades", lead: "BHW — Maria Reyes", notes: "Coverage above 90%." },
+  { purok: "Bagong Silang North", lead: "BHW — Joel Mercado", notes: "One overdue cat pending." },
+  { purok: "Celine Homes East", lead: "Veterinarian — Dr. Santos", notes: "Mobile unit assigned." },
+  { purok: "Bagong Silang South", lead: "BHW — Liza Santos", notes: "Pending verification." },
+  { purok: "Zamora Street", lead: "BHW — Ana Villareal", notes: "Stray intake high." },
+  { purok: "Celine Homes West", lead: "BHW — Mark Flores", notes: "Scheduled for next drive." },
+];
+
+const animals: Animal[] = [
+  { id: "demo-bantay", name: "Bantay", species: "Dog", classification: "Pet", breed: "Aspin", age: 4, sex: "Male", color: "Brown", owner: "Ramon Dela Cruz", contact: "09171234567", impoundArea: "", purok: "The Palisades", vaccinated: true, status: "Vaccinated", nextDueDate: "2026-10-18", nextDue: "Oct 18, 2026", vaccineType: "Rabisin (Anti-Rabies)", latitude: 10.6686, longitude: 122.9855, notes: "Friendly, regularly vaccinated." },
+  { id: "demo-miming", name: "Miming", species: "Cat", classification: "Pet", breed: "Puspin", age: 2, sex: "Female", color: "Calico", owner: "Liza Santos", contact: "09181234567", impoundArea: "", purok: "Bagong Silang North", vaccinated: true, status: "Due soon", nextDueDate: "2026-09-23", nextDue: "Sep 23, 2026", vaccineType: "Purevax RCP (Cat Core Booster)", latitude: 10.6696, longitude: 122.9876, notes: "" },
+  { id: "demo-brownie", name: "Brownie", species: "Dog", classification: "Stray", breed: "Mixed", age: 3, sex: "Male", color: "Brown", owner: "Joel Mercado", contact: "09191234567", impoundArea: "Barangay impound kennel A", purok: "Zamora Street", vaccinated: false, status: "Overdue", nextDueDate: "2026-08-30", nextDue: "Aug 30, 2026", vaccineType: undefined, latitude: 10.6710, longitude: 122.9850, notes: "Captured from Zamora Street, awaiting vaccination." },
+  { id: "demo-luna", name: "Luna", species: "Dog", classification: "Pet", breed: "Labrador", age: 5, sex: "Female", color: "Black", owner: "Ana Villareal", contact: "09201234567", impoundArea: "", purok: "Celine Homes East", vaccinated: true, status: "Vaccinated", nextDueDate: "2026-11-04", nextDue: "Nov 04, 2026", vaccineType: "Nobivac DHPPi (Dog Core 5-in-1)", latitude: 10.6705, longitude: 122.9865, notes: "" },
+  { id: "demo-toby", name: "Toby", species: "Dog", classification: "Pet", breed: "Shih Tzu", age: 1, sex: "Male", color: "White", owner: "Mark Flores", contact: "09211234567", impoundArea: "", purok: "The Palisades", vaccinated: true, status: "Due soon", nextDueDate: "2026-09-27", nextDue: "Sep 27, 2026", vaccineType: "Rabisin (Anti-Rabies)", latitude: 10.6686, longitude: 122.9855, notes: "" },
+];
+
+const demoPuroks = [
+  { id: 1, name: "The Palisades", latitude: 10.6685542, longitude: 122.9855123 },
+  { id: 2, name: "Bagong Silang North", latitude: 10.6695881, longitude: 122.987599 },
+  { id: 3, name: "Celine Homes East", latitude: 10.6705123, longitude: 122.9865456 },
+  { id: 4, name: "Bagong Silang South", latitude: 10.6675999, longitude: 122.9880111 },
+  { id: 5, name: "Zamora Street", latitude: 10.6710222, longitude: 122.9850333 },
+  { id: 6, name: "Celine Homes West", latitude: 10.6690444, longitude: 122.9890555 },
+];
 
 const statusStyles: Record<Animal["status"], string> = {
   Vaccinated: "status-good",
@@ -108,6 +182,39 @@ function formatDueDate(nextDueDate: string | null) {
   return new Date(`${nextDueDate}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
 }
 
+export interface UserNotification {
+  id: number;
+  title: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+type DashboardStats = { registered: number; vaccinated: number; dueSoon: number; overdue: number };
+type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Reports" | "Risk" | "Map" | "Feedback" | "Team" | "Audit" | "Profile" | "Settings";
+
+function RoleBlocked({ role, message }: { role: string; message?: string }) {
+  return (
+    <div className="role-blocked">
+      <div className="role-info-card">
+        <ShieldCheck size={32} />
+        <h3>Access restricted</h3>
+        <p>{message ?? `This workspace is not available for ${role} accounts.`}</p>
+        <p className="role-help">Contact a barangay administrator if you need elevated access.</p>
+      </div>
+    </div>
+  );
+}
+
+type SupabaseError = { code?: string; message: string };
+type SupabaseAuthResponse = { data: { user: { id: string; email?: string } | null }; error: SupabaseError | null };
+type AccountStatus = "active" | "disabled" | "pending";
+
+function isStaffRole(role: string) {
+  return role === "admin" || role === "veterinarian" || role === "bhw";
+}
+
 export default function Home() {
   const [animalRecords, setAnimalRecords] = useState(animals);
   const [query, setQuery] = useState("");
@@ -127,7 +234,7 @@ export default function Home() {
   const [authForm, setAuthForm] = useState({ email: "", password: "" });
   const [loginMode, setLoginMode] = useState<"email" | "username">("email");
   const [registrationForm, setRegistrationForm] = useState({ username: "", fullName: "", email: "", contact: "", idDocument: "", password: "" });
-  const [form, setForm] = useState({ name: "", species: "Dog" as Animal["species"], owner: "", contact: "", impoundArea: "", purok: demoPuroks[0], vaccineDate: "", nextDue: "" });
+  const [form, setForm] = useState({ name: "", species: "Dog" as Animal["species"], classification: "Pet" as "Pet" | "Stray", breed: "", age: "", sex: "", color: "", owner: "", contact: "", impoundArea: "", purok: demoPuroks[0].name, vaccineDate: "", vaccineType: demoVaccines[0], nextDue: "", latitude: "", longitude: "", notes: "" });
   const [liveStats, setLiveStats] = useState<DashboardStats | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
@@ -204,6 +311,11 @@ export default function Home() {
             id: record.id,
             name: record.name,
             species: record.species,
+            classification: record.classification,
+            breed: record.breed ?? undefined,
+            age: record.age,
+            sex: record.sex ?? undefined,
+            color: record.color ?? undefined,
             owner: record.owner_name,
             vaccinated,
             purok: Array.isArray(record.puroks) ? record.puroks[0]?.name ?? "Unassigned" : record.puroks?.name ?? "Unassigned",
@@ -212,6 +324,10 @@ export default function Home() {
             nextDue: formatDueDate(nextDueDate),
             contact: record.contact_number ?? "",
             impoundArea: record.impound_area ?? "",
+            vaccineType: record.vaccine_type ?? undefined,
+            latitude: record.latitude ?? undefined,
+            longitude: record.longitude ?? undefined,
+            notes: record.notes ?? undefined,
           } satisfies Animal;
         });
       setAnimalRecords(records);
