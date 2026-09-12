@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { registerUser } from "./register-action";
 
 type Animal = {
   id: number | string;
@@ -208,9 +209,7 @@ export default function Home() {
     setAuthError("");
     const { error } = await supabase.auth.signInWithPassword(authForm);
     if (error) {
-      if (error.message.toLowerCase().includes("email not confirmed")) {
-        setAuthError("Confirm your email in Supabase Authentication first, then try again.");
-      } else if (error.message.toLowerCase().includes("invalid login credentials")) {
+      if (error.message.toLowerCase().includes("invalid login credentials")) {
         setAuthError("The email or password is incorrect.");
       } else if (error.message.toLowerCase().includes("fetch") || error.message.toLowerCase().includes("network")) {
         setAuthError("The deployed app cannot reach Supabase. Check the Vercel Project URL and Publishable key, then redeploy.");
@@ -225,8 +224,6 @@ export default function Home() {
 
   async function signUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const supabase = createClient();
-    if (!supabase) return;
     setAuthError("");
     if (registrationForm.password.length < 8) {
       setAuthError("Password must be at least 8 characters long.");
@@ -244,13 +241,16 @@ export default function Home() {
       setAuthError("Enter the valid ID reference required for administrator verification.");
       return;
     }
-    const { error } = await supabase.auth.signUp({
+    const { error } = await registerUser({
       email: registrationForm.email,
       password: registrationForm.password,
-      options: { data: { full_name: registrationForm.fullName, username: registrationForm.username, contact_number: registrationForm.contact, id_document_reference: registrationForm.idDocument.trim(), requested_role: "client" } },
+      fullName: registrationForm.fullName,
+      username: registrationForm.username,
+      contact: registrationForm.contact,
+      idDocument: registrationForm.idDocument,
     });
     if (error) {
-      setAuthError(error.message);
+      setAuthError(error);
       return;
     }
     setRegistrationSent(true);
@@ -321,7 +321,7 @@ export default function Home() {
 
   if (supabaseConfigured && authChecked && !authUser) {
     if (authMode === "landing") return <Landing isTransitioning={isPageTransitioning} onSignIn={() => { setAuthError(""); switchAuthMode("signin"); }} />;
-    return <main className={`auth-shell ${isPageTransitioning ? "page-exit" : ""}`}><section className="auth-card page-enter" key={`${authMode}-${registrationSent}`}><button className="auth-back" onClick={() => { setAuthError(""); switchAuthMode("landing"); }}>← Back to VacciTrack</button><div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>VacciTrack</span></div>{authMode === "signin" ? <><p className="eyebrow">ROLE-BASED ACCESS</p><h1>Sign in to VacciTrack</h1><p className="heading-sub">Active civilian, BHW, veterinarian, viewer, and administrator accounts are routed by their assigned role.</p><form className="auth-form" onSubmit={signIn}><label>Email<input required type="email" autoComplete="email" value={authForm.email} onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })} /></label><label>Password<input required type="password" autoComplete="current-password" value={authForm.password} onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} /></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Sign in</button></form><button className="auth-switch" onClick={() => { setAuthError(""); switchAuthMode("register"); }}>Create a civilian account</button></> : registrationSent ? <div className="confirmation"><CheckCircle2 size={30} /><h1>Check your email</h1><p>We sent a confirmation link to <strong>{registrationForm.email}</strong>. Your civilian account will remain pending until an administrator verifies it.</p><button className="primary-button" onClick={() => { setRegistrationSent(false); switchAuthMode("signin"); }}>Back to sign in</button></div> : <><p className="eyebrow">CIVILIAN ACCOUNT REQUEST</p><h1>Create your account</h1><p className="heading-sub">Public registration creates a civilian / pet-owner account. BHW, veterinarian, viewer, and administrator accounts are created by an administrator.</p><form className="auth-form" onSubmit={signUp}><label>Requested role<select disabled value="client"><option value="client">Civilian / pet owner</option></select></label><label>Username<input required minLength={3} maxLength={80} value={registrationForm.username} onChange={(event) => setRegistrationForm({ ...registrationForm, username: event.target.value })} /></label><label>Full name<input required maxLength={120} value={registrationForm.fullName} onChange={(event) => setRegistrationForm({ ...registrationForm, fullName: event.target.value })} /></label><label>Email<input required type="email" autoComplete="email" value={registrationForm.email} onChange={(event) => setRegistrationForm({ ...registrationForm, email: event.target.value })} /></label><label>Contact number<input required inputMode="numeric" pattern="09[0-9]{9}" placeholder="09171234567" value={registrationForm.contact} onChange={(event) => setRegistrationForm({ ...registrationForm, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} /></label><label>Valid ID reference<input required maxLength={120} placeholder="e.g. National ID ending 1234" value={registrationForm.idDocument} onChange={(event) => setRegistrationForm({ ...registrationForm, idDocument: event.target.value })} /></label><label>Password<input required minLength={8} type="password" autoComplete="new-password" value={registrationForm.password} onChange={(event) => setRegistrationForm({ ...registrationForm, password: event.target.value })} /></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Submit for verification</button></form><button className="auth-switch" onClick={() => { setAuthError(""); switchAuthMode("signin"); }}>Already have an account? Sign in</button></>}</section></main>;
+    return <main className={`auth-shell ${isPageTransitioning ? "page-exit" : ""}`}><section className="auth-card page-enter" key={`${authMode}-${registrationSent}`}><button className="auth-back" onClick={() => { setAuthError(""); switchAuthMode("landing"); }}>← Back to VacciTrack</button><div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>VacciTrack</span></div>{authMode === "signin" ? <><p className="eyebrow">ROLE-BASED ACCESS</p><h1>Sign in to VacciTrack</h1><p className="heading-sub">Active civilian, BHW, veterinarian, viewer, and administrator accounts are routed by their assigned role.</p><form className="auth-form" onSubmit={signIn}><label>Email<input required type="email" autoComplete="email" value={authForm.email} onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })} /></label><label>Password<input required type="password" autoComplete="current-password" value={authForm.password} onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} /></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Sign in</button></form><button className="auth-switch" onClick={() => { setAuthError(""); switchAuthMode("register"); }}>Create a civilian account</button></> : registrationSent ? <div className="confirmation"><CheckCircle2 size={30} /><h1>Registration submitted</h1><p>Your account has been created and is <strong>pending administrator approval</strong>. You will be able to sign in once an admin activates your account.</p><button className="primary-button" onClick={() => { setRegistrationSent(false); switchAuthMode("signin"); }}>Back to sign in</button></div> : <><p className="eyebrow">CIVILIAN ACCOUNT REQUEST</p><h1>Create your account</h1><p className="heading-sub">Public registration creates a civilian / pet-owner account. BHW, veterinarian, viewer, and administrator accounts are created by an administrator.</p><form className="auth-form" onSubmit={signUp}><label>Requested role<select disabled value="client"><option value="client">Civilian / pet owner</option></select></label><label>Username<input required minLength={3} maxLength={80} value={registrationForm.username} onChange={(event) => setRegistrationForm({ ...registrationForm, username: event.target.value })} /></label><label>Full name<input required maxLength={120} value={registrationForm.fullName} onChange={(event) => setRegistrationForm({ ...registrationForm, fullName: event.target.value })} /></label><label>Email<input required type="email" autoComplete="email" value={registrationForm.email} onChange={(event) => setRegistrationForm({ ...registrationForm, email: event.target.value })} /></label><label>Contact number<input required inputMode="numeric" pattern="09[0-9]{9}" placeholder="09171234567" value={registrationForm.contact} onChange={(event) => setRegistrationForm({ ...registrationForm, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} /></label><label>Valid ID reference<input required maxLength={120} placeholder="e.g. National ID ending 1234" value={registrationForm.idDocument} onChange={(event) => setRegistrationForm({ ...registrationForm, idDocument: event.target.value })} /></label><label>Password<input required minLength={8} type="password" autoComplete="new-password" value={registrationForm.password} onChange={(event) => setRegistrationForm({ ...registrationForm, password: event.target.value })} /></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Submit for verification</button></form><button className="auth-switch" onClick={() => { setAuthError(""); switchAuthMode("signin"); }}>Already have an account? Sign in</button></>}</section></main>;
   }
 
   async function registerAnimal(event: FormEvent<HTMLFormElement>) {
