@@ -247,3 +247,11 @@ button { cursor: pointer; }
 .auth-mode-btn { flex: 1; padding: 8px 12px; color: #718078; background: transparent; border: 0; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s ease, color .15s ease, box-shadow .15s ease; }
 .auth-mode-btn.active { color: var(--green-dark); background: #fff; box-shadow: 0 1px 4px #17312618; font-weight: 700; }
 .auth-mode-btn:not(.active):hover { color: var(--green); }
+
+/* Role-based access control styles */
+.role-blocked { display: grid; place-items: center; min-height: 320px; padding: 40px 20px; }
+.role-info-card { max-width: 480px; padding: 28px; text-align: center; color: var(--muted); background: #fbfdfb; border: 1px solid var(--line); border-radius: 10px; }
+.role-info-card svg { margin: 0 auto 16px; color: #91a098; }
+.role-info-card h3 { margin: 0 0 8px; color: var(--ink); font-family: var(--font-display), sans-serif; font-size: 18px; }
+.role-info-card p { margin: 8px 0 0; font-size: 12px; line-height: 1.7; }
+.role-info-card .role-help { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); color: #91a098; font-size: 11px; }
