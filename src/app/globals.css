@@ -241,3 +241,9 @@ button { cursor: pointer; }
 /* ── Spinner ─────────────────────────────────────────────────────────── */
 @keyframes admin-spin { to { transform: rotate(360deg); } }
 .admin-spin { animation: admin-spin .7s linear infinite; }
+
+/* ── Sign-in mode toggle ─────────────────────────────────────────────── */
+.auth-mode-toggle { display: flex; gap: 4px; padding: 4px; margin-bottom: 22px; background: #f0f5f0; border-radius: 8px; }
+.auth-mode-btn { flex: 1; padding: 8px 12px; color: #718078; background: transparent; border: 0; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s ease, color .15s ease, box-shadow .15s ease; }
+.auth-mode-btn.active { color: var(--green-dark); background: #fff; box-shadow: 0 1px 4px #17312618; font-weight: 700; }
+.auth-mode-btn:not(.active):hover { color: var(--green); }
