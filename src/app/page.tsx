@@ -453,6 +453,14 @@ function Coverage({ name, value, count }: { name: string; value: number; count: 
 }
 
 function Landing({ onSignIn, isTransitioning }: { onSignIn: () => void; isTransitioning: boolean }) {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   useEffect(() => {
     const elements = document.querySelectorAll<HTMLElement>(".reveal");
     if (!elements.length) return;
@@ -478,17 +486,19 @@ function Landing({ onSignIn, isTransitioning }: { onSignIn: () => void; isTransi
 
   return (
     <main className={`landing-page page-enter ${isTransitioning ? "page-exit" : ""}`}>
-      <header className="landing-nav">
-        <button className="landing-brand" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-          <span className="landing-brand-mark">✣</span>
-          <span><strong>VacciTrack</strong><small>BRGY. ESTEFANIA</small></span>
-        </button>
-        <nav aria-label="Public navigation">
-          <a href="#capabilities" onClick={(e) => { e.preventDefault(); smoothScrollTo("capabilities"); }}>Capabilities</a>
-          <a href="#why-it-matters" onClick={(e) => { e.preventDefault(); smoothScrollTo("why-it-matters"); }}>Why it matters</a>
-          <button className="landing-nav-action" onClick={onSignIn}>Sign in <span>→</span></button>
-        </nav>
-      </header>
+      <div className={`landing-nav-wrap${scrolled ? " scrolled" : ""}`}>
+        <header className="landing-nav">
+          <button className="landing-brand" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+            <span className="landing-brand-mark">✣</span>
+            <span><strong>VacciTrack</strong><small>BRGY. ESTEFANIA</small></span>
+          </button>
+          <nav aria-label="Public navigation">
+            <a href="#capabilities" onClick={(e) => { e.preventDefault(); smoothScrollTo("capabilities"); }}>Capabilities</a>
+            <a href="#why-it-matters" onClick={(e) => { e.preventDefault(); smoothScrollTo("why-it-matters"); }}>Why it matters</a>
+            <button className="landing-nav-action" onClick={onSignIn}>Sign in <span>→</span></button>
+          </nav>
+        </header>
+      </div>
       <section className="landing-hero">
         <div className="landing-hero-image" />
         <div className="landing-hero-overlay" />
