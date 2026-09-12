@@ -10,11 +10,13 @@ import {
   ChevronDown,
   CircleUserRound,
   ClipboardList,
+  FileText,
   MapPin,
   MessageSquare,
   PawPrint,
   Plus,
   Search,
+  Send,
   ShieldCheck,
   Syringe,
   TrendingUp,
@@ -33,6 +35,8 @@ type Animal = {
   status: "Vaccinated" | "Due soon" | "Overdue" | "Not scheduled";
   nextDueDate: string | null;
   nextDue: string;
+  contact: string;
+  impoundArea: string;
 };
 
 type SupabaseAnimalRecord = {
@@ -42,21 +46,23 @@ type SupabaseAnimalRecord = {
   owner_name: string;
   vaccinated: boolean;
   next_due_date: string | null;
+  contact_number: string | null;
+  impound_area: string | null;
   puroks: { name: string } | { name: string }[] | null;
 };
 
 type DashboardStats = { registered: number; vaccinated: number; dueSoon: number; overdue: number };
-type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Risk" | "Map" | "Feedback" | "Team" | "Audit";
+type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Reports" | "Risk" | "Map" | "Feedback" | "Team" | "Audit";
 
 type SupabaseError = { code?: string; message: string };
 type SupabaseAuthResponse = { data: { user: { id: string; email?: string } | null }; error: SupabaseError | null };
 
 const animals: Animal[] = [
-  { id: "demo-bantay", name: "Bantay", species: "Dog", owner: "Ramon Dela Cruz", purok: "The Palisades", vaccinated: true, status: "Vaccinated", nextDueDate: "2026-10-18", nextDue: "Oct 18, 2026" },
-  { id: "demo-miming", name: "Miming", species: "Cat", owner: "Liza Santos", purok: "Bagong Silang North", vaccinated: true, status: "Due soon", nextDueDate: "2026-09-23", nextDue: "Sep 23, 2026" },
-  { id: "demo-brownie", name: "Brownie", species: "Dog", owner: "Joel Mercado", purok: "Zamora Street", vaccinated: false, status: "Overdue", nextDueDate: "2026-08-30", nextDue: "Aug 30, 2026" },
-  { id: "demo-luna", name: "Luna", species: "Dog", owner: "Ana Villareal", purok: "Celine Homes East", vaccinated: true, status: "Vaccinated", nextDueDate: "2026-11-04", nextDue: "Nov 04, 2026" },
-  { id: "demo-toby", name: "Toby", species: "Dog", owner: "Mark Flores", purok: "The Palisades", vaccinated: true, status: "Due soon", nextDueDate: "2026-09-27", nextDue: "Sep 27, 2026" },
+  { id: "demo-bantay", name: "Bantay", species: "Dog", owner: "Ramon Dela Cruz", contact: "09171234567", impoundArea: "", purok: "The Palisades", vaccinated: true, status: "Vaccinated", nextDueDate: "2026-10-18", nextDue: "Oct 18, 2026" },
+  { id: "demo-miming", name: "Miming", species: "Cat", owner: "Liza Santos", contact: "09181234567", impoundArea: "", purok: "Bagong Silang North", vaccinated: true, status: "Due soon", nextDueDate: "2026-09-23", nextDue: "Sep 23, 2026" },
+  { id: "demo-brownie", name: "Brownie", species: "Dog", owner: "Joel Mercado", contact: "09191234567", impoundArea: "Barangay impound kennel A", purok: "Zamora Street", vaccinated: false, status: "Overdue", nextDueDate: "2026-08-30", nextDue: "Aug 30, 2026" },
+  { id: "demo-luna", name: "Luna", species: "Dog", owner: "Ana Villareal", contact: "09201234567", impoundArea: "", purok: "Celine Homes East", vaccinated: true, status: "Vaccinated", nextDueDate: "2026-11-04", nextDue: "Nov 04, 2026" },
+  { id: "demo-toby", name: "Toby", species: "Dog", owner: "Mark Flores", contact: "09211234567", impoundArea: "", purok: "The Palisades", vaccinated: true, status: "Due soon", nextDueDate: "2026-09-27", nextDue: "Sep 27, 2026" },
 ];
 
 const demoPuroks = ["The Palisades", "Bagong Silang North", "Celine Homes East", "Bagong Silang South", "Zamora Street", "Celine Homes West"];
@@ -103,12 +109,15 @@ export default function Home() {
   const [registrationSent, setRegistrationSent] = useState(false);
   const [authForm, setAuthForm] = useState({ email: "", password: "" });
   const [registrationForm, setRegistrationForm] = useState({ fullName: "", email: "", password: "" });
-  const [form, setForm] = useState({ name: "", species: "Dog" as Animal["species"], owner: "", purok: demoPuroks[0], vaccineDate: "", nextDue: "" });
+  const [form, setForm] = useState({ name: "", species: "Dog" as Animal["species"], owner: "", contact: "", impoundArea: "", purok: demoPuroks[0], vaccineDate: "", nextDue: "" });
   const [liveStats, setLiveStats] = useState<DashboardStats | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [chartPeriod, setChartPeriod] = useState("Last 6 months");
   const [showNotifications, setShowNotifications] = useState(false);
+  const [reportRange, setReportRange] = useState({ from: "2026-01-01", to: "2026-12-31" });
+  const [bulkMessage, setBulkMessage] = useState("Your animal's vaccination is due. Please visit the barangay health station.");
+  const [bulkSent, setBulkSent] = useState(false);
   const supabaseConfigured = Boolean(createClient());
   const canManageAnimals = !isLive || ["admin", "veterinarian", "bhw"].includes(authUser?.role ?? "");
 
@@ -135,7 +144,7 @@ export default function Home() {
       const today = new Date();
       const todayIso = today.toISOString().slice(0, 10);
       const [recentResult, totalResult, vaccinatedResult, dueResult, overdueResult] = await Promise.all([
-        supabase.from("animals").select("id, name, species, owner_name, vaccinated, next_due_date, puroks(name)").order("created_at", { ascending: false }).limit(25),
+        supabase.from("animals").select("id, name, species, owner_name, contact_number, impound_area, vaccinated, next_due_date, puroks(name)").order("created_at", { ascending: false }).limit(25),
         supabase.from("animals").select("id", { count: "exact", head: true }),
         supabase.from("animals").select("id", { count: "exact", head: true }).eq("vaccinated", true),
         supabase.from("animals").select("id", { count: "exact", head: true }).gte("next_due_date", todayIso).lte("next_due_date", new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10)),
@@ -160,6 +169,8 @@ export default function Home() {
             status: getAnimalStatus(vaccinated, nextDueDate, today),
             nextDueDate,
             nextDue: formatDueDate(nextDueDate),
+            contact: record.contact_number ?? "",
+            impoundArea: record.impound_area ?? "",
           } satisfies Animal;
         });
       setAnimalRecords(records);
@@ -247,6 +258,18 @@ export default function Home() {
     return { purok, total: records.length, vaccinated, rate, risk: records.length === 0 ? "NO DATA" : rate < 50 ? "HIGH" : rate < 70 ? "MODERATE" : "LOW" };
   }), [animalRecords]);
 
+  const reportAnimals = useMemo(() => animalRecords.filter((animal) => {
+    if (!animal.nextDueDate) return true;
+    return animal.nextDueDate >= reportRange.from && animal.nextDueDate <= reportRange.to;
+  }), [animalRecords, reportRange]);
+
+  const reportSummary = useMemo(() => ({
+    total: reportAnimals.length,
+    vaccinated: reportAnimals.filter((animal) => animal.vaccinated).length,
+    expiring: reportAnimals.filter((animal) => animal.status === "Due soon" || animal.status === "Overdue").length,
+    impounded: reportAnimals.filter((animal) => animal.impoundArea).length,
+  }), [reportAnimals]);
+
   async function submitFeedback(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!feedbackMessage.trim()) return;
@@ -276,6 +299,22 @@ export default function Home() {
     setFormError("");
     setIsSaving(true);
 
+    const todayIso = new Date().toISOString().slice(0, 10);
+    if (!/^09\d{9}$/.test(form.contact)) {
+      setFormError("Enter a valid Philippine mobile number (11 digits, starting with 09).");
+      setIsSaving(false);
+      return;
+    }
+    if (form.vaccineDate && form.vaccineDate > todayIso) {
+      setFormError("The vaccination date cannot be in the future.");
+      setIsSaving(false);
+      return;
+    }
+    if (form.nextDue && form.vaccineDate && form.nextDue < form.vaccineDate) {
+      setFormError("The next vaccination date must be on or after the last vaccination date.");
+      setIsSaving(false);
+      return;
+    }
     const nextDueDate = form.nextDue || null;
     const vaccinated = Boolean(form.vaccineDate);
     const fallbackRecord: Animal = {
@@ -288,6 +327,8 @@ export default function Home() {
       status: getAnimalStatus(vaccinated, nextDueDate),
       nextDueDate,
       nextDue: formatDueDate(nextDueDate),
+      contact: form.contact,
+      impoundArea: form.impoundArea.trim(),
     };
 
     const supabase = createClient();
@@ -301,7 +342,7 @@ export default function Home() {
 
       const { data, error } = await supabase
         .from("animals")
-        .insert({ name: fallbackRecord.name, species: form.species, owner_name: fallbackRecord.owner, purok_id: purok.id, vaccinated, vaccine_date: form.vaccineDate || null, next_due_date: form.nextDue || null })
+        .insert({ name: fallbackRecord.name, species: form.species, owner_name: fallbackRecord.owner, contact_number: form.contact, impound_area: form.impoundArea.trim() || null, purok_id: purok.id, vaccinated, vaccine_date: form.vaccineDate || null, next_due_date: form.nextDue || null })
         .select("id")
         .single();
       if (error) {
@@ -313,7 +354,7 @@ export default function Home() {
     }
 
     setAnimalRecords((current) => [fallbackRecord, ...current]);
-    setForm({ name: "", species: "Dog", owner: "", purok: demoPuroks[0], vaccineDate: "", nextDue: "" });
+    setForm({ name: "", species: "Dog", owner: "", contact: "", impoundArea: "", purok: demoPuroks[0], vaccineDate: "", nextDue: "" });
     setShowRegister(false);
     setIsSaving(false);
   }
@@ -329,6 +370,7 @@ export default function Home() {
           <button className={`nav-item ${activeTab === "Overview" ? "selected" : ""}`} onClick={() => setActiveTab("Overview")}><Activity size={17} /> Overview</button>
           <button className={`nav-item ${activeTab === "Registry" ? "selected" : ""}`} onClick={() => setActiveTab("Registry")}><ClipboardList size={17} /> Animal registry <span className="nav-count">{dashboardStats.registered}</span></button>
           <button className={`nav-item ${activeTab === "Planning" ? "selected" : ""}`} onClick={() => setActiveTab("Planning")}><CalendarDays size={17} /> Vaccination planning</button>
+          <button className={`nav-item ${activeTab === "Reports" ? "selected" : ""}`} onClick={() => setActiveTab("Reports")}><FileText size={17} /> Reports</button>
           <button className={`nav-item ${activeTab === "Risk" ? "selected" : ""}`} onClick={() => setActiveTab("Risk")}><ShieldCheck size={17} /> Risk analysis</button>
           <button className={`nav-item ${activeTab === "Map" ? "selected" : ""}`} onClick={() => setActiveTab("Map")}><MapPin size={17} /> Coverage map</button>
           <p className="nav-label nav-label-spaced">Management</p>
@@ -347,8 +389,9 @@ export default function Home() {
           {showNotice && <div className="notice"><div className="notice-icon"><Syringe size={19} /></div><div><strong>Vaccination coverage is at {dashboardStats.registered ? Math.round((dashboardStats.vaccinated / dashboardStats.registered) * 100) : 0}%</strong><p>{dashboardStats.dueSoon} animals are due for their next vaccination.</p></div><button className="notice-action" onClick={() => setActiveTab("Planning")}>View plan <span>→</span></button><button className="notice-close" aria-label="Dismiss notice" onClick={() => setShowNotice(false)}>×</button></div>}
 
           {activeTab !== "Overview" && <section className="workspace-panel">
-            {activeTab === "Registry" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">REGISTRY MANAGEMENT</p><h2>All animal records</h2><p>Search, review, and register dogs and cats across every purok.</p></div><button className="primary-button" onClick={() => setShowRegister(true)}><Plus size={17} /> New record</button></div><div className="search-box wide-search"><Search size={16} /><input aria-label="Search all animals" placeholder="Search name, owner, purok, or species..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Owner</th><th>Purok</th><th>Vaccination</th><th>Next due</th><th>Status</th></tr></thead><tbody>{filteredAnimals.map((animal) => <tr key={`module-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}</td><td>{animal.purok}</td><td>{animal.vaccinated ? "Vaccinated" : "Unvaccinated"}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredAnimals.length === 0 && <div className="empty-state">No records found.</div>}</div></div>}
+            {activeTab === "Registry" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">REGISTRY MANAGEMENT</p><h2>All animal records</h2><p>Search, review, and register dogs and cats across every purok.</p></div><button className="primary-button" onClick={() => setShowRegister(true)}><Plus size={17} /> New record</button></div><div className="search-box wide-search"><Search size={16} /><input aria-label="Search all animals" placeholder="Search name, civilian, purok, or species..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Next due</th><th>Status</th></tr></thead><tbody>{filteredAnimals.map((animal) => <tr key={`module-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredAnimals.length === 0 && <div className="empty-state">No records found.</div>}</div></div>}
             {activeTab === "Planning" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PROGRAM PLANNING</p><h2>Vaccination plan</h2><p>Prioritize overdue animals and upcoming vaccination drives.</p></div><span className="module-chip"><CalendarDays size={14} /> 90-day view</span></div><div className="planning-grid"><div className="planning-list"><h3>Needs immediate action</h3>{animalRecords.filter((animal) => animal.status === "Overdue").map((animal) => <div className="planning-row" key={`overdue-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}{animalRecords.filter((animal) => animal.status === "Overdue").length === 0 && <p className="module-muted"><CheckCircle2 size={16} /> No overdue vaccinations.</p>}</div><div className="planning-list"><h3>Upcoming vaccinations</h3>{animalRecords.filter((animal) => animal.status === "Due soon").map((animal) => <div className="planning-row" key={`due-${animal.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}</div></div></div>}
+            {activeTab === "Reports" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">REPORTING</p><h2>Vaccination report by date range</h2><p>Review coverage, expiring vaccinations, and impound cases within a selected period.</p></div><button className="secondary-button" onClick={() => window.print()}><FileText size={15} /> Print report</button></div><div className="report-controls"><label>From<input type="date" value={reportRange.from} onChange={(event) => setReportRange({ ...reportRange, from: event.target.value })} /></label><label>To<input type="date" min={reportRange.from} value={reportRange.to} onChange={(event) => setReportRange({ ...reportRange, to: event.target.value })} /></label></div>{reportRange.to < reportRange.from ? <p className="form-error">The end date must be on or after the start date.</p> : <><div className="report-grid"><article><strong>{reportSummary.total}</strong><span>Records in range</span></article><article><strong>{reportSummary.vaccinated}</strong><span>Vaccinated</span></article><article><strong>{reportSummary.expiring}</strong><span>Expired / due soon</span></article><article><strong>{reportSummary.impounded}</strong><span>In impound area</span></article></div><div className="planning-grid"><div className="planning-list"><h3>Expiry detection</h3>{reportAnimals.filter((animal) => animal.status === "Due soon" || animal.status === "Overdue").map((animal) => <div className="planning-row" key={`expiry-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name} — {animal.owner}</strong><small>{animal.contact || "No contact recorded"} · {animal.nextDue}</small></span><em>{animal.status}</em></div>)}</div><form className="planning-list" onSubmit={(event) => { event.preventDefault(); setBulkSent(true); }}><h3>Send reminder to many</h3><p className="heading-sub">Recipients: {reportAnimals.filter((animal) => (animal.status === "Due soon" || animal.status === "Overdue") && animal.contact).length} valid contacts</p><textarea required rows={4} value={bulkMessage} onChange={(event) => setBulkMessage(event.target.value)} />{bulkSent && <p className="module-muted"><CheckCircle2 size={15} /> Reminder queue prepared for valid contacts.</p>}<button className="primary-button" type="submit"><Send size={15} /> Queue reminders</button></form></div></>}</div>}
             {activeTab === "Risk" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">DECISION SUPPORT</p><h2>Risk analysis by purok</h2><p>Areas below 70% coverage need targeted follow-up.</p></div><span className="module-chip"><ShieldCheck size={14} /> 70% target</span></div><div className="risk-grid">{riskRows.map((row) => <article className={`risk-card risk-${row.risk.toLowerCase().replace(" ", "-")}`} key={row.purok}><div className="risk-card-head"><h3>{row.purok}</h3><span>{row.risk}</span></div><div className="risk-count"><strong>{row.rate}%</strong><small>{row.vaccinated} vaccinated of {row.total}</small></div><div className="progress"><span style={{ width: `${row.rate}%` }} /></div><p>{row.total === 0 ? "No animals registered in this purok." : row.rate < 70 ? `${Math.max(0, Math.ceil(row.total * .7) - row.vaccinated)} more needed to reach target.` : "Herd immunity target met."}</p></article>)}</div></div>}
             {activeTab === "Map" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">GEOSPATIAL COVERAGE</p><h2>Barangay coverage map</h2><p>Use purok-level records to plan field visits and vaccination drives.</p></div><span className="module-chip"><MapPin size={14} /> 6 puroks monitored</span></div><div className="map-demo"><div className="map-grid">{riskRows.map((row, index) => <div className={`map-zone zone-${index}`} key={row.purok}><MapPin size={18} /><strong>{row.purok}</strong><small>{row.rate}% covered · {row.total} animals</small></div>)}</div><div className="map-legend"><span><i className="legend-dot good" /> 70%+ coverage</span><span><i className="legend-dot warn" /> Below target</span><span><i className="legend-dot empty" /> No data</span></div></div></div>}
             {activeTab === "Feedback" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Feedback and suggestions</h2><p>Send notes to the barangay animal health team.</p></div></div>{feedbackSent ? <div className="feedback-success"><CheckCircle2 size={22} /><div><strong>Feedback submitted</strong><p>Thank you. Your message has been recorded for review.</p></div><button className="secondary-button" onClick={() => setFeedbackSent(false)}>Send another</button></div> : <form className="feedback-form" onSubmit={submitFeedback}><label>Category<select><option>Suggestion</option><option>Bug report</option><option>Complaint</option><option>Compliment</option></select></label><label>Message<textarea required rows={5} placeholder="Tell us what would improve the system..." value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} /></label><button className="primary-button" type="submit"><MessageSquare size={16} /> Submit feedback</button></form>}</div>}
@@ -370,7 +413,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      {showRegister && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowRegister(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="register-title"><div className="modal-heading"><div><p className="eyebrow">NEW RECORD</p><h2 id="register-title">Register an animal</h2></div><button className="icon-button" aria-label="Close registration form" onClick={() => setShowRegister(false)}><X size={18} /></button></div><form className="animal-form" onSubmit={registerAnimal}><label>Animal name<input required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Bantay" /></label><label>Species<select value={form.species} onChange={(event) => setForm({ ...form, species: event.target.value as Animal["species"] })}><option>Dog</option><option>Cat</option></select></label><label>Owner name<input required maxLength={120} value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} placeholder="Full name" /></label><label>Purok<select value={form.purok} onChange={(event) => setForm({ ...form, purok: event.target.value })}>{demoPuroks.map((purok) => <option key={purok}>{purok}</option>)}</select></label><label>Last vaccination<input type="date" value={form.vaccineDate} onChange={(event) => setForm({ ...form, vaccineDate: event.target.value })} /></label><label>Next vaccination<input type="date" min={form.vaccineDate || undefined} value={form.nextDue} onChange={(event) => setForm({ ...form, nextDue: event.target.value })} /></label>{formError && <p className="form-error">{formError}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowRegister(false)}>Cancel</button><button className="primary-button" disabled={isSaving}>{isSaving ? "Saving..." : "Save animal"}</button></div></form></section></div>}
+      {showRegister && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowRegister(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="register-title"><div className="modal-heading"><div><p className="eyebrow">NEW RECORD</p><h2 id="register-title">Register an animal</h2></div><button className="icon-button" aria-label="Close registration form" onClick={() => setShowRegister(false)}><X size={18} /></button></div><form className="animal-form" onSubmit={registerAnimal}><label>Animal name<input required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Bantay" /></label><label>Species<select value={form.species} onChange={(event) => setForm({ ...form, species: event.target.value as Animal["species"] })}><option>Dog</option><option>Cat</option></select></label><label>Civilian / owner name<input required maxLength={120} value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} placeholder="Full name" /></label><label>Contact number<input required inputMode="numeric" pattern="09[0-9]{9}" value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} placeholder="09171234567" /></label><label>Geospatial pin area<select value={form.purok} onChange={(event) => setForm({ ...form, purok: event.target.value })}>{demoPuroks.map((purok) => <option key={purok}>{purok}</option>)}</select></label><label>Impound area <small>(optional)</small><input maxLength={120} value={form.impoundArea} onChange={(event) => setForm({ ...form, impoundArea: event.target.value })} placeholder="e.g. Barangay kennel A" /></label><label>Last vaccination<input type="date" max={new Date().toISOString().slice(0, 10)} value={form.vaccineDate} onChange={(event) => setForm({ ...form, vaccineDate: event.target.value })} /></label><label>Next vaccination<input type="date" min={form.vaccineDate || undefined} value={form.nextDue} onChange={(event) => setForm({ ...form, nextDue: event.target.value })} /></label>{formError && <p className="form-error">{formError}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowRegister(false)}>Cancel</button><button className="primary-button" disabled={isSaving}>{isSaving ? "Saving..." : "Save animal"}</button></div></form></section></div>}
     </main>
   );
 }
