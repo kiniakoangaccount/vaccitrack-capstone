@@ -1,0 +1,6 @@
+[2026-09-12T18:51:25.861Z] [INIT] Deep Copilot debug log started. file=c:\systems\robotograhv2-vercel\.deep-copilot\logs\session-2026-09-12T18-51-25-824Z.log
+[2026-09-12T18:51:25.866Z] [ACTIVATE] {"version":"0.43.1"}
+[2026-09-12T18:51:25.869Z] [PROVIDERS_LOADED] {"count":4,"ids":["anthropic","custom","deepseek","openai"]}
+[2026-09-12T18:51:25.876Z] [TERMINAL_MONITOR_STARTED] {}
+[2026-09-12T18:51:25.890Z] [STATUSBAR_REGISTERED] {"id":"deepseekAgent.statusBar"}
+[2026-09-12T18:51:25.937Z] [INLINE_COMPLETION_REGISTERED]

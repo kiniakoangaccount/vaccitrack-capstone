@@ -26,6 +26,8 @@ import {
 import { createClient } from "@/lib/supabase";
 import { registerUser } from "./register-action";
 import { resolveUsernameToEmail } from "./signin-action";
+import { exportAnimalsCsv } from "./audit-actions";
+import LeafletMap from "./LeafletMap";
 
 type Animal = {
   id: number | string;
@@ -72,7 +74,7 @@ type SupabaseAnimalRecord = {
 };
 
 type DashboardStats = { registered: number; vaccinated: number; dueSoon: number; overdue: number };
-type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Reports" | "Risk" | "Map" | "Feedback" | "Team" | "Audit";
+type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Reports" | "Risk" | "Map" | "Feedback" | "Team" | "Audit" | "Profile" | "Settings";
 
 function RoleBlocked({ role, message }: { role: string; message?: string }) {
   return (
@@ -90,15 +92,6 @@ function RoleBlocked({ role, message }: { role: string; message?: string }) {
 type SupabaseError = { code?: string; message: string };
 type SupabaseAuthResponse = { data: { user: { id: string; email?: string } | null }; error: SupabaseError | null };
 type AccountStatus = "active" | "disabled" | "pending";
-
-const demoPuroks = [
-  { id: 1, name: "The Palisades", latitude: 10.6685542, longitude: 122.9855123 },
-  { id: 2, name: "Bagong Silang North", latitude: 10.6695881, longitude: 122.987599 },
-  { id: 3, name: "Celine Homes East", latitude: 10.6705123, longitude: 122.9865456 },
-  { id: 4, name: "Bagong Silang South", latitude: 10.6675999, longitude: 122.9880111 },
-  { id: 5, name: "Zamora Street", latitude: 10.6710222, longitude: 122.9850333 },
-  { id: 6, name: "Celine Homes West", latitude: 10.6690444, longitude: 122.9890555 },
-];
 
 const demoBreeds = [
   { id: 1, name: "Aspin", species: "Dog" },
@@ -119,25 +112,6 @@ const demoVaccines = [
   "Purevax RCP (Cat Core Booster)",
   "Nobivac Rabies",
   "Vanguard Plus 5/L (Dog Core)",
-];
-
-const programChecklist = [
-  { id: "p1", title: "Purok coverage baseline updated", done: true },
-  { id: "p2", title: "Vaccine stocks verified for January drive", done: true },
-  { id: "p3", title: "Barangay BHW assignments confirmed", done: true },
-  { id: "p4", title: "Field data collection forms printed", done: false },
-  { id: "p5", title: "Community announcement posted", done: false },
-  { id: "p6", title: "Vaccination site layout prepared", done: false },
-  { id: "p7", title: "Post-vaccination monitoring schedule set", done: false },
-];
-
-const programAssigned = [
-  { purok: "The Palisades", lead: "BHW — Maria Reyes", notes: "Coverage above 90%." },
-  { purok: "Bagong Silang North", lead: "BHW — Joel Mercado", notes: "One overdue cat pending." },
-  { purok: "Celine Homes East", lead: "Veterinarian — Dr. Santos", notes: "Mobile unit assigned." },
-  { purok: "Bagong Silang South", lead: "BHW — Liza Santos", notes: "Pending verification." },
-  { purok: "Zamora Street", lead: "BHW — Ana Villareal", notes: "Stray intake high." },
-  { purok: "Celine Homes West", lead: "BHW — Mark Flores", notes: "Scheduled for next drive." },
 ];
 
 const animals: Animal[] = [
@@ -191,30 +165,6 @@ export interface UserNotification {
   created_at: string;
 }
 
-type DashboardStats = { registered: number; vaccinated: number; dueSoon: number; overdue: number };
-type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Reports" | "Risk" | "Map" | "Feedback" | "Team" | "Audit" | "Profile" | "Settings";
-
-function RoleBlocked({ role, message }: { role: string; message?: string }) {
-  return (
-    <div className="role-blocked">
-      <div className="role-info-card">
-        <ShieldCheck size={32} />
-        <h3>Access restricted</h3>
-        <p>{message ?? `This workspace is not available for ${role} accounts.`}</p>
-        <p className="role-help">Contact a barangay administrator if you need elevated access.</p>
-      </div>
-    </div>
-  );
-}
-
-type SupabaseError = { code?: string; message: string };
-type SupabaseAuthResponse = { data: { user: { id: string; email?: string } | null }; error: SupabaseError | null };
-type AccountStatus = "active" | "disabled" | "pending";
-
-function isStaffRole(role: string) {
-  return role === "admin" || role === "veterinarian" || role === "bhw";
-}
-
 export default function Home() {
   const [animalRecords, setAnimalRecords] = useState(animals);
   const [query, setQuery] = useState("");
@@ -243,6 +193,7 @@ export default function Home() {
   const [reportRange, setReportRange] = useState({ from: "2026-01-01", to: "2026-12-31" });
   const [bulkMessage, setBulkMessage] = useState("Your animal's vaccination is due. Please visit the barangay health station.");
   const [bulkSent, setBulkSent] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const supabaseConfigured = Boolean(createClient());
   const canManageAnimals = !isLive || ["admin", "veterinarian", "bhw"].includes(authUser?.role ?? "");
   
@@ -313,7 +264,7 @@ export default function Home() {
             species: record.species,
             classification: record.classification,
             breed: record.breed ?? undefined,
-            age: record.age,
+            age: record.age ?? undefined,
             sex: record.sex ?? undefined,
             color: record.color ?? undefined,
             owner: record.owner_name,
@@ -432,10 +383,11 @@ export default function Home() {
   }, [animalRecords, isLive]);
 
   const riskRows = useMemo(() => demoPuroks.map((purok) => {
-    const records = animalRecords.filter((animal) => animal.purok === purok);
+    const purokName = purok.name;
+    const records = animalRecords.filter((animal) => animal.purok === purokName);
     const vaccinated = records.filter((animal) => animal.vaccinated).length;
     const rate = records.length ? Math.round((vaccinated / records.length) * 100) : 0;
-    return { purok, total: records.length, vaccinated, rate, risk: records.length === 0 ? "NO DATA" : rate < 50 ? "HIGH" : rate < 70 ? "MODERATE" : "LOW" };
+    return { purok: purokName, total: records.length, vaccinated, rate, risk: records.length === 0 ? "NO DATA" : rate < 50 ? "HIGH" : rate < 70 ? "MODERATE" : "LOW" };
   }), [animalRecords]);
 
   const reportAnimals = useMemo(() => animalRecords.filter((animal) => {
@@ -463,6 +415,30 @@ export default function Home() {
     }
     setFeedbackSent(true);
     setFeedbackMessage("");
+  }
+
+  async function handleExportCsv() {
+    setIsExporting(true);
+    try {
+      const result = await exportAnimalsCsv({ query: query.trim() || undefined });
+      if ("error" in result && result.error) {
+        setLoadError(result.error);
+        return;
+      }
+      if (!("buffer" in result)) return;
+      const bytes = new Uint8Array(result.buffer);
+      const blob = new Blob([bytes], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = result.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
   }
   
   if (supabaseConfigured && !authChecked) {
@@ -501,6 +477,11 @@ export default function Home() {
       id: `demo-${Date.now()}`,
       name: form.name.trim(),
       species: form.species,
+      classification: form.classification,
+      breed: form.breed.trim(),
+      age: form.age ? Number(form.age) : undefined,
+      sex: form.sex,
+      color: form.color.trim(),
       owner: form.owner.trim(),
       purok: form.purok,
       vaccinated,
@@ -509,6 +490,10 @@ export default function Home() {
       nextDue: formatDueDate(nextDueDate),
       contact: form.contact,
       impoundArea: form.impoundArea.trim(),
+      vaccineType: form.vaccineType,
+      latitude: form.latitude ? Number(form.latitude) : undefined,
+      longitude: form.longitude ? Number(form.longitude) : undefined,
+      notes: form.notes.trim(),
     };
 
     const supabase = createClient();
@@ -522,7 +507,7 @@ export default function Home() {
 
       const { data, error } = await supabase
         .from("animals")
-        .insert({ name: fallbackRecord.name, species: form.species, owner_name: fallbackRecord.owner, contact_number: form.contact, impound_area: form.impoundArea.trim() || null, purok_id: purok.id, vaccinated, vaccine_date: form.vaccineDate || null, next_due_date: form.nextDue || null })
+        .insert({ name: fallbackRecord.name, species: form.species, classification: form.classification, breed: form.breed.trim() || null, age: form.age ? Number(form.age) : null, sex: form.sex || null, color: form.color.trim() || null, owner_name: fallbackRecord.owner, contact_number: form.contact, impound_area: form.impoundArea.trim() || null, purok_id: purok.id, vaccinated, vaccine_date: form.vaccineDate || null, vaccine_type: form.vaccineType || null, next_due_date: form.nextDue || null, latitude: form.latitude ? Number(form.latitude) : null, longitude: form.longitude ? Number(form.longitude) : null, notes: form.notes.trim() || null })
         .select("id")
         .single();
       if (error) {
@@ -534,7 +519,7 @@ export default function Home() {
     }
 
     setAnimalRecords((current) => [fallbackRecord, ...current]);
-    setForm({ name: "", species: "Dog", owner: "", contact: "", impoundArea: "", purok: demoPuroks[0], vaccineDate: "", nextDue: "" });
+    setForm({ name: "", species: "Dog", classification: "Pet", breed: "", age: "", sex: "", color: "", owner: "", contact: "", impoundArea: "", purok: demoPuroks[0].name, vaccineDate: "", vaccineType: demoVaccines[0], nextDue: "", latitude: "", longitude: "", notes: "" });
     setShowRegister(false);
     setIsSaving(false);
   }
@@ -569,11 +554,11 @@ export default function Home() {
           {showNotice && <div className="notice"><div className="notice-icon"><Syringe size={19} /></div><div><strong>Vaccination coverage is at {dashboardStats.registered ? Math.round((dashboardStats.vaccinated / dashboardStats.registered) * 100) : 0}%</strong><p>{dashboardStats.dueSoon} animals are due for their next vaccination.</p></div><button className="notice-action" onClick={() => setActiveTab("Planning")}>View plan <span>→</span></button><button className="notice-close" aria-label="Dismiss notice" onClick={() => setShowNotice(false)}>×</button></div>}
 
           {activeTab !== "Overview" && <section className="workspace-panel">
-            {activeTab === "Registry" && (isViewer ? <RoleBlocked role={userRole} message="The animal registry is not available for viewer accounts. Viewers can access Overview and Feedback only." /> : <div className="module-content"><div className="module-intro"><div><p className="eyebrow">REGISTRY MANAGEMENT</p><h2>{isClient ? "My registered animals" : "All animal records"}</h2><p>{isClient ? "Review your registered pets and their vaccination schedules." : "Search, review, and register dogs and cats across every purok."}</p></div>{canManageAnimals && <button className="primary-button" onClick={() => setShowRegister(true)}><Plus size={17} /> New record</button>}</div><div className="search-box wide-search"><Search size={16} /><input aria-label="Search all animals" placeholder="Search name, civilian, purok, or species..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Next due</th><th>Status</th></tr></thead><tbody>{filteredAnimals.map((animal) => <tr key={`module-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredAnimals.length === 0 && <div className="empty-state">No records found.</div>}</div></div>)}
+            {activeTab === "Registry" && (isViewer ? <RoleBlocked role={userRole} message="The animal registry is not available for viewer accounts. Viewers can access Overview and Feedback only." /> : <div className="module-content"><div className="module-intro"><div><p className="eyebrow">REGISTRY MANAGEMENT</p><h2>{isClient ? "My registered animals" : "All animal records"}</h2><p>{isClient ? "Review your registered pets and their vaccination schedules." : "Search, review, and register dogs and cats across every purok."}</p></div><div className="module-actions">{!isClient && <button className="secondary-button" onClick={handleExportCsv} disabled={isExporting}><FileText size={15} /> {isExporting ? "Exporting..." : "Export CSV"}</button>}{canManageAnimals && <button className="primary-button" onClick={() => setShowRegister(true)}><Plus size={17} /> New record</button>}</div></div><div className="search-box wide-search"><Search size={16} /><input aria-label="Search all animals" placeholder="Search name, civilian, purok, or species..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Next due</th><th>Status</th></tr></thead><tbody>{filteredAnimals.map((animal) => <tr key={`module-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredAnimals.length === 0 && <div className="empty-state">No records found.</div>}</div></div>)}
             {activeTab === "Planning" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PROGRAM PLANNING</p><h2>Vaccination plan</h2><p>Prioritize overdue animals and upcoming vaccination drives.</p></div><span className="module-chip"><CalendarDays size={14} /> 90-day view</span></div><div className="planning-grid"><div className="planning-list"><h3>Needs immediate action</h3>{animalRecords.filter((animal) => animal.status === "Overdue").map((animal) => <div className="planning-row" key={`overdue-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}{animalRecords.filter((animal) => animal.status === "Overdue").length === 0 && <p className="module-muted"><CheckCircle2 size={16} /> No overdue vaccinations.</p>}</div><div className="planning-list"><h3>Upcoming vaccinations</h3>{animalRecords.filter((animal) => animal.status === "Due soon").map((animal) => <div className="planning-row" key={`due-${animal.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}</div></div></div> : <RoleBlocked role={userRole} message="Vaccination planning is only available for staff accounts (admin, veterinarian, bhw)." />)}
             {activeTab === "Reports" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">REPORTING</p><h2>Vaccination report by date range</h2><p>Review coverage, expiring vaccinations, and impound cases within a selected period.</p></div><button className="secondary-button" onClick={() => window.print()}><FileText size={15} /> Print report</button></div><div className="report-controls"><label>From<input type="date" value={reportRange.from} onChange={(event) => setReportRange({ ...reportRange, from: event.target.value })} /></label><label>To<input type="date" min={reportRange.from} value={reportRange.to} onChange={(event) => setReportRange({ ...reportRange, to: event.target.value })} /></label></div>{reportRange.to < reportRange.from ? <p className="form-error">The end date must be on or after the start date.</p> : <><div className="report-grid"><article><strong>{reportSummary.total}</strong><span>Records in range</span></article><article><strong>{reportSummary.vaccinated}</strong><span>Vaccinated</span></article><article><strong>{reportSummary.expiring}</strong><span>Expired / due soon</span></article><article><strong>{reportSummary.impounded}</strong><span>In impound area</span></article></div><div className="planning-grid"><div className="planning-list"><h3>Expiry detection</h3>{reportAnimals.filter((animal) => animal.status === "Due soon" || animal.status === "Overdue").map((animal) => <div className="planning-row" key={`expiry-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name} — {animal.owner}</strong><small>{animal.contact || "No contact recorded"} · {animal.nextDue}</small></span><em>{animal.status}</em></div>)}</div><form className="planning-list" onSubmit={(event) => { event.preventDefault(); setBulkSent(true); }}><h3>Send reminder to many</h3><p className="heading-sub">Recipients: {reportAnimals.filter((animal) => (animal.status === "Due soon" || animal.status === "Overdue") && animal.contact).length} valid contacts</p><textarea required rows={4} value={bulkMessage} onChange={(event) => setBulkMessage(event.target.value)} />{bulkSent && <p className="module-muted"><CheckCircle2 size={15} /> Reminder queue prepared for valid contacts.</p>}<button className="primary-button" type="submit"><Send size={15} /> Queue reminders</button></form></div></>}</div> : <RoleBlocked role={userRole} message="Reports are only available for staff accounts (admin, veterinarian, bhw)." />)}
             {activeTab === "Risk" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">DECISION SUPPORT</p><h2>Risk analysis by purok</h2><p>Areas below 70% coverage need targeted follow-up.</p></div><span className="module-chip"><ShieldCheck size={14} /> 70% target</span></div><div className="risk-grid">{riskRows.map((row) => <article className={`risk-card risk-${row.risk.toLowerCase().replace(" ", "-")}`} key={row.purok}><div className="risk-card-head"><h3>{row.purok}</h3><span>{row.risk}</span></div><div className="risk-count"><strong>{row.rate}%</strong><small>{row.vaccinated} vaccinated of {row.total}</small></div><div className="progress"><span style={{ width: `${row.rate}%` }} /></div><p>{row.total === 0 ? "No animals registered in this purok." : row.rate < 70 ? `${Math.max(0, Math.ceil(row.total * .7) - row.vaccinated)} more needed to reach target.` : "Herd immunity target met."}</p></article>)}</div></div> : <RoleBlocked role={userRole} message="Risk analysis is only available for staff accounts (admin, veterinarian, bhw)." />)}
-            {activeTab === "Map" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">GEOSPATIAL COVERAGE</p><h2>Barangay coverage map</h2><p>Use purok-level records to plan field visits and vaccination drives.</p></div><span className="module-chip"><MapPin size={14} /> 6 puroks monitored</span></div><div className="map-demo"><div className="map-grid">{riskRows.map((row, index) => <div className={`map-zone zone-${index}`} key={row.purok}><MapPin size={18} /><strong>{row.purok}</strong><small>{row.rate}% covered · {row.total} animals</small></div>)}</div><div className="map-legend"><span><i className="legend-dot good" /> 70%+ coverage</span><span><i className="legend-dot warn" /> Below target</span><span><i className="legend-dot empty" /> No data</span></div></div></div> : <RoleBlocked role={userRole} message="Coverage map is only available for staff accounts (admin, veterinarian, bhw)." />)}
+            {activeTab === "Map" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">GEOSPATIAL COVERAGE</p><h2>Barangay coverage map</h2><p>Use purok-level records to plan field visits and vaccination drives.</p></div><span className="module-chip"><MapPin size={14} /> {demoPuroks.length} puroks monitored</span></div><LeafletMap animals={animalRecords.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species, owner: animal.owner, purok: animal.purok, vaccinated: animal.vaccinated, status: animal.status, latitude: animal.latitude, longitude: animal.longitude }))} puroks={demoPuroks} /><div className="map-legend"><span><i className="legend-dot good" /> Vaccinated</span><span><i className="legend-dot warn" /> Due soon</span><span><i className="legend-dot danger" /> Overdue</span></div></div> : <RoleBlocked role={userRole} message="Coverage map is only available for staff accounts (admin, veterinarian, bhw)." />)}
             {activeTab === "Feedback" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Feedback and suggestions</h2><p>Send notes to the barangay animal health team.</p></div></div>{feedbackSent ? <div className="feedback-success"><CheckCircle2 size={22} /><div><strong>Feedback submitted</strong><p>Thank you. Your message has been recorded for review.</p></div><button className="secondary-button" onClick={() => setFeedbackSent(false)}>Send another</button></div> : <form className="feedback-form" onSubmit={submitFeedback}><label>Category<select><option>Suggestion</option><option>Bug report</option><option>Complaint</option><option>Compliment</option></select></label><label>Message<textarea required rows={5} placeholder="Tell us what would improve the system..." value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} /></label><button className="primary-button" type="submit"><MessageSquare size={16} /> Submit feedback</button></form>}</div>}
             {activeTab === "Team" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">MANAGEMENT</p><h2>Team members</h2><p>Staff access for the Barangay Estefania health team.</p></div></div><div className="team-list"><div className="team-row"><span className="avatar">{authUser?.fullName.slice(0, 2).toUpperCase() ?? "MC"}</span><span><strong>{authUser?.fullName ?? "Maria Cruz"}</strong><small>{authUser?.email ?? "Administrator account"}</small></span><em>{authUser?.role ?? "admin"}</em></div><div className="team-row"><span className="avatar team-muted">BH</span><span><strong>Barangay Health Worker</strong><small>Field operations account</small></span><em>bhw</em></div><div className="team-row"><span className="avatar team-muted">CV</span><span><strong>City Veterinarian</strong><small>Vaccination program oversight</small></span><em>veterinarian</em></div></div></div> : <RoleBlocked role={userRole} message="Team members view is only available for staff accounts (admin, veterinarian, bhw)." />)}
             {activeTab === "Audit" && (isAdmin ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SECURITY</p><h2>Audit log</h2><p>Recent actions from this VacciTrack workspace.</p></div><span className="module-chip"><ShieldCheck size={14} /> Protected</span></div><div className="audit-list"><div><span className="audit-dot good" /><span><strong>Registry workspace opened</strong><small>Current session · {authUser?.fullName ?? "Demo administrator"}</small></span><time>Now</time></div><div><span className="audit-dot good" /><span><strong>Supabase connection checked</strong><small>Authenticated data boundary</small></span><time>Today</time></div><div><span className="audit-dot neutral" /><span><strong>Dashboard initialized</strong><small>VacciTrack operations workspace</small></span><time>Today</time></div></div></div> : <RoleBlocked role={userRole} message="Audit log is only available for administrator accounts." />)}
@@ -593,7 +578,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      {showRegister && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowRegister(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="register-title"><div className="modal-heading"><div><p className="eyebrow">NEW RECORD</p><h2 id="register-title">Register an animal</h2></div><button className="icon-button" aria-label="Close registration form" onClick={() => setShowRegister(false)}><X size={18} /></button></div><form className="animal-form" onSubmit={registerAnimal}><label>Animal name<input required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Bantay" /></label><label>Species<select value={form.species} onChange={(event) => setForm({ ...form, species: event.target.value as Animal["species"] })}><option>Dog</option><option>Cat</option></select></label><label>Civilian / owner name<input required maxLength={120} value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} placeholder="Full name" /></label><label>Contact number<input required inputMode="numeric" pattern="09[0-9]{9}" value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} placeholder="09171234567" /></label><label>Geospatial pin area<select value={form.purok} onChange={(event) => setForm({ ...form, purok: event.target.value })}>{demoPuroks.map((purok) => <option key={purok}>{purok}</option>)}</select></label><label>Impound area <small>(optional)</small><input maxLength={120} value={form.impoundArea} onChange={(event) => setForm({ ...form, impoundArea: event.target.value })} placeholder="e.g. Barangay kennel A" /></label><label>Last vaccination<input type="date" max={new Date().toISOString().slice(0, 10)} value={form.vaccineDate} onChange={(event) => setForm({ ...form, vaccineDate: event.target.value })} /></label><label>Next vaccination<input type="date" min={form.vaccineDate || undefined} value={form.nextDue} onChange={(event) => setForm({ ...form, nextDue: event.target.value })} /></label>{formError && <p className="form-error">{formError}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowRegister(false)}>Cancel</button><button className="primary-button" disabled={isSaving}>{isSaving ? "Saving..." : "Save animal"}</button></div></form></section></div>}
+      {showRegister && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowRegister(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="register-title"><div className="modal-heading"><div><p className="eyebrow">NEW RECORD</p><h2 id="register-title">Register an animal</h2></div><button className="icon-button" aria-label="Close registration form" onClick={() => setShowRegister(false)}><X size={18} /></button></div><form className="animal-form" onSubmit={registerAnimal}><label>Animal name<input required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Bantay" /></label><label>Species<select value={form.species} onChange={(event) => setForm({ ...form, species: event.target.value as Animal["species"], breed: "" })}><option>Dog</option><option>Cat</option></select></label><label>Classification<select value={form.classification} onChange={(event) => setForm({ ...form, classification: event.target.value as "Pet" | "Stray" })}><option>Pet</option><option>Stray</option></select></label><label>Breed<select value={form.breed} onChange={(event) => setForm({ ...form, breed: event.target.value })}><option value="">Select breed</option>{demoBreeds.filter((breed) => breed.species === form.species).map((breed) => <option key={breed.id} value={breed.name}>{breed.name}</option>)}</select></label><label>Sex<select value={form.sex} onChange={(event) => setForm({ ...form, sex: event.target.value })}><option value="">Select sex</option>{demoSexes.map((sex) => <option key={sex} value={sex}>{sex}</option>)}</select></label><label>Age (years)<input type="number" min="0" max="40" value={form.age} onChange={(event) => setForm({ ...form, age: event.target.value })} placeholder="e.g. 3" /></label><label>Color / markings<input maxLength={60} value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} placeholder="e.g. Brown" /></label><label>Civilian / owner name<input required maxLength={120} value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} placeholder="Full name" /></label><label>Contact number<input required inputMode="numeric" pattern="09[0-9]{9}" value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} placeholder="09171234567" /></label><label>Geospatial pin area<select value={form.purok} onChange={(event) => setForm({ ...form, purok: event.target.value })}>{demoPuroks.map((purok) => <option key={purok.id} value={purok.name}>{purok.name}</option>)}</select></label><label>Impound area <small>(optional)</small><input maxLength={120} value={form.impoundArea} onChange={(event) => setForm({ ...form, impoundArea: event.target.value })} placeholder="e.g. Barangay kennel A" /></label><label>Last vaccination<input type="date" max={new Date().toISOString().slice(0, 10)} value={form.vaccineDate} onChange={(event) => setForm({ ...form, vaccineDate: event.target.value })} /></label><label>Vaccine type<select value={form.vaccineType} onChange={(event) => setForm({ ...form, vaccineType: event.target.value })}>{demoVaccines.map((vaccine) => <option key={vaccine} value={vaccine}>{vaccine}</option>)}</select></label><label>Next vaccination<input type="date" min={form.vaccineDate || undefined} value={form.nextDue} onChange={(event) => setForm({ ...form, nextDue: event.target.value })} /></label><label>Latitude <small>(optional)</small><input type="number" step="any" value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })} placeholder="e.g. 10.6686" /></label><label>Longitude <small>(optional)</small><input type="number" step="any" value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} placeholder="e.g. 122.9855" /></label><label>Notes <small>(optional)</small><textarea rows={3} maxLength={400} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Temperament, medical notes, etc." /></label>{formError && <p className="form-error">{formError}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowRegister(false)}>Cancel</button><button className="primary-button" disabled={isSaving}>{isSaving ? "Saving..." : "Save animal"}</button></div></form></section></div>}
     </main>
   );
 }
