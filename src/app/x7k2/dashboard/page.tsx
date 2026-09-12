@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { getAdminSession, adminLogout } from "../actions";
 import { createAdminClient } from "@/lib/supabase-admin";
+import UsersPanel from "./UsersPanel";
+import PendingPanel from "./PendingPanel";
+import FeedbackPanel from "./FeedbackPanel";
 import {
-  ShieldCheck, Users, PawPrint, Activity,
-  Bell, ClipboardList, LogOut, MessageSquare,
-  CheckCircle2, XCircle, Clock,
+  ShieldCheck, Users, PawPrint, Activity, Bell,
+  ClipboardList, LogOut, MessageSquare, Clock, XCircle,
 } from "lucide-react";
 
 type Tab = "overview" | "users" | "pending" | "feedback" | "audit";
@@ -51,16 +53,18 @@ export default async function AdminDashboardPage({
   const tab = (params.tab ?? "overview") as Tab;
 
   const db = createAdminClient();
+  const supaCfg = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  // ── Live stats ────────────────────────────────────────────
-  const [totalAnimals, vaccAnimals, pendingUsers, totalUsers, feedbackNew] =
-    await Promise.all([
-      db?.from("animals").select("id", { count: "exact", head: true }),
-      db?.from("animals").select("id", { count: "exact", head: true }).eq("vaccinated", true),
-      db?.from("profiles").select("id", { count: "exact", head: true }).eq("status", "pending"),
-      db?.from("profiles").select("id", { count: "exact", head: true }),
-      db?.from("feedback").select("id", { count: "exact", head: true }).eq("status", "New"),
-    ]);
+  // ── Live stats (always fetched) ───────────────────────────
+  const [totalAnimals, vaccAnimals, pendingUsers, totalUsers, feedbackNew] = supaCfg
+    ? await Promise.all([
+        db!.from("animals").select("id", { count: "exact", head: true }),
+        db!.from("animals").select("id", { count: "exact", head: true }).eq("vaccinated", true),
+        db!.from("profiles").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        db!.from("profiles").select("id", { count: "exact", head: true }),
+        db!.from("feedback").select("id", { count: "exact", head: true }).eq("status", "New"),
+      ])
+    : [null, null, null, null, null];
 
   const stats = {
     animals: totalAnimals?.count ?? 0,
@@ -70,57 +74,47 @@ export default async function AdminDashboardPage({
     feedback: feedbackNew?.count ?? 0,
   };
 
-  // ── Tab-specific data ─────────────────────────────────────
+  // ── Tab data ──────────────────────────────────────────────
   let profiles: Profile[] = [];
   let pendingProfiles: Profile[] = [];
   let feedbackRows: FeedbackRow[] = [];
   let auditRows: AuditRow[] = [];
 
-  if (tab === "users") {
-    const { data } = await db!
-      .from("profiles")
+  if (supaCfg && tab === "users") {
+    const { data } = await db!.from("profiles")
       .select("id, full_name, username, role, status, contact_number, id_document_reference, created_at")
-      .order("created_at", { ascending: false })
-      .limit(100);
+      .order("created_at", { ascending: false }).limit(100);
     profiles = (data as Profile[]) ?? [];
   }
 
-  if (tab === "pending") {
-    const { data } = await db!
-      .from("profiles")
+  if (supaCfg && tab === "pending") {
+    const { data } = await db!.from("profiles")
       .select("id, full_name, username, role, status, contact_number, id_document_reference, created_at")
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
+      .eq("status", "pending").order("created_at", { ascending: false });
     pendingProfiles = (data as Profile[]) ?? [];
   }
 
-  if (tab === "feedback") {
-    const { data } = await db!
-      .from("feedback")
+  if (supaCfg && tab === "feedback") {
+    const { data } = await db!.from("feedback")
       .select("id, name, category, message, status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(60);
+      .order("created_at", { ascending: false }).limit(60);
     feedbackRows = (data as FeedbackRow[]) ?? [];
   }
 
-  if (tab === "audit") {
-    const { data } = await db!
-      .from("audit_log")
+  if (supaCfg && tab === "audit") {
+    const { data } = await db!.from("audit_log")
       .select("id, user_id, action, table_name, record_id, notes, created_at")
-      .order("created_at", { ascending: false })
-      .limit(80);
+      .order("created_at", { ascending: false }).limit(80);
     auditRows = (data as AuditRow[]) ?? [];
   }
 
   const navItems: { key: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { key: "overview",  label: "Overview",          icon: <Activity size={16} /> },
-    { key: "users",     label: "User accounts",     icon: <Users size={16} />,       badge: stats.users },
-    { key: "pending",   label: "Pending verification", icon: <Clock size={16} />,    badge: stats.pending > 0 ? stats.pending : undefined },
-    { key: "feedback",  label: "Feedback",           icon: <MessageSquare size={16} />, badge: stats.feedback > 0 ? stats.feedback : undefined },
-    { key: "audit",     label: "Audit log",          icon: <ShieldCheck size={16} /> },
+    { key: "overview",  label: "Overview",             icon: <Activity size={16} /> },
+    { key: "users",     label: "User accounts",        icon: <Users size={16} />,          badge: stats.users },
+    { key: "pending",   label: "Pending verification", icon: <Clock size={16} />,          badge: stats.pending > 0 ? stats.pending : undefined },
+    { key: "feedback",  label: "Feedback",             icon: <MessageSquare size={16} />,  badge: stats.feedback > 0 ? stats.feedback : undefined },
+    { key: "audit",     label: "Audit log",            icon: <ShieldCheck size={16} /> },
   ];
-
-  const supaCfg = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   return (
     <main className="admin-shell">
@@ -167,8 +161,12 @@ export default async function AdminDashboardPage({
       {/* ── Content ── */}
       <section className="admin-content">
         <header className="admin-topbar">
-          <div className="admin-crumb">Admin <span>/</span> {navItems.find((n) => n.key === tab)?.label}</div>
-          <div className="admin-topbar-badge"><ShieldCheck size={14} /> Administrator session</div>
+          <div className="admin-crumb">
+            Admin <span>/</span> {navItems.find((n) => n.key === tab)?.label}
+          </div>
+          <div className="admin-topbar-badge">
+            <ShieldCheck size={14} /> Administrator session
+          </div>
         </header>
 
         <div className="admin-page-content">
@@ -190,22 +188,22 @@ export default async function AdminDashboardPage({
               )}
 
               <div className="admin-stat-grid">
-                <article className="admin-stat-card">
+                <article className="admin-stat-card admin-stat-hoverable">
                   <span className="admin-stat-icon blue"><Users size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.users : "—"}</p>
                   <p className="admin-stat-label">Registered users</p>
                 </article>
-                <article className="admin-stat-card">
+                <article className="admin-stat-card admin-stat-hoverable">
                   <span className="admin-stat-icon green"><PawPrint size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.animals : "—"}</p>
                   <p className="admin-stat-label">Animal records</p>
                 </article>
-                <article className="admin-stat-card">
+                <article className="admin-stat-card admin-stat-hoverable">
                   <span className="admin-stat-icon amber"><Clock size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.pending : "—"}</p>
                   <p className="admin-stat-label">Pending verifications</p>
                 </article>
-                <article className="admin-stat-card">
+                <article className="admin-stat-card admin-stat-hoverable">
                   <span className="admin-stat-icon red"><MessageSquare size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.feedback : "—"}</p>
                   <p className="admin-stat-label">New feedback items</p>
@@ -255,39 +253,9 @@ export default async function AdminDashboardPage({
               <div className="admin-page-heading">
                 <p className="eyebrow">USER MANAGEMENT</p>
                 <h1>All user accounts</h1>
-                <p className="heading-sub">View and manage every profile in the system.</p>
+                <p className="heading-sub">Edit role and status, or permanently delete any account.</p>
               </div>
-              {!supaCfg ? <NotConfigured /> : (
-                <div className="admin-table-wrap">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Full name</th>
-                        <th>Username</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Contact</th>
-                        <th>Registered</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {profiles.length === 0 && (
-                        <tr><td colSpan={6} className="admin-table-empty">No user accounts found.</td></tr>
-                      )}
-                      {profiles.map((p) => (
-                        <tr key={p.id}>
-                          <td><strong>{p.full_name}</strong></td>
-                          <td className="admin-muted">@{p.username ?? "—"}</td>
-                          <td><RoleBadge role={p.role} /></td>
-                          <td><StatusBadge status={p.status} /></td>
-                          <td className="admin-muted">{p.contact_number ?? "—"}</td>
-                          <td className="admin-muted">{new Date(p.created_at).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              {!supaCfg ? <NotConfigured /> : <UsersPanel profiles={profiles} />}
             </>
           )}
 
@@ -297,38 +265,9 @@ export default async function AdminDashboardPage({
               <div className="admin-page-heading">
                 <p className="eyebrow">IDENTITY VERIFICATION</p>
                 <h1>Pending accounts</h1>
-                <p className="heading-sub">Civilian registrations awaiting administrator review. Approve or reject each ID submission in Supabase.</p>
+                <p className="heading-sub">Approve civilian registrations to grant access, or reject invalid submissions.</p>
               </div>
-              {!supaCfg ? <NotConfigured /> : pendingProfiles.length === 0 ? (
-                <div className="admin-empty-state">
-                  <CheckCircle2 size={28} />
-                  <strong>All clear</strong>
-                  <p>No accounts are currently pending verification.</p>
-                </div>
-              ) : (
-                <div className="admin-pending-grid">
-                  {pendingProfiles.map((p) => (
-                    <article key={p.id} className="admin-pending-card">
-                      <div className="admin-pending-head">
-                        <span className="admin-avatar admin-avatar-lg">{p.full_name.slice(0, 2).toUpperCase()}</span>
-                        <div>
-                          <strong>{p.full_name}</strong>
-                          <small>@{p.username ?? "no username"}</small>
-                        </div>
-                        <StatusBadge status={p.status} />
-                      </div>
-                      <dl className="admin-pending-meta">
-                        <div><dt>Contact</dt><dd>{p.contact_number ?? "—"}</dd></div>
-                        <div><dt>ID reference</dt><dd>{p.id_document_reference ?? "—"}</dd></div>
-                        <div><dt>Registered</dt><dd>{new Date(p.created_at).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</dd></div>
-                      </dl>
-                      <p className="admin-pending-action-hint">
-                        To approve or reject, update this profile&apos;s <code>status</code> field in the Supabase dashboard.
-                      </p>
-                    </article>
-                  ))}
-                </div>
-              )}
+              {!supaCfg ? <NotConfigured /> : <PendingPanel profiles={pendingProfiles} />}
             </>
           )}
 
@@ -338,31 +277,9 @@ export default async function AdminDashboardPage({
               <div className="admin-page-heading">
                 <p className="eyebrow">USER FEEDBACK</p>
                 <h1>Feedback inbox</h1>
-                <p className="heading-sub">Messages submitted by barangay residents and staff.</p>
+                <p className="heading-sub">Click the status badge to cycle New → Reviewed → Resolved. Delete to remove.</p>
               </div>
-              {!supaCfg ? <NotConfigured /> : feedbackRows.length === 0 ? (
-                <div className="admin-empty-state">
-                  <MessageSquare size={28} />
-                  <strong>No feedback yet</strong>
-                  <p>Submissions from users will appear here.</p>
-                </div>
-              ) : (
-                <div className="admin-feedback-list">
-                  {feedbackRows.map((f) => (
-                    <article key={f.id} className="admin-feedback-card">
-                      <div className="admin-feedback-head">
-                        <span className="admin-feedback-category">{f.category}</span>
-                        <FeedbackStatusBadge status={f.status} />
-                        <span className="admin-muted admin-feedback-date">
-                          {new Date(f.created_at).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}
-                        </span>
-                      </div>
-                      {f.name && <p className="admin-feedback-from">From: <strong>{f.name}</strong></p>}
-                      <p className="admin-feedback-msg">{f.message}</p>
-                    </article>
-                  ))}
-                </div>
-              )}
+              {!supaCfg ? <NotConfigured /> : <FeedbackPanel rows={feedbackRows} />}
             </>
           )}
 
@@ -372,13 +289,13 @@ export default async function AdminDashboardPage({
               <div className="admin-page-heading">
                 <p className="eyebrow">SECURITY</p>
                 <h1>Audit log</h1>
-                <p className="heading-sub">All INSERT, UPDATE, and DELETE operations recorded by the system.</p>
+                <p className="heading-sub">All INSERT, UPDATE, DELETE, and SMS operations recorded by the system.</p>
               </div>
               {!supaCfg ? <NotConfigured /> : auditRows.length === 0 ? (
                 <div className="admin-empty-state">
                   <ClipboardList size={28} />
                   <strong>No audit events</strong>
-                  <p>Actions will be logged here as users interact with the system.</p>
+                  <p>Actions will appear here as users interact with the system.</p>
                 </div>
               ) : (
                 <div className="admin-table-wrap">
@@ -394,9 +311,12 @@ export default async function AdminDashboardPage({
                     </thead>
                     <tbody>
                       {auditRows.map((a) => (
-                        <tr key={a.id}>
+                        <tr key={a.id} className="admin-table-row">
                           <td className="admin-muted admin-nowrap">
-                            {new Date(a.created_at).toLocaleString("en-US", { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            {new Date(a.created_at).toLocaleString("en-US", {
+                              month: "short", day: "2-digit", year: "numeric",
+                              hour: "2-digit", minute: "2-digit",
+                            })}
                           </td>
                           <td><AuditActionBadge action={a.action} /></td>
                           <td><code className="admin-code">{a.table_name}</code></td>
@@ -417,36 +337,7 @@ export default async function AdminDashboardPage({
   );
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────
-
-function RoleBadge({ role }: { role: string }) {
-  const map: Record<string, string> = {
-    admin: "admin-badge-red",
-    veterinarian: "admin-badge-purple",
-    bhw: "admin-badge-blue",
-    client: "admin-badge-green",
-    viewer: "admin-badge-gray",
-  };
-  return <span className={`admin-badge ${map[role] ?? "admin-badge-gray"}`}>{role}</span>;
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    active: "admin-badge-green",
-    pending: "admin-badge-amber",
-    disabled: "admin-badge-gray",
-  };
-  return <span className={`admin-badge ${map[status] ?? "admin-badge-gray"}`}>{status}</span>;
-}
-
-function FeedbackStatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    New: "admin-badge-blue",
-    Reviewed: "admin-badge-amber",
-    Resolved: "admin-badge-green",
-  };
-  return <span className={`admin-badge ${map[status] ?? "admin-badge-gray"}`}>{status}</span>;
-}
+// ── Shared display components (server-safe, no interactivity) ─────────────
 
 function AuditActionBadge({ action }: { action: string }) {
   const map: Record<string, string> = {
@@ -464,7 +355,7 @@ function NotConfigured() {
     <div className="admin-not-configured">
       <XCircle size={26} />
       <strong>Supabase not fully configured</strong>
-      <p>Add <code>SUPABASE_SERVICE_ROLE_KEY</code> to your <code>.env.local</code> file to enable live data in the admin panel.</p>
+      <p>Add <code>SUPABASE_SERVICE_ROLE_KEY</code> to your <code>.env.local</code> to enable live data.</p>
     </div>
   );
 }

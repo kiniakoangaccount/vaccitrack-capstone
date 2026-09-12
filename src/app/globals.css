@@ -163,3 +163,81 @@ button { cursor: pointer; }
 .admin-not-configured { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 24px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 9px; text-align: center; }.admin-not-configured svg { color: #d97706; }.admin-not-configured strong { color: #78350f; font-size: 13px; }.admin-not-configured p { margin: 0; font-size: 12px; color: #92400e; }.admin-not-configured code { background: #fef3c7; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
 
 @media (max-width: 900px) { .admin-quick-grid { grid-template-columns: 1fr; } }
+
+/* ── Hover transitions ───────────────────────────────────────────────── */
+.admin-stat-hoverable { transition: transform .18s ease, box-shadow .18s ease; cursor: default; }
+.admin-stat-hoverable:hover { transform: translateY(-3px); box-shadow: 0 8px 24px #17312614; }
+.admin-table-row { transition: background .14s ease; }
+.admin-table-row:hover td { background: #f4f8f4 !important; }
+.admin-pending-card-hover { transition: transform .18s ease, box-shadow .18s ease; }
+.admin-pending-card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 22px #17312612; }
+.admin-feedback-card-hover { transition: transform .16s ease, box-shadow .16s ease; }
+.admin-feedback-card-hover:hover { transform: translateY(-2px); box-shadow: 0 6px 18px #17312610; }
+.admin-nav-link { transition: background .14s ease, color .14s ease, padding-left .14s ease; }
+.admin-nav-link:not(.admin-nav-item-active):hover { background: #1e3529; color: #c5ddd0; padding-left: 15px; }
+.admin-quick-card { transition: transform .18s ease, box-shadow .18s ease; }
+.admin-quick-card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px #1731261a; }
+.admin-logout-btn { transition: color .15s ease, border-color .15s ease, background .15s ease; }
+.admin-logout-btn:hover { color: #d4ede0; border-color: #4d7060; background: #243d2e; }
+
+/* ── Row action buttons (edit / delete icons) ────────────────────────── */
+.admin-row-actions { display: flex; align-items: center; gap: 6px; }
+.admin-action-btn { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 6px; background: transparent; cursor: pointer; transition: background .14s ease, border-color .14s ease, color .14s ease, transform .14s ease; }
+.admin-action-btn:hover { transform: translateY(-1px); }
+.admin-action-edit { color: var(--blue); }
+.admin-action-edit:hover { background: #e9f0fa; border-color: #aac4ee; }
+.admin-action-delete { color: var(--red); }
+.admin-action-delete:hover { background: #fceeed; border-color: #e8aaa5; }
+
+/* ── Modal ───────────────────────────────────────────────────────────── */
+.admin-modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: #17312655; backdrop-filter: blur(3px); animation: admin-fade-in .15s ease; }
+@keyframes admin-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.admin-modal { width: min(100%, 460px); background: var(--white); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 64px #17312630; animation: admin-slide-up .18s cubic-bezier(.22,.8,.25,1); }
+.admin-modal-sm { width: min(100%, 380px); }
+@keyframes admin-slide-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.admin-modal-head { display: flex; justify-content: space-between; align-items: flex-start; padding: 22px 24px 16px; border-bottom: 1px solid var(--line); }
+.admin-modal-head h2 { margin: 0; font-family: var(--font-display), sans-serif; font-size: 20px; letter-spacing: -.3px; }
+.admin-modal-head .eyebrow { margin: 0 0 5px; }
+.admin-modal-close { display: grid; place-items: center; width: 32px; height: 32px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 7px; flex-shrink: 0; cursor: pointer; transition: background .14s ease, color .14s ease; }
+.admin-modal-close:hover { background: #f2f5f2; color: var(--ink); }
+.admin-modal-body { padding: 20px 24px; display: grid; gap: 16px; }
+.admin-modal-foot { display: flex; justify-content: flex-end; gap: 9px; padding: 16px 24px; border-top: 1px solid var(--line); }
+.admin-confirm-text { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+/* ── Form elements inside modals ─────────────────────────────────────── */
+.admin-form-label { display: grid; gap: 7px; color: #607168; font-size: 11px; font-weight: 700; }
+.admin-form-select { width: 100%; padding: 10px 12px; color: var(--ink); background: #fbfdfb; border: 1px solid #dce6df; border-radius: 6px; outline: 0; font-size: 13px; transition: border-color .14s ease, box-shadow .14s ease; }
+.admin-form-select:focus { border-color: #76a98d; box-shadow: 0 0 0 3px #76a98d1f; }
+.admin-form-error { margin: 0; padding: 9px 12px; color: #b96057; background: #fdf2f1; border: 1px solid #f0ccc9; border-radius: 6px; font-size: 11px; }
+
+/* ── Shared button styles ────────────────────────────────────────────── */
+.admin-btn-primary { display: inline-flex; align-items: center; gap: 7px; padding: 10px 16px; color: #fff; background: var(--green); border: 0; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .15s ease, transform .15s ease; }
+.admin-btn-primary:hover:not(:disabled) { background: var(--green-dark); transform: translateY(-1px); }
+.admin-btn-primary:disabled { opacity: .6; cursor: wait; }
+.admin-btn-secondary { display: inline-flex; align-items: center; gap: 7px; padding: 10px 14px; color: #607168; background: #f8fbf8; border: 1px solid var(--line); border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .14s ease, border-color .14s ease; }
+.admin-btn-secondary:hover:not(:disabled) { background: #f0f5f0; border-color: #c5d4cc; }
+.admin-btn-secondary:disabled { opacity: .6; cursor: wait; }
+.admin-btn-danger { display: inline-flex; align-items: center; gap: 7px; padding: 10px 16px; color: #fff; background: var(--red); border: 0; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .15s ease, transform .15s ease; }
+.admin-btn-danger:hover:not(:disabled) { background: #a8504a; transform: translateY(-1px); }
+.admin-btn-danger:disabled { opacity: .6; cursor: wait; }
+
+/* ── Approve / reject buttons ────────────────────────────────────────── */
+.admin-pending-actions { display: flex; gap: 9px; }
+.admin-btn-approve { display: inline-flex; align-items: center; gap: 6px; flex: 1; justify-content: center; padding: 9px 12px; color: #2f8065; background: #e7f3e9; border: 1px solid #b8dfc2; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .14s ease, border-color .14s ease, transform .14s ease; }
+.admin-btn-approve:hover:not(:disabled) { background: #d2ecda; border-color: #8dc4a0; transform: translateY(-1px); }
+.admin-btn-approve:disabled { opacity: .6; cursor: wait; }
+.admin-btn-reject { display: inline-flex; align-items: center; gap: 6px; flex: 1; justify-content: center; padding: 9px 12px; color: #b96057; background: #fceeed; border: 1px solid #e8aaa5; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .14s ease, border-color .14s ease, transform .14s ease; }
+.admin-btn-reject:hover:not(:disabled) { background: #f8dbd9; border-color: #d48880; transform: translateY(-1px); }
+.admin-btn-reject:disabled { opacity: .6; cursor: wait; }
+
+/* ── Feedback delete button + clickable status badge ─────────────────── */
+.admin-badge-btn { display: inline-flex; align-items: center; gap: 5px; border: 0; cursor: pointer; font-family: inherit; transition: opacity .14s ease, transform .14s ease; }
+.admin-badge-btn:hover:not(:disabled) { opacity: .8; transform: scale(1.05); }
+.admin-badge-btn:disabled { cursor: wait; opacity: .6; }
+.admin-feedback-delete { display: grid; place-items: center; margin-left: auto; width: 28px; height: 28px; color: #9ba8a0; background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: color .14s ease, background .14s ease, border-color .14s ease; }
+.admin-feedback-delete:hover:not(:disabled) { color: var(--red); background: #fceeed; border-color: #e8aaa5; }
+.admin-feedback-delete:disabled { opacity: .5; cursor: wait; }
+
+/* ── Spinner ─────────────────────────────────────────────────────────── */
+@keyframes admin-spin { to { transform: rotate(360deg); } }
+.admin-spin { animation: admin-spin .7s linear infinite; }
