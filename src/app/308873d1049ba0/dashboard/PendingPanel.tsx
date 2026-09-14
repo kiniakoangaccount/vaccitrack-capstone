@@ -11,6 +11,7 @@ interface Profile {
   status: string;
   contact_number: string | null;
   id_document_reference: string | null;
+  idDocumentUrl: string | null;
   created_at: string;
 }
 
@@ -62,12 +63,20 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
 
           <dl className="admin-pending-meta">
             <div><dt>Contact</dt><dd>{p.contact_number ?? "—"}</dd></div>
-            <div><dt>ID reference</dt><dd>{p.id_document_reference ?? "—"}</dd></div>
             <div>
               <dt>Registered</dt>
               <dd>{new Date(p.created_at).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</dd>
             </div>
           </dl>
+
+          {p.idDocumentUrl ? (
+            <a href={p.idDocumentUrl} target="_blank" rel="noopener noreferrer" className="admin-id-photo-link">
+              <img src={p.idDocumentUrl} alt={`ID submitted by ${p.full_name}`} className="admin-id-photo" />
+              <span>View full size →</span>
+            </a>
+          ) : (
+            <p className="admin-muted">No ID photo on file.</p>
+          )}
 
           {errors[p.id] && <p className="admin-form-error" style={{ marginBottom: 10 }}>{errors[p.id]}</p>}
 

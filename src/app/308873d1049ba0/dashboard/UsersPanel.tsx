@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Pencil, Trash2, X, Check, Loader2 } from "lucide-react";
-import { updateUserRole, updateUserStatus, deleteUser } from "./crud-actions";
+import { Pencil, Trash2, X, Check, Loader2, KeyRound, Copy } from "lucide-react";
+import { updateUserRole, updateUserStatus, deleteUser, resetUserPassword } from "./crud-actions";
 
 interface Profile {
   id: string;
@@ -33,10 +33,27 @@ const STATUS_COLORS: Record<string, string> = {
 export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
   const [editTarget, setEditTarget] = useState<Profile | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
+  const [resetTarget, setResetTarget] = useState<Profile | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
   const [editRole, setEditRole] = useState("");
   const [editStatus, setEditStatus] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  function confirmReset() {
+    if (!resetTarget) return;
+    startTransition(async () => {
+      const { password, error } = await resetUserPassword(resetTarget.id);
+      if (error) { setErrorMsg(error); return; }
+      setResetPassword(password ?? "");
+    });
+  }
+
+  function closeReset() {
+    setResetTarget(null);
+    setResetPassword("");
+    setErrorMsg("");
+  }
 
   function openEdit(p: Profile) {
     setEditTarget(p);
@@ -106,6 +123,9 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
                   <div className="admin-row-actions">
                     <button className="admin-action-btn admin-action-edit" onClick={() => openEdit(p)} title="Edit role / status">
                       <Pencil size={13} />
+                    </button>
+                    <button className="admin-action-btn admin-action-edit" onClick={() => { setResetTarget(p); setResetPassword(""); setErrorMsg(""); }} title="Reset password">
+                      <KeyRound size={13} />
                     </button>
                     <button className="admin-action-btn admin-action-delete" onClick={() => { setDeleteTarget(p); setErrorMsg(""); }} title="Delete account">
                       <Trash2 size={13} />
@@ -177,6 +197,42 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
                 {isPending ? <Loader2 size={14} className="admin-spin" /> : <Trash2 size={14} />}
                 Delete permanently
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Reset password ── */}
+      {resetTarget && (
+        <div className="admin-modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeReset()}>
+          <div className="admin-modal admin-modal-sm">
+            <div className="admin-modal-head">
+              <h2>Reset password</h2>
+              <button className="admin-modal-close" onClick={closeReset}><X size={18} /></button>
+            </div>
+            <div className="admin-modal-body">
+              {!resetPassword ? (
+                <p className="admin-confirm-text">
+                  Generate a new random password for <strong>{resetTarget.full_name}</strong>. Their current password stops working immediately — share the new one with them directly, then have them change it from their account settings.
+                </p>
+              ) : (
+                <>
+                  <p className="admin-confirm-text">Share this password with <strong>{resetTarget.full_name}</strong> now — it will not be shown again.</p>
+                  <div className="admin-generated-password">
+                    <code>{resetPassword}</code>
+                    <button type="button" className="admin-action-btn" title="Copy" onClick={() => navigator.clipboard?.writeText(resetPassword)}><Copy size={13} /></button>
+                  </div>
+                </>
+              )}
+              {errorMsg && <p className="admin-form-error">{errorMsg}</p>}
+            </div>
+            <div className="admin-modal-foot">
+              <button className="admin-btn-secondary" onClick={closeReset} disabled={isPending}>{resetPassword ? "Done" : "Cancel"}</button>
+              {!resetPassword && (
+                <button className="admin-btn-primary" onClick={confirmReset} disabled={isPending}>
+                  {isPending ? <Loader2 size={14} className="admin-spin" /> : <KeyRound size={14} />}
+                  Generate new password
+                </button>
+              )}
             </div>
           </div>
         </div>

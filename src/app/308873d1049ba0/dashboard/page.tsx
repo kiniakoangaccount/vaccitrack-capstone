@@ -26,6 +26,10 @@ interface Profile {
   created_at: string;
 }
 
+interface PendingProfile extends Profile {
+  idDocumentUrl: string | null;
+}
+
 interface FeedbackRow {
   id: number;
   name: string | null;
@@ -80,7 +84,7 @@ export default async function AdminDashboardPage({
 
   // ── Tab data ──────────────────────────────────────────────
   let profiles: Profile[] = [];
-  let pendingProfiles: Profile[] = [];
+  let pendingProfiles: PendingProfile[] = [];
   let feedbackRows: FeedbackRow[] = [];
   let auditRows: AuditRow[] = [];
 
@@ -95,7 +99,11 @@ export default async function AdminDashboardPage({
     const { data } = await db!.from("profiles")
       .select("id, full_name, username, role, status, contact_number, id_document_reference, created_at")
       .eq("status", "pending").order("created_at", { ascending: false });
-    pendingProfiles = (data as Profile[]) ?? [];
+    pendingProfiles = await Promise.all(((data as Profile[]) ?? []).map(async (p) => {
+      if (!p.id_document_reference) return { ...p, idDocumentUrl: null };
+      const { data: signed } = await db!.storage.from("id-documents").createSignedUrl(p.id_document_reference, 600);
+      return { ...p, idDocumentUrl: signed?.signedUrl ?? null };
+    }));
   }
 
   if (supaCfg && tab === "feedback") {

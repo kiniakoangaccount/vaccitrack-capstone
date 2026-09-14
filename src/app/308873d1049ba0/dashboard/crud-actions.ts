@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAdminSession } from "../actions";
 
@@ -39,6 +40,31 @@ export async function updateUserStatus(userId: string, status: string): Promise<
     if (error) return { error: error.message };
     revalidatePath(DASH);
     return {};
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+export async function resetUserPassword(userId: string): Promise<{ password?: string; error?: string }> {
+  try {
+    const db = await requireAdmin();
+    const session = await getAdminSession();
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#%*-_";
+    const bytes = randomBytes(16);
+    const password = Array.from(bytes, (b) => chars[b % chars.length]).join("");
+
+    const { error } = await db.auth.admin.updateUserById(userId, { password });
+    if (error) return { error: error.message };
+
+    await db.from("audit_log").insert({
+      user_id: null,
+      action: "UPDATE",
+      table_name: "auth.users",
+      notes: `Administrator "${session?.username}" reset the password for account ${userId}.`,
+    });
+
+    revalidatePath(DASH);
+    return { password };
   } catch (e) {
     return { error: (e as Error).message };
   }
