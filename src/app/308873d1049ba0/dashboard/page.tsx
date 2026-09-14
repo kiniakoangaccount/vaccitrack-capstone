@@ -5,15 +5,17 @@ import UsersPanel from "./UsersPanel";
 import PendingPanel from "./PendingPanel";
 import FeedbackPanel from "./FeedbackPanel";
 import AuditPanel from "./AuditPanel";
+import InvitesPanel from "./InvitesPanel";
+import { listStaffInvites, type StaffInvite } from "./crud-actions";
 import { writeAuditLog, simulateSmsAlert } from "../../audit-actions";
 import {
   ShieldCheck, Users, PawPrint, Activity, Bell,
   ClipboardList, LogOut, MessageSquare, Clock, XCircle,
-  Send, CheckCircle2, AlertTriangle,
+  Send, CheckCircle2, AlertTriangle, UserPlus,
 } from "lucide-react";
 import { SmsSimForm } from "./SmsSimForm";
 
-type Tab = "overview" | "users" | "pending" | "feedback" | "audit";
+type Tab = "overview" | "users" | "pending" | "feedback" | "audit" | "invites";
 
 interface Profile {
   id: string;
@@ -87,6 +89,7 @@ export default async function AdminDashboardPage({
   let pendingProfiles: PendingProfile[] = [];
   let feedbackRows: FeedbackRow[] = [];
   let auditRows: AuditRow[] = [];
+  let invites: StaffInvite[] = [];
 
   if (supaCfg && tab === "users") {
     const { data } = await db!.from("profiles")
@@ -113,6 +116,11 @@ export default async function AdminDashboardPage({
     feedbackRows = (data as FeedbackRow[]) ?? [];
   }
 
+  if (supaCfg && tab === "invites") {
+    const { invites: rows } = await listStaffInvites();
+    invites = rows ?? [];
+  }
+
   if (supaCfg && tab === "audit") {
     const { data } = await db!.from("audit_log")
       .select("id, user_id, action, table_name, record_id, notes, created_at")
@@ -124,6 +132,7 @@ export default async function AdminDashboardPage({
     { key: "overview",  label: "Overview",             icon: <Activity size={16} /> },
     { key: "users",     label: "User accounts",        icon: <Users size={16} />,          badge: stats.users },
     { key: "pending",   label: "Pending verification", icon: <Clock size={16} />,          badge: stats.pending > 0 ? stats.pending : undefined },
+    { key: "invites",   label: "Invite staff",         icon: <UserPlus size={16} /> },
     { key: "feedback",  label: "Feedback",             icon: <MessageSquare size={16} />,  badge: stats.feedback > 0 ? stats.feedback : undefined },
     { key: "audit",     label: "Audit log",            icon: <ShieldCheck size={16} /> },
   ];
@@ -292,6 +301,18 @@ export default async function AdminDashboardPage({
                 <p className="heading-sub">Approve civilian registrations to grant access, or reject invalid submissions.</p>
               </div>
               {!supaCfg ? <NotConfigured /> : <PendingPanel profiles={pendingProfiles} />}
+            </>
+          )}
+
+          {/* ── INVITE STAFF ── */}
+          {tab === "invites" && (
+            <>
+              <div className="admin-page-heading">
+                <p className="eyebrow">STAFF ONBOARDING</p>
+                <h1>Invite staff</h1>
+                <p className="heading-sub">Generate a role-locked registration link for a BHW, veterinarian, or administrator. Each link works once and expires after 7 days.</p>
+              </div>
+              {!supaCfg ? <NotConfigured /> : <InvitesPanel invites={invites} />}
             </>
           )}
 

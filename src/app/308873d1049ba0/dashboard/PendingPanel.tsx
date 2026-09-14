@@ -8,12 +8,21 @@ interface Profile {
   id: string;
   full_name: string;
   username: string | null;
+  role: string;
   status: string;
   contact_number: string | null;
   id_document_reference: string | null;
   idDocumentUrl: string | null;
   created_at: string;
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  client: "Civilian / pet owner",
+  bhw: "Barangay Health Worker",
+  veterinarian: "Veterinarian",
+  admin: "Administrator application",
+  viewer: "Viewer",
+};
 
 export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -62,6 +71,7 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
           </div>
 
           <dl className="admin-pending-meta">
+            <div><dt>Requesting</dt><dd>{ROLE_LABELS[p.role] ?? p.role}</dd></div>
             <div><dt>Contact</dt><dd>{p.contact_number ?? "—"}</dd></div>
             <div>
               <dt>Registered</dt>
