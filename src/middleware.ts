@@ -5,11 +5,11 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Protect the hidden admin dashboard
-  if (pathname.startsWith("/x7k2/dashboard")) {
+  if (pathname.startsWith("/308873d1049ba0/dashboard")) {
     const session = request.cookies.get("admin_session");
     if (!session?.value) {
       const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/x7k2";
+      loginUrl.pathname = "/308873d1049ba0";
       loginUrl.search = "";
       return NextResponse.redirect(loginUrl);
     }
@@ -24,5 +24,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/x7k2/dashboard/:path*", "/admin/:path*", "/admin"],
+  matcher: ["/308873d1049ba0/dashboard/:path*", "/admin/:path*", "/admin"],
 };

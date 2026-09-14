@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAdminSession } from "../actions";
 
-const DASH = "/x7k2/dashboard";
+const DASH = "/308873d1049ba0/dashboard";
 
 async function requireAdmin() {
   const session = await getAdminSession();

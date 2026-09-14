@@ -51,7 +51,7 @@ export default async function AdminDashboardPage({
   searchParams: Promise<Record<string, string>>;
 }) {
   const session = await getAdminSession();
-  if (!session) redirect("/x7k2");
+  if (!session) redirect("/308873d1049ba0");
 
   const params = await searchParams;
   const tab = (params.tab ?? "overview") as Tab;
@@ -133,7 +133,7 @@ export default async function AdminDashboardPage({
           {navItems.map((item) => (
             <a
               key={item.key}
-              href={`/x7k2/dashboard?tab=${item.key}`}
+              href={`/308873d1049ba0/dashboard?tab=${item.key}`}
               className={`admin-nav-item admin-nav-link${tab === item.key ? " admin-nav-item-active" : ""}`}
             >
               {item.icon}
@@ -215,7 +215,7 @@ export default async function AdminDashboardPage({
               </div>
 
               <div className="admin-quick-grid">
-                <a href="/x7k2/dashboard?tab=pending" className="admin-quick-card admin-quick-warn">
+                <a href="/308873d1049ba0/dashboard?tab=pending" className="admin-quick-card admin-quick-warn">
                   <Clock size={20} />
                   <div>
                     <strong>Pending verifications</strong>
@@ -223,7 +223,7 @@ export default async function AdminDashboardPage({
                   </div>
                   <span>Review →</span>
                 </a>
-                <a href="/x7k2/dashboard?tab=feedback" className="admin-quick-card admin-quick-blue">
+                <a href="/308873d1049ba0/dashboard?tab=feedback" className="admin-quick-card admin-quick-blue">
                   <MessageSquare size={20} />
                   <div>
                     <strong>Unread feedback</strong>
@@ -231,7 +231,7 @@ export default async function AdminDashboardPage({
                   </div>
                   <span>View →</span>
                 </a>
-                <a href="/x7k2/dashboard?tab=audit" className="admin-quick-card admin-quick-green">
+                <a href="/308873d1049ba0/dashboard?tab=audit" className="admin-quick-card admin-quick-green">
                   <ShieldCheck size={20} />
                   <div>
                     <strong>Audit log</strong>
@@ -245,7 +245,7 @@ export default async function AdminDashboardPage({
                 <div className="admin-info-card">
                   <div className="admin-info-head"><ShieldCheck size={16} /><span>Recent activity</span></div>
                   <p className="admin-muted">The audit log shows every create, update, delete, and SMS operation across the system.</p>
-                  <a href="/x7k2/dashboard?tab=audit" className="admin-link">View audit log <span>→</span></a>
+                  <a href="/308873d1049ba0/dashboard?tab=audit" className="admin-link">View audit log <span>→</span></a>
                 </div>
                 <div className="admin-info-card">
                   <div className="admin-info-head"><CheckCircle2 size={16} /><span>SMS simulation</span></div>

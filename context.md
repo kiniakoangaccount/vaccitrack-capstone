@@ -75,7 +75,7 @@ This document tracks parity between the original PHP/MySQL system (`robotograhv2
 | `src/app/notification-actions.ts` | Notification read/create actions (⚠️ not yet wired to UI) |
 | `src/app/vaccination-actions.ts` | Vaccination records |
 | `src/app/settings-actions.ts` | Purok/breed/vaccine CRUD |
-| `src/app/x7k2/dashboard/*` | Admin panels (Users, Pending, Feedback, Audit, SMS) |
+| `src/app/308873d1049ba0/dashboard/*` | Admin panels (Users, Pending, Feedback, Audit, SMS) |
 | `supabase/schema.sql` | DB schema (animals, puroks, vaccination_history, notifications, audit_log, feedback, users) |
 
 ---

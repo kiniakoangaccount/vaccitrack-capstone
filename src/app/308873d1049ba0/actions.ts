@@ -37,17 +37,17 @@ export async function adminLogin(formData: FormData): Promise<{ error: string } 
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/x7k2",
+    path: "/308873d1049ba0",
     maxAge: SESSION_MAX_AGE,
   });
 
-  redirect("/x7k2/dashboard");
+  redirect("/308873d1049ba0/dashboard");
 }
 
 export async function adminLogout(): Promise<never> {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE);
-  redirect("/x7k2");
+  redirect("/308873d1049ba0");
 }
 
 export async function getAdminSession(): Promise<{ username: string } | null> {

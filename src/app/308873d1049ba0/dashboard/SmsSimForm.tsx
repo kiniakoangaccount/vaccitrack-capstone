@@ -23,7 +23,7 @@ export function SmsSimForm({ onSimulated }: SmsSimFormProps = {}) {
     params.set("message", message);
     params.set("checkAnnotations", checkAnnotations ? "on" : "off");
     try {
-      const res = await fetch("/x7k2/dashboard?tab=overview", {
+      const res = await fetch("/308873d1049ba0/dashboard?tab=overview", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: params.toString(),
