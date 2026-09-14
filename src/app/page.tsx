@@ -637,11 +637,6 @@ function Landing({ onSignIn, isTransitioning }: { onSignIn: () => void; isTransi
     return () => observer.disconnect();
   }, []);
 
-  function smoothScrollTo(id: string) {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth" });
-  }
-
   return (
     <main className={`landing-page page-enter ${isTransitioning ? "page-exit" : ""}`}>
       <div className={`landing-nav-wrap${scrolled ? " scrolled" : ""}`}>
@@ -651,8 +646,6 @@ function Landing({ onSignIn, isTransitioning }: { onSignIn: () => void; isTransi
             <span><strong>VacciTrack</strong><small>BRGY. ESTEFANIA</small></span>
           </button>
           <nav aria-label="Public navigation">
-            <a href="#capabilities" onClick={(e) => { e.preventDefault(); smoothScrollTo("capabilities"); }}>Capabilities</a>
-            <a href="#why-it-matters" onClick={(e) => { e.preventDefault(); smoothScrollTo("why-it-matters"); }}>Why it matters</a>
             <button className="landing-nav-action" onClick={onSignIn}>Sign in <span>→</span></button>
           </nav>
         </header>
@@ -675,38 +668,6 @@ function Landing({ onSignIn, isTransitioning }: { onSignIn: () => void; isTransi
         <div><strong>6</strong><small>Puroks monitored</small></div>
         <div><strong>4,800<span>+</span></strong><small>Alerts supported</small></div>
       </section>
-      <section className="landing-features" id="capabilities">
-        <div className="landing-section-intro reveal">
-          <div className="landing-kicker">SYSTEM CAPABILITIES</div>
-          <h2>Everything needed for<br /><em>effective herd immunity</em></h2>
-          <p>VacciTrack centralizes animal health data for barangay teams and pet owners in one accessible platform.</p>
-        </div>
-        <div className="landing-feature-grid">
-          <article className="reveal reveal-delay-1"><span>⌖</span><h3>Coverage mapping</h3><p>See vaccination coverage across puroks and prioritize field visits.</p></article>
-          <article className="reveal reveal-delay-2"><span>✣</span><h3>Vaccination tracking</h3><p>Maintain a clear record of vaccination dates and upcoming due dates.</p></article>
-          <article className="reveal reveal-delay-3"><span>◌</span><h3>Planning tools</h3><p>Identify overdue animals and organize the next vaccination drive.</p></article>
-          <article className="reveal reveal-delay-4"><span>▤</span><h3>Reports and risk</h3><p>Compare coverage and spot areas below the 70% target.</p></article>
-          <article className="reveal reveal-delay-5"><span>♧</span><h3>Role-based access</h3><p>Keep staff workflows protected with Supabase authentication and RLS.</p></article>
-          <article className="reveal reveal-delay-6"><span>☁</span><h3>Cloud infrastructure</h3><p>Access the latest registry from any device through Vercel and Supabase.</p></article>
-        </div>
-      </section>
-      <section className="landing-why" id="why-it-matters">
-        <div className="landing-why-image reveal" />
-        <div className="landing-why-content reveal reveal-delay-2">
-          <div className="landing-kicker">WHY IT MATTERS</div>
-          <h2>Protecting community health,<br /><em>one animal at a time</em></h2>
-          <p>Rabies is preventable with proper vaccination. Systematic tracking closes the gaps.</p>
-          <ul>
-            <li>Purok-level coverage helps health workers decide where to go next.</li>
-            <li>Owners can keep their animal records current and easy to review.</li>
-            <li>Cloud-backed records reduce the risk of losing critical health data.</li>
-          </ul>
-        </div>
-      </section>
-      <footer className="landing-footer">
-        <div><strong>VacciTrack</strong> · Barangay Estefania Animal Vaccination Monitoring System</div>
-        <div>© 2026 Barangay Estefania, Bacolod City 6100</div>
-      </footer>
     </main>
   );
 }
