@@ -101,6 +101,15 @@ alter table public.animals add column if not exists longitude numeric(10, 7);
 alter table public.animals add column if not exists color text;
 alter table public.animals add column if not exists notes text;
 alter table public.animals add column if not exists updated_at timestamptz not null default now();
+alter table public.animals add column if not exists pound_status text;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'animals_pound_status_check') then
+    alter table public.animals add constraint animals_pound_status_check
+      check (pound_status is null or pound_status in ('Impounded', 'Under Observation', 'Up for Adoption', 'Reclaimed'));
+  end if;
+end $$;
 
 do $$
 begin

@@ -1,27 +1,17 @@
 "use server";
 
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { getAuthenticatedUser } from "@/lib/supabase-server";
 
 export async function queueVaccinationReminders(
   animalIds: number[],
   message: string,
 ): Promise<{ error?: string; queued?: number }> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const db = createAdminClient();
-  if (!url || !anonKey || !db) return { error: "Service unavailable." };
+  if (!db) return { error: "Service unavailable." };
 
-  const cookieStore = await cookies();
-  const client = createServerClient(url, anonKey, {
-    cookies: {
-      getAll: () => cookieStore.getAll(),
-      setAll: () => undefined,
-    },
-  });
-  const { data: { user } } = await client.auth.getUser();
-  if (!user) return { error: "You must be signed in." };
+  const { user, error: authError } = await getAuthenticatedUser();
+  if (!user) return { error: authError ?? "You must be signed in." };
 
   const { data: profile } = await db.from("profiles").select("role").eq("id", user.id).maybeSingle();
   if (!profile || !["admin", "veterinarian", "bhw"].includes(profile.role)) return { error: "Only staff accounts can send reminders." };

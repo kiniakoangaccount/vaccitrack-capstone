@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase-admin";
+import { getAuthenticatedUser } from "@/lib/supabase-server";
 
 function getPurokName(puroks: unknown): string {
   if (!puroks) return "";
@@ -54,8 +55,19 @@ export async function exportAnimalsCsv(
   const db = createAdminClient();
   if (!db) return { error: "Service unavailable." };
 
+  const { user, error: authError } = await getAuthenticatedUser();
+  if (!user) return { error: authError ?? "You must be signed in." };
+
+  const { data: profile } = await db.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  const role = profile?.role;
+  if (!role || !["admin", "veterinarian", "bhw", "client"].includes(role)) {
+    return { error: "You are not authorized to export reports." };
+  }
+  const isClient = role === "client";
+
   let query = db.from("animals").select("id, name, species, classification, breed, age, sex, color, owner_name, contact_number, impound_area, vaccinated, vaccine_date, next_due_date, vaccine_type, latitude, longitude, notes")
     .order("name");
+  if (isClient) query = query.eq("user_id", user.id);
 
   if (params.query) {
     const term = params.query.toLowerCase();

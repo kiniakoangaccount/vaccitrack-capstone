@@ -42,7 +42,6 @@ interface AnimalDetailPanelProps {
   history: VaccinationHistoryRow[];
   vaccines: string[];
   canManage: boolean;
-  userId: string;
   onClose: () => void;
   onRecordAdded: () => void;
 }
@@ -52,7 +51,6 @@ export default function AnimalDetailPanel({
   history,
   vaccines,
   canManage,
-  userId,
   onClose,
   onRecordAdded,
 }: AnimalDetailPanelProps) {
@@ -88,7 +86,6 @@ export default function AnimalDetailPanel({
       vaccineType: vaccineType || undefined,
       administeredBy: administeredBy || undefined,
       notes: notes || undefined,
-      recordedBy: userId,
     });
     if (err) {
       setError(err);

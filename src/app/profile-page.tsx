@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { updateProfile, updatePassword } from "./profile-actions";
 import { ShieldCheck, Bell, Eye, EyeOff, User, Mail, Phone, Key, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
@@ -19,7 +20,8 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!supabase) return;
-    void supabase.auth.getUser().then(async ({ data: { user } }) => {
+    void supabase.auth.getUser().then(async (result: { data: { user: SupabaseUser | null } }) => {
+      const user = result.data.user;
       if (!user) return;
       const { data } = await supabase.from("profiles").select("full_name, contact_number").eq("id", user.id).maybeSingle();
       setProfile({ fullName: data?.full_name ?? "", email: user.email ?? "", contact: data?.contact_number ?? "" });
