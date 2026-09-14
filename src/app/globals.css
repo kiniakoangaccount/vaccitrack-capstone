@@ -10,7 +10,7 @@ html { scroll-behavior: smooth; }
 * { box-sizing: border-box; }
 .auth-form select { width: 100%; padding: 11px; color: var(--ink); background: #fbfdfb; border: 1px solid #dce6df; border-radius: 5px; outline: 0; font-size: 12px; }.auth-form select:disabled { color: #5c7067; cursor: not-allowed; opacity: 1; }
 @media (max-width: 840px) { .landing-nav nav { display: flex; gap: 0; }.landing-nav nav a { display: none; }.landing-nav-action { padding-left: 0; border-left: 0; } }
-.landing-page { height: 100svh; min-height: 100svh; overflow: hidden; display: flex; flex-direction: column; }
+.landing-page { min-height: 100svh; display: flex; flex-direction: column; }
 .landing-nav-wrap { flex: 0 0 auto; }
 .landing-hero { width: 100%; flex: 1 1 auto; min-height: 0; }
 .landing-hero-image { right: 0; left: 35%; background-position: center; }
