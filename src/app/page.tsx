@@ -27,6 +27,8 @@ import { createClient } from "@/lib/supabase";
 import { registerUser } from "./register-action";
 import { resolveUsernameToEmail } from "./signin-action";
 import { exportAnimalsCsv } from "./audit-actions";
+import { markAllNotificationsRead, markNotificationRead } from "./notification-actions";
+import { queueVaccinationReminders } from "./reminder-actions";
 import LeafletMap from "./LeafletMap";
 
 type Animal = {
@@ -42,6 +44,7 @@ type Animal = {
   purok: string;
   vaccinated: boolean;
   status: "Vaccinated" | "Due soon" | "Overdue" | "Not scheduled";
+  vaccineDate?: string | null;
   nextDueDate: string | null;
   nextDue: string;
   contact: string;
@@ -63,6 +66,7 @@ type SupabaseAnimalRecord = {
   color?: string | null;
   owner_name: string;
   vaccinated: boolean;
+  vaccine_date: string | null;
   next_due_date: string | null;
   contact_number: string | null;
   impound_area: string | null;
@@ -190,10 +194,11 @@ export default function Home() {
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [chartPeriod, setChartPeriod] = useState("Last 6 months");
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [reportRange, setReportRange] = useState({ from: "2026-01-01", to: "2026-12-31" });
   const [bulkMessage, setBulkMessage] = useState("Your animal's vaccination is due. Please visit the barangay health station.");
-  const [bulkSent, setBulkSent] = useState(false);
+  const [bulkSent, setBulkSentState] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const supabaseConfigured = Boolean(createClient());
 
@@ -248,6 +253,9 @@ export default function Home() {
       const resolvedRole = profile?.role ?? "viewer";
       setAuthUser({ id: user.id, email: user.email ?? "", fullName: profile?.full_name ?? user.email ?? "VacciTrack user", role: resolvedRole, status });
       setAuthChecked(true);
+      const { data: notificationRows } = await supabase.from("notifications").select("id, title, message, type, is_read, created_at").eq("user_id", user.id).eq("is_read", false).order("created_at", { ascending: false }).limit(20);
+      if (!mounted) return;
+      setNotifications((notificationRows ?? []) as UserNotification[]);
 
       // Clients only own their own records (RLS: user_id = auth.uid()). Querying
       // the full registry as a client returns nothing and can blank the UI, so
@@ -257,7 +265,7 @@ export default function Home() {
 
       const today = new Date();
       const todayIso = today.toISOString().slice(0, 10);
-      const recentQuery = supabase.from("animals").select("id, name, species, owner_name, contact_number, impound_area, vaccinated, next_due_date, puroks(name)").order("created_at", { ascending: false }).limit(25);
+      const recentQuery = supabase.from("animals").select("id, name, species, owner_name, contact_number, impound_area, vaccinated, vaccine_date, next_due_date, puroks(name)").order("created_at", { ascending: false });
       const totalQuery = supabase.from("animals").select("id", { count: "exact", head: true });
       const vaccinatedQuery = supabase.from("animals").select("id", { count: "exact", head: true }).eq("vaccinated", true);
       const dueQuery = supabase.from("animals").select("id", { count: "exact", head: true }).gte("next_due_date", todayIso).lte("next_due_date", new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10));
@@ -290,6 +298,7 @@ export default function Home() {
             color: record.color ?? undefined,
             owner: record.owner_name,
             vaccinated,
+            vaccineDate: record.vaccine_date ?? null,
             purok: Array.isArray(record.puroks) ? record.puroks[0]?.name ?? "Unassigned" : record.puroks?.name ?? "Unassigned",
             status: getAnimalStatus(vaccinated, nextDueDate, today),
             nextDueDate,
@@ -384,6 +393,35 @@ export default function Home() {
     window.location.reload();
   }
 
+  async function readNotification(notificationId: number) {
+    const result = await markNotificationRead(notificationId);
+    if (!result.error) setNotifications((current) => current.filter((notification) => notification.id !== notificationId));
+  }
+
+  async function readAllNotifications() {
+    if (!authUser) return;
+    const result = await markAllNotificationsRead(authUser.id);
+    if (!result.error) setNotifications([]);
+  }
+
+  async function queueReminders() {
+    setBulkSentState(false);
+    const eligibleIds = reportAnimals
+      .filter((animal) => (animal.status === "Due soon" || animal.status === "Overdue") && typeof animal.id === "number")
+      .map((animal) => animal.id as number);
+    const result = await queueVaccinationReminders(eligibleIds, bulkMessage);
+    if (result.error) {
+      setLoadError(result.error);
+      return;
+    }
+    setBulkSentState(true);
+  }
+
+  function setBulkSent(value: boolean) {
+    setBulkSentState(value);
+    if (value) void queueReminders();
+  }
+
   const filteredAnimals = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return animalRecords;
@@ -422,6 +460,26 @@ export default function Home() {
     expiring: reportAnimals.filter((animal) => animal.status === "Due soon" || animal.status === "Overdue").length,
     impounded: reportAnimals.filter((animal) => animal.impoundArea).length,
   }), [reportAnimals]);
+
+  const chartMonths = useMemo(() => {
+    const today = new Date();
+    return Array.from({ length: 6 }, (_, index) => {
+      const month = new Date(today.getFullYear(), today.getMonth() - 5 + index, 1);
+      const key = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+      const vaccinated = animalRecords.filter((animal) => animal.vaccineDate?.startsWith(key)).length;
+      const coverage = animalRecords.length ? Math.round((vaccinated / animalRecords.length) * 100) : 0;
+      return { label: month.toLocaleDateString("en-US", { month: "short" }), value: Math.max(0, Math.min(100, coverage)) };
+    });
+  }, [animalRecords]);
+
+  useEffect(() => {
+    const bars = document.querySelectorAll<HTMLElement>(".chart-panel .bar");
+    const labels = document.querySelectorAll<HTMLElement>(".chart-panel .chart-x span");
+    chartMonths.forEach((month, index) => {
+      if (bars[index]) bars[index].style.height = `${month.value}%`;
+      if (labels[index]) labels[index].textContent = month.label;
+    });
+  }, [chartMonths]);
 
   async function submitFeedback(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -564,11 +622,11 @@ export default function Home() {
           {isStaff && <button className={`nav-item ${activeTab === "Team" ? "selected" : ""}`} onClick={() => setActiveTab("Team")}><UsersRound size={17} /> Team members</button>}
           {isAdmin && <button className={`nav-item ${activeTab === "Audit" ? "selected" : ""}`} onClick={() => setActiveTab("Audit")}><ShieldCheck size={17} /> Audit log</button>}
         </nav>
-        <div className="sidebar-footer"><div className="user-row"><span className="avatar">{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span><span><strong>{authUser?.fullName ?? "Maria Cruz"}</strong><small>{authUser?.role ?? "Demo administrator"}</small></span>{authUser ? <button className="icon-button" aria-label="Account options" aria-haspopup="menu" aria-expanded={showAccountMenu} onClick={() => setShowAccountMenu((current) => !current)}><ChevronDown size={15} /></button> : <ChevronDown size={15} />}</div>{showAccountMenu && authUser && <div className="account-menu" role="menu"><button role="menuitem" onClick={() => { setActiveTab("Profile"); setShowAccountMenu(false); }}><CircleUserRound size={15} /> Profile</button><button role="menuitem" onClick={() => { setActiveTab("Settings"); setShowAccountMenu(false); }}><ShieldCheck size={15} /> Settings</button><button role="menuitem" onClick={signOut}><X size={15} /> Sign out</button></div>}</div>
+        <div className="sidebar-footer"><div className="user-row"><span className="avatar">{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span><span><strong>{authUser?.fullName ?? "Maria Cruz"}</strong><small>{authUser?.role ?? "Demo administrator"}</small></span>{authUser ? <button className="icon-button" aria-label="Account options" aria-haspopup="menu" aria-expanded={showAccountMenu} onClick={() => setShowAccountMenu((current) => !current)}><ChevronDown size={15} /></button> : <ChevronDown size={15} />}</div>{showAccountMenu && authUser && <div className="account-menu" role="menu"><button role="menuitem" onClick={() => { window.location.href = "/profile"; }}><CircleUserRound size={15} /> Profile</button><button role="menuitem" onClick={() => { window.location.href = "/settings"; }}><ShieldCheck size={15} /> Settings</button><button role="menuitem" onClick={signOut}><X size={15} /> Sign out</button></div>}</div>
       </aside>
 
       <section className="content-area">
-        <header className="topbar"><div className="crumb">Operations <span>/</span> {activeTab}</div><div className="top-actions">{isStaff && <button className="icon-button" aria-label="Notifications" aria-expanded={showNotifications} onClick={() => setShowNotifications((current) => !current)}><Bell size={18} /><span className="notification-dot" /></button>}<button className="profile-button" aria-haspopup="menu" aria-expanded={showAccountMenu} onClick={() => { if (authUser) { setShowAccountMenu((current) => !current); setShowNotifications(false); } else { setActiveTab("Feedback"); } }}><CircleUserRound size={20} /> <span>{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span></button></div>{showNotifications && isStaff && <div className="notification-panel"><div className="notification-panel-head"><strong>Notifications</strong><button onClick={() => setShowNotifications(false)}>Close</button></div><button className="notification-item" onClick={() => { setActiveTab("Planning"); setShowNotifications(false); }}><span className="notification-icon"><Syringe size={15} /></span><span><strong>{dashboardStats.dueSoon} vaccinations due soon</strong><small>Review the vaccination plan for upcoming visits.</small></span></button><button className="notification-item" onClick={() => { setActiveTab("Risk"); setShowNotifications(false); }}><span className="notification-icon danger"><Bell size={15} /></span><span><strong>{dashboardStats.overdue} overdue records</strong><small>Prioritize follow-up in the Risk Analysis workspace.</small></span></button></div>}</header>
+        <header className="topbar"><div className="crumb">Operations <span>/</span> {activeTab}</div><div className="top-actions">{authUser && <button className="icon-button" aria-label="Notifications" aria-expanded={showNotifications} onClick={() => setShowNotifications((current) => !current)}><Bell size={18} />{notifications.length > 0 && <span className="notification-dot" />}</button>}<button className="profile-button" aria-haspopup="menu" aria-expanded={showAccountMenu} onClick={() => { if (authUser) { setShowAccountMenu((current) => !current); setShowNotifications(false); } else { setActiveTab("Feedback"); } }}><CircleUserRound size={20} /> <span>{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span></button></div>{showNotifications && authUser && <div className="notification-panel"><div className="notification-panel-head"><strong>Notifications</strong><button onClick={() => void readAllNotifications()}>Mark all read</button></div>{notifications.length === 0 ? <p className="notification-empty">You are all caught up.</p> : notifications.map((notification) => <button className="notification-item" key={notification.id} onClick={() => void readNotification(notification.id)}><span className={`notification-icon ${notification.type === "danger" ? "danger" : ""}`}><Bell size={15} /></span><span><strong>{notification.title}</strong><small>{notification.message}</small></span></button>)}</div>}</header>
         <div className="page-content">
           <div className="page-heading"><div><p className="eyebrow">THURSDAY, SEPTEMBER 11, 2026</p><h1>{activeTab === "Overview" ? `Good morning, ${authUser?.fullName.split(" ")[0] ?? "Maria"}.` : activeTab}</h1><p className="heading-sub">{activeTab === "Overview" ? "Here is what needs your attention across the barangay." : "Barangay Estefania animal health operations"}</p></div>{canManageAnimals && <button className="primary-button" onClick={() => setShowRegister(true)}><Plus size={17} /> Register animal</button>}</div>
 

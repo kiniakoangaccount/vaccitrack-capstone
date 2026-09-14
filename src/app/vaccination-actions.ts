@@ -31,5 +31,14 @@ export async function addVaccinationRecord(
     .single();
 
   if (error) return { error: error.message };
+
+  const { error: animalError } = await db.from("animals").update({
+    vaccinated: true,
+    vaccine_date: payload.vaccineDate,
+    next_due_date: payload.nextDueDate || null,
+    vaccine_type: payload.vaccineType || null,
+  }).eq("id", animalId);
+  if (animalError) return { error: animalError.message };
+
   return { id: data.id };
 }

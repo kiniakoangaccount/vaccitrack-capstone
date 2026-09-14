@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { updateProfile, updatePassword } from "./profile-actions";
 import { ShieldCheck, Bell, Eye, EyeOff, User, Mail, Phone, Key, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
@@ -15,6 +15,16 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [profile, setProfile] = useState({ fullName: "", email: "", contact: "" });
+
+  useEffect(() => {
+    if (!supabase) return;
+    void supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data } = await supabase.from("profiles").select("full_name, contact_number").eq("id", user.id).maybeSingle();
+      setProfile({ fullName: data?.full_name ?? "", email: user.email ?? "", contact: data?.contact_number ?? "" });
+    });
+  }, [supabase]);
 
   return (
     <main className="app-shell">
@@ -49,14 +59,12 @@ export default function ProfilePage() {
               <h2>Personal information</h2>
               <p className="heading-sub">This information is visible to barangay staff when they contact you about your animals.</p>
 
-              <form className="account-form" onSubmit={async (e) => {
+              <form className="account-form" key={profile.email || "profile"} onSubmit={async (e) => {
                 e.preventDefault();
                 setError("");
                 setSuccess("");
                 setSaving(true);
-                const { data: { user } } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
-                if (!user) { setSaving(false); setError("You must be signed in to update your profile."); return; }
-                const result = await updateProfile(user.id, {
+                const result = await updateProfile({
                   fullName: (e.currentTarget as HTMLFormElement).fullName.value.trim(),
                   email: (e.currentTarget as HTMLFormElement).email.value.trim(),
                   contact: (e.currentTarget as HTMLFormElement).contact.value.trim(),
@@ -66,13 +74,13 @@ export default function ProfilePage() {
                 setSuccess("Your contact details were updated.");
               }}>
                 <label>Full name
-                  <input className="account-input" name="fullName" defaultValue="VacciTrack user" required />
+                  <input className="account-input" name="fullName" defaultValue={profile.fullName} required />
                 </label>
                 <label>Email address
-                  <input className="account-input" type="email" name="email" defaultValue="user@example.com" required />
+                  <input className="account-input" type="email" name="email" defaultValue={profile.email} required />
                 </label>
                 <label>Contact number
-                  <input className="account-input" name="contact" defaultValue="+639171234567" inputMode="numeric" pattern="[0-9+]{7,15}" required />
+                  <input className="account-input" name="contact" defaultValue={profile.contact} inputMode="numeric" pattern="[0-9+]{7,15}" required />
                 </label>
                 <div className="account-actions">
                   <button className="primary-button" type="submit" disabled={saving}><User size={15} /> Save changes</button>
