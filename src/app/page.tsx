@@ -576,9 +576,8 @@ export default function Home() {
         setLoadError(result.error);
         return;
       }
-      if (!("buffer" in result)) return;
-      const bytes = new Uint8Array(result.buffer);
-      const blob = new Blob([bytes], { type: "text/csv;charset=utf-8" });
+      if (!("csv" in result)) return;
+      const blob = new Blob([result.csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;

@@ -51,7 +51,7 @@ export async function simulateSmsAlert(
 
 export async function exportAnimalsCsv(
   params: { query?: string; purok?: string } = {}
-): Promise<{ buffer: Buffer; filename: string } | { error?: string }> {
+): Promise<{ csv: string; filename: string } | { error?: string }> {
   const db = createAdminClient();
   if (!db) return { error: "Service unavailable." };
 
@@ -92,9 +92,9 @@ export async function exportAnimalsCsv(
     r.id, r.name, r.species, r.classification ?? "", r.breed ?? "", r.age ?? "", r.sex ?? "", r.color ?? "", r.owner_name, r.contact_number ?? "", r.impound_area ?? "", getPurokName((r as { puroks?: unknown }).puroks), r.vaccinated, r.vaccine_date ?? "", r.next_due_date ?? "", r.vaccine_type ?? "", r.latitude ?? "", r.longitude ?? "", r.notes ?? "",
   ].map(escaped).join(","));
 
-  const buffer = Buffer.from([header, ...body].join("\n"), "utf-8");
+  const csv = [header, ...body].join("\n");
   const filename = `vacciTrack-export-${new Date().toISOString().slice(0, 10)}.csv`;
-  return { buffer, filename };
+  return { csv, filename };
 }
 
 export async function fetchAuditLogPage(params: { page?: number; limit?: number; startDate?: string; endDate?: string; userId?: string; action?: string; tableName?: string }): Promise<{ rows: { id: number; user_id: string | null; action: string | null; table_name: string | null; record_id: number | null; ip_address: string | null; notes: string | null; created_at: string }[]; total: number; page: number }> {
