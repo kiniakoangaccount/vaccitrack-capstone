@@ -11,11 +11,14 @@ import { writeAuditLog, simulateSmsAlert } from "../../audit-actions";
 import {
   ShieldCheck, Users, PawPrint, Activity, Bell,
   ClipboardList, LogOut, MessageSquare, Clock, XCircle,
-  Send, CheckCircle2, AlertTriangle, UserPlus,
+  Send, CheckCircle2, AlertTriangle, UserPlus, MapPin,
 } from "lucide-react";
 import { SmsSimForm } from "./SmsSimForm";
+import AdminMapPanel from "./AdminMapPanel";
+import { purokOptions, getAnimalStatus } from "@/lib/map-data";
+import type { MapAnimal } from "../../LeafletMap";
 
-type Tab = "overview" | "users" | "pending" | "feedback" | "audit" | "invites";
+type Tab = "overview" | "users" | "pending" | "feedback" | "audit" | "invites" | "map";
 
 interface Profile {
   id: string;
@@ -90,6 +93,7 @@ export default async function AdminDashboardPage({
   let feedbackRows: FeedbackRow[] = [];
   let auditRows: AuditRow[] = [];
   let invites: StaffInvite[] = [];
+  let mapAnimals: MapAnimal[] = [];
 
   if (supaCfg && tab === "users") {
     const { data } = await db!.from("profiles")
@@ -128,12 +132,29 @@ export default async function AdminDashboardPage({
     auditRows = (data as AuditRow[]) ?? [];
   }
 
+  if (supaCfg && tab === "map") {
+    const { data } = await db!.from("animals")
+      .select("id, name, species, owner_name, vaccinated, next_due_date, latitude, longitude, puroks(name)");
+    mapAnimals = ((data as { id: number; name: string; species: string; owner_name: string; vaccinated: boolean; next_due_date: string | null; latitude: number | null; longitude: number | null; puroks: { name: string } | { name: string }[] | null }[]) ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      species: r.species,
+      owner: r.owner_name,
+      purok: Array.isArray(r.puroks) ? r.puroks[0]?.name ?? "Unassigned" : r.puroks?.name ?? "Unassigned",
+      vaccinated: r.vaccinated,
+      status: getAnimalStatus(r.vaccinated, r.next_due_date),
+      latitude: r.latitude,
+      longitude: r.longitude,
+    }));
+  }
+
   const navItems: { key: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: "overview",  label: "Overview",             icon: <Activity size={16} /> },
     { key: "users",     label: "User accounts",        icon: <Users size={16} />,          badge: stats.users },
     { key: "pending",   label: "Pending verification", icon: <Clock size={16} />,          badge: stats.pending > 0 ? stats.pending : undefined },
     { key: "invites",   label: "Invite staff",         icon: <UserPlus size={16} /> },
     { key: "feedback",  label: "Feedback",             icon: <MessageSquare size={16} />,  badge: stats.feedback > 0 ? stats.feedback : undefined },
+    { key: "map",       label: "Coverage map",         icon: <MapPin size={16} /> },
     { key: "audit",     label: "Audit log",            icon: <ShieldCheck size={16} /> },
   ];
 
@@ -325,6 +346,18 @@ export default async function AdminDashboardPage({
                 <p className="heading-sub">Click the status badge to cycle New → Reviewed → Resolved. Delete to remove.</p>
               </div>
               {!supaCfg ? <NotConfigured /> : <FeedbackPanel rows={feedbackRows} />}
+            </>
+          )}
+
+          {/* ── COVERAGE MAP ── */}
+          {tab === "map" && (
+            <>
+              <div className="admin-page-heading">
+                <p className="eyebrow">GEOSPATIAL COVERAGE</p>
+                <h1>Barangay coverage map</h1>
+                <p className="heading-sub">Every registered animal across every purok, for field planning.</p>
+              </div>
+              {!supaCfg ? <NotConfigured /> : <AdminMapPanel animals={mapAnimals} puroks={purokOptions} />}
             </>
           )}
 

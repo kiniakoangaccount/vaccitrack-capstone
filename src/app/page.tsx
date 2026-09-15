@@ -33,6 +33,7 @@ import { markAllNotificationsRead, markNotificationRead } from "./notification-a
 import { queueVaccinationReminders } from "./reminder-actions";
 import { updatePoundStatus, type PoundStatus } from "./pound-actions";
 import { getTeamMembers, type TeamMember } from "./team-actions";
+import { purokOptions, getAnimalStatus } from "@/lib/map-data";
 import AuditPanel from "./308873d1049ba0/dashboard/AuditPanel";
 import dynamic from "next/dynamic";
 
@@ -129,15 +130,6 @@ const vaccineOptions = [
   "Vanguard Plus 5/L (Dog Core)",
 ];
 
-const purokOptions = [
-  { id: 1, name: "The Palisades", latitude: 10.6685542, longitude: 122.9855123 },
-  { id: 2, name: "Bagong Silang North", latitude: 10.6695881, longitude: 122.987599 },
-  { id: 3, name: "Celine Homes East", latitude: 10.6705123, longitude: 122.9865456 },
-  { id: 4, name: "Bagong Silang South", latitude: 10.6675999, longitude: 122.9880111 },
-  { id: 5, name: "Zamora Street", latitude: 10.6710222, longitude: 122.9850333 },
-  { id: 6, name: "Celine Homes West", latitude: 10.6690444, longitude: 122.9890555 },
-];
-
 const statusStyles: Record<Animal["status"], string> = {
   Vaccinated: "status-good",
   "Due soon": "status-warn",
@@ -151,19 +143,6 @@ const poundStatusStyles: Record<PoundStatus, string> = {
   "Up for Adoption": "status-info",
   Reclaimed: "status-good",
 };
-
-function getAnimalStatus(vaccinated: boolean, nextDueDate: string | null, today = new Date()): Animal["status"] {
-  if (!nextDueDate) return vaccinated ? "Vaccinated" : "Not scheduled";
-
-  const dueDate = new Date(`${nextDueDate}T00:00:00`);
-  if (Number.isNaN(dueDate.getTime())) return vaccinated ? "Vaccinated" : "Not scheduled";
-
-  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const daysUntilDue = Math.round((dueDate.getTime() - todayMidnight.getTime()) / 86400000);
-  if (daysUntilDue < 0) return "Overdue";
-  if (daysUntilDue <= 30) return "Due soon";
-  return "Vaccinated";
-}
 
 function formatDueDate(nextDueDate: string | null) {
   if (!nextDueDate) return "Not scheduled";
