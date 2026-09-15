@@ -115,12 +115,12 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
       if (lat === undefined || lng === undefined || lat === null || lng === null) continue;
 
       const color = animal.vaccinated ? "#2f8065" : animal.status === "Overdue" ? "#c85f57" : "#c48732";
-      const icon = animal.species === "Cat" ? "🐈" : "🐕";
+      const icon = animal.species === "Cat" ? "C" : "D";
 
       const marker = L.marker([lat, lng], {
         icon: L.divIcon({
           className: "animal-marker",
-          html: `<span style="background:${color};color:#fff;border-radius:50%;display:grid;place-items:center;width:26px;height:26px;font-size:13px;">${icon}</span>`,
+          html: `<span style="background:${color};color:#fff;border-radius:50%;display:grid;place-items:center;width:26px;height:26px;font-size:13px;font-weight:700;">${icon}</span>`,
           iconSize: [26, 26],
           iconAnchor: [13, 13],
         }),

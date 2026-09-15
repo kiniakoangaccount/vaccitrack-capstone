@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, MapPin, Plus, Syringe, X } from "lucide-react";
+import { Cat, CheckCircle2, Dog, MapPin, Plus, Syringe, X } from "lucide-react";
 import { addVaccinationRecord } from "./vaccination-actions";
 
 export interface AnimalDetail {
@@ -116,7 +116,7 @@ export default function AnimalDetailPanel({
         <div className="animal-detail-grid">
           <div className="animal-detail-info">
             <div className="animal-detail-avatar">
-              <span>{animal.species === "Cat" ? "🐈" : "🐕"}</span>
+              <span>{animal.species === "Cat" ? <Cat size={20} /> : <Dog size={20} />}</span>
             </div>
             <div className="animal-detail-fields">
               <div><dt>Species</dt><dd>{animal.species}</dd></div>
