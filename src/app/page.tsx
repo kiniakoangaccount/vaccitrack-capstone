@@ -89,6 +89,7 @@ type SupabaseAnimalRecord = {
 };
 
 type DashboardStats = { registered: number; vaccinated: number; dueSoon: number; overdue: number };
+type FeedbackRow = { id: number; category: string; message: string; status: string; created_at: string };
 type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Reports" | "Risk" | "Map" | "Pound" | "Feedback" | "Team" | "Audit" | "Profile" | "Settings";
 
 function RoleBlocked({ role, message }: { role: string; message?: string }) {
@@ -148,6 +149,12 @@ const poundStatusStyles: Record<PoundStatus, string> = {
   "Under Observation": "status-warn",
   "Up for Adoption": "status-info",
   Reclaimed: "status-good",
+};
+
+const feedbackStatusStyles: Record<string, string> = {
+  New: "admin-badge-blue",
+  Reviewed: "admin-badge-amber",
+  Resolved: "admin-badge-green",
 };
 
 function getAnimalStatus(vaccinated: boolean, nextDueDate: string | null, today = new Date()): Animal["status"] {
@@ -211,6 +218,7 @@ export default function Home() {
   const [liveStats, setLiveStats] = useState<DashboardStats | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
+  const [feedbackRows, setFeedbackRows] = useState<FeedbackRow[]>([]);
   const [chartPeriod, setChartPeriod] = useState("Last 6 months");
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -237,6 +245,7 @@ export default function Home() {
   const isClient = userRole === "client";
   const isStaff = ["admin", "bhw"].includes(userRole);
   const isAdmin = userRole === "admin";
+  const isBhw = userRole === "bhw";
   // Clients may register their own animals; staff may register any animal.
   // Offline mode (no Supabase) keeps the button visible for all roles.
   const canManageAnimals = isStaff || isClient || !isLive;
@@ -367,6 +376,19 @@ export default function Home() {
       mounted = false;
     };
   }, [authUser, isStaff]);
+
+  useEffect(() => {
+    if (!authUser || !isBhw) return;
+    const supabase = createClient();
+    if (!supabase) return;
+    let mounted = true;
+    void supabase.from("feedback").select("id, category, message, status, created_at").order("created_at", { ascending: false }).limit(50).then(({ data }) => {
+      if (mounted) setFeedbackRows((data as FeedbackRow[]) ?? []);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [authUser, isBhw]);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -729,11 +751,11 @@ export default function Home() {
             {activeTab === "Risk" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">DECISION SUPPORT</p><h2>Risk analysis by purok</h2><p>Areas below 70% coverage need targeted follow-up.</p></div><span className="module-chip"><ShieldCheck size={14} /> 70% target</span></div><div className="risk-grid">{riskRows.map((row) => <article className={`risk-card risk-${row.risk.toLowerCase().replace(" ", "-")}`} key={row.purok}><div className="risk-card-head"><h3>{row.purok}</h3><span>{row.risk}</span></div><div className="risk-count"><strong>{row.rate}%</strong><small>{row.vaccinated} vaccinated of {row.total}</small></div><div className="progress"><span style={{ width: `${row.rate}%` }} /></div><p>{row.total === 0 ? "No animals registered in this purok." : row.rate < 70 ? `${Math.max(0, Math.ceil(row.total * .7) - row.vaccinated)} more needed to reach target.` : "Herd immunity target met."}</p></article>)}</div></div> : <RoleBlocked role={userRole} message="Risk analysis is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Map" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">GEOSPATIAL COVERAGE</p><h2>Barangay coverage map</h2><p>Use purok-level records to plan field visits and vaccination drives.</p></div><span className="module-chip"><MapPin size={14} /> {purokOptions.length} puroks monitored</span></div><LeafletMap animals={animalRecords.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species, owner: animal.owner, purok: animal.purok, vaccinated: animal.vaccinated, status: animal.status, latitude: animal.latitude, longitude: animal.longitude }))} puroks={purokOptions} /><div className="map-legend"><span><i className="legend-dot good" /> Vaccinated</span><span><i className="legend-dot warn" /> Due soon</span><span><i className="legend-dot danger" /> Overdue</span></div></div> : <RoleBlocked role={userRole} message="Coverage map is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Pound" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">STRAY &amp; POUND</p><h2>Stray dog directory</h2><p>Track impounded and stray animals through intake, observation, and outcome.</p></div><span className="module-chip"><HomeIcon size={14} /> {strayAnimals.length} strays</span></div><div className="pound-filters"><div className="search-box"><Search size={16} /><input aria-label="Search strays" placeholder="Search name, purok, or impound area..." value={poundQuery} onChange={(event) => setPoundQuery(event.target.value)} /></div><select value={poundStatusFilter} onChange={(event) => setPoundStatusFilter(event.target.value as PoundStatus | "All")}><option value="All">All statuses</option>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></div>{poundError && <p className="form-error">{poundError}</p>}{strayAnimals.length === 0 ? <div className="empty-state">No stray animals match the current filters.</div> : <div className="pound-grid">{strayAnimals.map((animal) => <article className="pound-card" key={`pound-${animal.id}`}><div className="pound-card-head"><h3>{animal.name}</h3><span className={`status ${poundStatusStyles[animal.poundStatus ?? "Impounded"]}`}><i />{animal.poundStatus ?? "Impounded"}</span></div><div className="pound-card-meta"><span>{animal.species} Â· {animal.purok}</span><span>{animal.impoundArea || "No impound area recorded"}</span></div><select className="pound-status-select" value={animal.poundStatus ?? "Impounded"} onChange={(event) => changePoundStatus(animal.id, event.target.value as PoundStatus)}>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></article>)}</div>}</div> : <RoleBlocked role={userRole} message="Stray and pound records are only available for staff accounts (admin, bhw)." />)}
-            {activeTab === "Feedback" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Feedback and suggestions</h2><p>Send notes to the barangay animal health team.</p></div></div>{feedbackSent ? <div className="feedback-success"><CheckCircle2 size={22} /><div><strong>Feedback submitted</strong><p>Thank you. Your message has been recorded for review.</p></div><button className="secondary-button" onClick={() => setFeedbackSent(false)}>Send another</button></div> : <form className="feedback-form" onSubmit={submitFeedback}><label>Category<select><option>Suggestion</option><option>Complaint</option><option>Compliment</option></select></label><label>Message<textarea required rows={5} placeholder="Tell us how to improve our service." value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} /></label><button className="primary-button" type="submit"><MessageSquare size={16} /> Submit feedback</button></form>}</div>}
+            {activeTab === "Feedback" && (isBhw ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Feedback inbox</h2><p>Messages civilians have sent to the barangay animal health team.</p></div></div>{feedbackRows.length === 0 ? <div className="empty-state">No feedback yet.</div> : <div className="admin-feedback-list">{feedbackRows.map((f) => <article key={f.id} className="admin-feedback-card"><div className="admin-feedback-head"><span className="admin-feedback-category">{f.category}</span><span className={`admin-badge ${feedbackStatusStyles[f.status] ?? "admin-badge-gray"}`}>{f.status}</span><span className="admin-muted admin-feedback-date">{new Date(f.created_at).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</span></div><p className="admin-feedback-msg">{f.message}</p></article>)}</div>}</div> : <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Feedback and suggestions</h2><p>Send notes to the barangay animal health team.</p></div></div>{feedbackSent ? <div className="feedback-success"><CheckCircle2 size={22} /><div><strong>Feedback submitted</strong><p>Thank you. Your message has been recorded for review.</p></div><button className="secondary-button" onClick={() => setFeedbackSent(false)}>Send another</button></div> : <form className="feedback-form" onSubmit={submitFeedback}><label>Category<select><option>Suggestion</option><option>Complaint</option><option>Compliment</option></select></label><label>Message<textarea required rows={5} placeholder="Tell us how to improve our service." value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} /></label><button className="primary-button" type="submit"><MessageSquare size={16} /> Submit feedback</button></form>}</div>)}
             {activeTab === "Team" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">MANAGEMENT</p><h2>Team members</h2><p>Staff access for the Barangay Estefania health team.</p></div></div><div className="team-list">{teamMembers.length === 0 ? <div className="empty-state">No staff accounts found.</div> : teamMembers.map((member) => <div className="team-row" key={member.id}><span className={`avatar${member.id === authUser?.id ? "" : " team-muted"}`}>{member.fullName.slice(0, 2).toUpperCase()}</span><span><strong>{member.fullName}{member.id === authUser?.id ? " (you)" : ""}</strong><small>{member.username ? `@${member.username}` : member.status}</small></span><em>{member.role}</em></div>)}</div></div> : <RoleBlocked role={userRole} message="Team members view is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Audit" && (isAdmin ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SECURITY</p><h2>Audit log</h2><p>Recent actions from this VacciTrack workspace.</p></div><span className="module-chip"><ShieldCheck size={14} /> Protected</span></div><AuditPanel /></div> : <RoleBlocked role={userRole} message="Audit log is only available for administrator accounts." />)}
             {activeTab === "Profile" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">ACCOUNT</p><h2>My profile</h2><p>Review the account details linked to this session.</p></div></div><div className="account-form"><label>Full name<input value={authUser?.fullName ?? ""} readOnly /></label><label>Email<input value={authUser?.email ?? ""} readOnly /></label><label>Role<input value={userRole} readOnly /></label><label>Account status<input value={authUser?.status ?? "active"} readOnly /></label><p className="module-muted">Use the admin panel to update account details or roles.</p></div></div>}
-            {activeTab === "Settings" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PREFERENCES</p><h2>Workspace settings</h2><p>Adjust how the VacciTrack workspace behaves for this session.</p></div></div><div className="account-form"><label>Default landing tab<select value={activeTab} onChange={() => undefined}><option>Overview</option></select></label><label>Coverage target<input type="number" defaultValue={70} min={0} max={100} readOnly /></label><button className="secondary-button" type="button" onClick={() => window.location.reload()}>Reset session</button></div></div>}
+            {activeTab === "Settings" && <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PREFERENCES</p><h2>Workspace settings</h2><p>Adjust how the VacciTrack workspace behaves for this session.</p></div></div><div className="account-form"><p className="module-muted">Update your name, password, or contact details from <a className="admin-link" href="/profile">Manage my account</a>.</p><button className="secondary-button" type="button" onClick={() => window.location.reload()}>Reset session</button></div></div>}
           </section>}
 
           <div className={activeTab === "Overview" ? "" : "overview-hidden"}>

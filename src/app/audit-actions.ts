@@ -32,7 +32,7 @@ export async function writeAuditLog(
 }
 
 export async function simulateSmsAlert(
-  userId: string,
+  userId: string | null,
   recipient: string,
   message: string
 ): Promise<{ error?: string }> {

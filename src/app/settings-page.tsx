@@ -2,26 +2,38 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
-import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Plus, Edit2, MapPin, Save, X } from "lucide-react";
+import { ShieldCheck, Bell, ArrowLeft, Settings as SettingsIcon, Trash2, Edit2, MapPin, Save } from "lucide-react";
 
 export default function SettingsPage() {
   const supabase = createClient();
+  const [accountName, setAccountName] = useState("");
+
+  useEffect(() => {
+    if (!supabase) return;
+    void supabase.auth.getUser().then(async ({ data }) => {
+      const user = data.user;
+      if (!user) return;
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+      setAccountName(profile?.full_name ?? user.email ?? "");
+    });
+  }, [supabase]);
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark"><ShieldCheck size={20} /></span><span>VacciTrack</span></div>
-        <div className="workspace"><span className="workspace-dot" /> Barangay Estefania <ChevronDown size={15} /></div>
-        <div className={`data-mode ${supabase ? "live" : "demo"}`}><span /> {supabase ? "Connected to Supabase" : "Demo mode"}</div>
+        <div className="workspace"><span className="workspace-dot" /> Barangay Estefania</div>
+        <div className={`data-mode ${supabase ? "live" : "offline"}`}><span /> {supabase ? "Connected to Supabase" : "Not connected"}</div>
         <nav className="side-nav" aria-label="Main navigation">
           <p className="nav-label">Management</p>
           <a href="/" className="nav-item"><Bell size={17} /> My account</a>
           <a href="/profile" className="nav-item"><SettingsIcon size={17} /> Account settings</a>
         </nav>
-        <div className="sidebar-footer"><div className="user-row"><span className="avatar">UP</span><span><strong>VacciTrack user</strong><small>Demo account</small></span><ChevronDown size={15} /></div></div>
+        <div className="sidebar-footer"><div className="user-row"><span className="avatar">{(accountName || "VacciTrack").slice(0, 2).toUpperCase()}</span><span><strong>{accountName || "Account"}</strong></span></div></div>
       </aside>
 
       <section className="content-area">
-        <header className="topbar"><div className="crumb">Settings <span>/</span> Lookup tables</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><ChevronDown size={18} /></button></div></header>
+        <header className="topbar"><div className="crumb">Settings <span>/</span> Lookup tables</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><ArrowLeft size={18} /></button></div></header>
 
         <div className="page-content">
           <div className="page-heading">
@@ -47,7 +59,7 @@ export default function SettingsPage() {
                   <h2>Animal breeds</h2>
                   <p>Breed options grouped by species. Used in the animal registration form.</p>
                 </div>
-                {supabase ? <BreedManager /> : <div className="settings-empty"><Edit2 size={24} /><p>Supabase is not configured, so breeds are only available as demo values in the registry.</p></div>}
+                {supabase ? <BreedManager /> : <div className="settings-empty"><Edit2 size={24} /><p>Supabase is not configured, so breeds are only available as built-in defaults in the registry.</p></div>}
               </div>
             </section>
 
@@ -57,7 +69,7 @@ export default function SettingsPage() {
                   <h2>Vaccines</h2>
                   <p>Available vaccine types for dropdown selection in vaccination records.</p>
                 </div>
-                {supabase ? <VaccineManager /> : <div className="settings-empty"><Save size={24} /><p>Supabase is not configured, so vaccines are available as a small demo list for registration.</p></div>}
+                {supabase ? <VaccineManager /> : <div className="settings-empty"><Save size={24} /><p>Supabase is not configured, so vaccines are available as a small built-in list for registration.</p></div>}
               </div>
             </section>
           </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Send, CheckCircle2, AlertTriangle } from "lucide-react";
+import { simulateSmsAlert } from "../../audit-actions";
 
 interface SmsSimFormProps {
   onSimulated?: () => void;
@@ -10,7 +11,6 @@ interface SmsSimFormProps {
 export function SmsSimForm({ onSimulated }: SmsSimFormProps = {}) {
   const [recipient, setRecipient] = useState("");
   const [message, setMessage] = useState("");
-  const [checkAnnotations, setCheckAnnotations] = useState(false);
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [lastResult, setLastResult] = useState("");
 
@@ -18,30 +18,16 @@ export function SmsSimForm({ onSimulated }: SmsSimFormProps = {}) {
     e.preventDefault();
     if (!recipient || !message) return;
     setStatus("sending");
-    const params = new URLSearchParams();
-    params.set("recipient", recipient);
-    params.set("message", message);
-    params.set("checkAnnotations", checkAnnotations ? "on" : "off");
-    try {
-      const res = await fetch("/308873d1049ba0/dashboard?tab=overview", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params.toString(),
-      });
-      if (res.ok) {
-        setStatus("success");
-        setLastResult("SMS simulation recorded in the audit log.");
-        setRecipient("");
-        setMessage("");
-        setCheckAnnotations(false);
-        onSimulated?.();
-      } else {
-        setStatus("error");
-        setLastResult("Unable to record the simulation. Try again.");
-      }
-    } catch {
+    const { error } = await simulateSmsAlert(null, recipient, message);
+    if (!error) {
+      setStatus("success");
+      setLastResult("SMS simulation recorded in the audit log.");
+      setRecipient("");
+      setMessage("");
+      onSimulated?.();
+    } else {
       setStatus("error");
-      setLastResult("Network error while recording the simulation.");
+      setLastResult(error);
     }
     setTimeout(() => setStatus("idle"), 3500);
   };
@@ -51,7 +37,6 @@ export function SmsSimForm({ onSimulated }: SmsSimFormProps = {}) {
       <div className="sms-sim-rows">
         <div className="sms-sim-row">
           <input name="recipient" type="text" placeholder="Recipient phone number" value={recipient} onChange={(e) => setRecipient(e.target.value)} required />
-          <label className="sms-sim-row-label"><input name="checkAnnotations" type="checkbox" checked={checkAnnotations} onChange={(e) => setCheckAnnotations(e.target.checked)} /> Include animal notes</label>
         </div>
         <div className="sms-sim-row">
           <input name="message" type="text" placeholder="Alert message" value={message} onChange={(e) => setMessage(e.target.value)} required />

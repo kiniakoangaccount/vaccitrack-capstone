@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { updateProfile, getAccountChannels, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp } from "./profile-actions";
-import { ShieldCheck, Bell, Eye, EyeOff, User, Key, CheckCircle2, AlertCircle } from "lucide-react";
+import { ShieldCheck, Bell, ArrowLeft, User, Key, CheckCircle2, AlertCircle } from "lucide-react";
 
 type Channel = "email" | "sms";
 
@@ -59,17 +59,17 @@ export default function ProfilePage() {
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark"><ShieldCheck size={20} /></span><span>VacciTrack</span></div>
         <div className="workspace"><span className="workspace-dot" /> Barangay Estefania</div>
-        <div className={`data-mode ${supabase ? "live" : "demo"}`}><span /> {supabase ? "Connected to Supabase" : "Demo mode"}</div>
+        <div className={`data-mode ${supabase ? "live" : "offline"}`}><span /> {supabase ? "Connected to Supabase" : "Not connected"}</div>
         <nav className="side-nav" aria-label="Main navigation">
           <p className="nav-label">Workspace</p>
           <a href="/" className="nav-item"><User size={17} /> My account</a>
           <a href="/settings" className="nav-item"><Bell size={17} /> Account settings</a>
         </nav>
-        <div className="sidebar-footer"><div className="user-row"><span className="avatar">UP</span><span><strong>VacciTrack user</strong><small>Demo account</small></span><EyeOff size={15} /></div></div>
+        <div className="sidebar-footer"><div className="user-row"><span className="avatar">{(profile.fullName || "VacciTrack").slice(0, 2).toUpperCase()}</span><span><strong>{profile.fullName || "Account"}</strong><small>{profile.username ? `@${profile.username}` : profile.email || "Signed in"}</small></span></div></div>
       </aside>
 
       <section className="content-area">
-        <header className="topbar"><div className="crumb">Account <span>/</span> Profile</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><Eye size={18} /></button></div></header>
+        <header className="topbar"><div className="crumb">Account <span>/</span> Profile</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><ArrowLeft size={18} /></button></div></header>
 
         <div className="page-content">
           <div className="page-heading">

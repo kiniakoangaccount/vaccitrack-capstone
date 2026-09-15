@@ -451,11 +451,17 @@ create policy "Users can read own animal vaccination history"
 
 drop policy if exists "Users can submit feedback" on public.feedback;
 create policy "Users can submit feedback"
-  on public.feedback for insert to authenticated with check (user_id = auth.uid());
+  on public.feedback for insert to authenticated
+  with check (user_id = auth.uid() and not exists (select 1 from public.profiles where id = auth.uid() and role = 'bhw'));
 
 drop policy if exists "Users can read own feedback" on public.feedback;
 create policy "Users can read own feedback"
   on public.feedback for select to authenticated using (user_id = auth.uid());
+
+drop policy if exists "Staff can read feedback" on public.feedback;
+create policy "Staff can read feedback"
+  on public.feedback for select to authenticated
+  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')));
 
 drop policy if exists "Admins can manage feedback" on public.feedback;
 create policy "Admins can manage feedback"

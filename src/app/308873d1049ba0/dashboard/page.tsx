@@ -7,11 +7,10 @@ import FeedbackPanel from "./FeedbackPanel";
 import AuditPanel from "./AuditPanel";
 import InvitesPanel from "./InvitesPanel";
 import { listStaffInvites, type StaffInvite } from "./crud-actions";
-import { writeAuditLog, simulateSmsAlert } from "../../audit-actions";
 import {
   ShieldCheck, Users, PawPrint, Activity, Bell,
   ClipboardList, LogOut, MessageSquare, Clock, XCircle,
-  Send, CheckCircle2, AlertTriangle, UserPlus,
+  CheckCircle2, UserPlus,
 } from "lucide-react";
 import { SmsSimForm } from "./SmsSimForm";
 
