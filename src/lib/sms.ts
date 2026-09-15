@@ -1,39 +1,44 @@
 export function normalizePhilippineNumber(value: string): string | null {
   const compact = value.replace(/[\s()-]/g, "");
-  if (/^09\d{9}$/.test(compact)) return `+63${compact.slice(1)}`;
-  if (/^\+639\d{9}$/.test(compact)) return compact;
+  if (/^09\d{9}$/.test(compact)) return compact;
+  if (/^\+639\d{9}$/.test(compact)) return `0${compact.slice(3)}`;
+  if (/^639\d{9}$/.test(compact)) return `0${compact.slice(2)}`;
   return null;
 }
 
 export async function sendSms(recipient: string, message: string): Promise<{ messageId?: string; error?: string }> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-  const fromNumber = process.env.TWILIO_FROM_NUMBER;
-  if (!accountSid || !authToken || (!messagingServiceSid && !fromNumber)) {
-    return { error: "Twilio SMS configuration is incomplete." };
+  const apiKey = process.env.SEMAPHORE_API_KEY;
+  if (!apiKey) {
+    return { error: "Semaphore SMS configuration is incomplete." };
   }
 
-  const body = new URLSearchParams({ To: recipient, Body: message });
-  if (messagingServiceSid) body.set("MessagingServiceSid", messagingServiceSid);
-  else body.set("From", fromNumber as string);
+  const body = new URLSearchParams({ apikey: apiKey, number: recipient, message });
+  const senderName = process.env.SEMAPHORE_SENDER_NAME;
+  if (senderName) body.set("sendername", senderName);
 
   let response: Response;
   try {
-    response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+    response = await fetch("https://api.semaphore.co/api/v4/messages", {
       method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
       signal: AbortSignal.timeout(15000),
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Twilio request failed." };
+    return { error: error instanceof Error ? error.message : "Semaphore request failed." };
   }
 
-  const result = await response.json().catch(() => ({})) as { sid?: string; message?: string; code?: number };
-  if (!response.ok) return { error: result.message ?? `Twilio returned HTTP ${response.status}.` };
-  return { messageId: result.sid };
+  const result = await response.json().catch(() => null) as
+    | { message_id: number | string }[]
+    | Record<string, unknown>
+    | null;
+
+  if (!response.ok || !Array.isArray(result) || result.length === 0) {
+    const errorMessage = result && !Array.isArray(result)
+      ? JSON.stringify(result)
+      : `Semaphore returned HTTP ${response.status}.`;
+    return { error: errorMessage };
+  }
+
+  return { messageId: String(result[0].message_id) };
 }

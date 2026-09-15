@@ -28,18 +28,16 @@ Open http://localhost:3000.
 
 ## Automatic SMS vaccination reminders
 
-The Vercel cron job at `/api/cron/vaccination-alerts` runs daily and sends a Twilio SMS to the registered user's phone number exactly 7 days before an animal's `next_due_date`. It also creates an in-app notification and stores a deduplication record in `vaccination_alerts`, so retries do not send the same reminder twice.
+The Vercel cron job at `/api/cron/vaccination-alerts` runs daily and sends a Semaphore SMS to the registered user's phone number exactly 7 days before an animal's `next_due_date`. It also creates an in-app notification and stores a deduplication record in `vaccination_alerts`, so retries do not send the same reminder twice.
 
 Run the current `supabase/schema.sql`, then configure these server-side environment variables in Vercel:
 
 ```text
 CRON_SECRET=long-random-secret
-TWILIO_ACCOUNT_SID=your-account-sid
-TWILIO_AUTH_TOKEN=your-auth-token
-TWILIO_MESSAGING_SERVICE_SID=your-messaging-service-sid
+SEMAPHORE_API_KEY=your-semaphore-api-key
 ```
 
-Use `TWILIO_FROM_NUMBER` instead of `TWILIO_MESSAGING_SERVICE_SID` when sending from a verified Twilio number. The scheduled job runs at 16:00 UTC, which is midnight in the Philippines. Never use the Twilio credentials in `NEXT_PUBLIC_*` variables.
+`SEMAPHORE_SENDER_NAME` is optional — set it to a sender name registered with Semaphore, or omit it to use the account default. The scheduled job runs at 16:00 UTC, which is midnight in the Philippines. Never use the Semaphore API key in `NEXT_PUBLIC_*` variables.
 
 ## Publish With Supabase and Vercel
 
