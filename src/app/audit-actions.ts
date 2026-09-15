@@ -65,13 +65,13 @@ export async function exportAnimalsCsv(
   }
   const isClient = role === "client";
 
-  let query = db.from("animals").select("id, name, species, classification, breed, age, sex, color, owner_name, contact_number, impound_area, vaccinated, vaccine_date, next_due_date, vaccine_type, latitude, longitude, notes")
+  let query = db.from("animals").select("id, name, species, classification, breed, age, sex, color, owner_name, contact_number, impound_area, vaccinated, vaccine_date, next_due_date, vaccine_type, latitude, longitude, notes, puroks(name)")
     .order("name");
   if (isClient) query = query.eq("user_id", user.id);
 
   if (params.query) {
     const term = params.query.toLowerCase();
-    query = query.or(`name.ilike.%${term},owner_name.ilike.%${term},puroks.name.ilike.%${term},species.ilike.%${term}`);
+    query = query.or(`name.ilike.%${term}%,owner_name.ilike.%${term}%,puroks.name.ilike.%${term}%,species.ilike.%${term}%`);
   }
   if (params.purok) {
     const { data: purok } = await db.from("puroks").select("id").eq("name", params.purok).single();
