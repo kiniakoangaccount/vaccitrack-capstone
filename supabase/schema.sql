@@ -511,6 +511,63 @@ begin
   alter table public.staff_invites add constraint staff_invites_role_check check (role in ('bhw', 'admin'));
 end $$;
 
+alter table public.staff_invites add column if not exists claim_id uuid;
+
+-- Atomic claim/finalize/release so two concurrent registrations against the
+-- same invite link can never both pass validation and create two staff
+-- accounts (a check-then-update read/write race). The claiming UPDATE's
+-- WHERE clause is the single point of truth for "is this invite usable" —
+-- at most one concurrent caller can ever affect a row and get a claim back.
+create or replace function public.claim_staff_invite(p_token text)
+returns table (invite_id bigint, invite_role public.user_role, claim_id uuid)
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_claim_id uuid := gen_random_uuid();
+begin
+  return query
+    update public.staff_invites s
+    set used_at = now(), claim_id = v_claim_id
+    where s.token = p_token
+      and s.used_at is null
+      and s.expires_at > now()
+    returning s.id, s.role, v_claim_id;
+end;
+$$;
+
+create or replace function public.finalize_staff_invite(p_invite_id bigint, p_claim_id uuid, p_user_id uuid)
+returns boolean
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  update public.staff_invites
+  set used_by = p_user_id
+  where id = p_invite_id and claim_id = p_claim_id;
+  return found;
+end;
+$$;
+
+-- Releases a claim back to "unused" only if the caller still owns it, so a
+-- stale/duplicate release can never clobber a different, later claim.
+create or replace function public.release_staff_invite(p_invite_id bigint, p_claim_id uuid)
+returns boolean
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  update public.staff_invites
+  set used_at = null, claim_id = null
+  where id = p_invite_id and claim_id = p_claim_id;
+  return found;
+end;
+$$;
+
+revoke all on function public.claim_staff_invite(text) from public, anon, authenticated;
+revoke all on function public.finalize_staff_invite(bigint, uuid, uuid) from public, anon, authenticated;
+revoke all on function public.release_staff_invite(bigint, uuid) from public, anon, authenticated;
+
 alter table public.staff_invites enable row level security;
 -- No client policies: only the service-role key (hidden admin dashboard, invite registration action) touches this table.
 

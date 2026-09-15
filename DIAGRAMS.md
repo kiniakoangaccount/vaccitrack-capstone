@@ -80,7 +80,7 @@ flowchart TB
 flowchart LR
   ACCT["Accounts & access<br/>signin-action · register-action ·<br/>invite-register-action ·<br/>profile-actions (OTP) · team-actions"]
   DOMAIN["Registry & vaccination domain<br/>vaccination-actions · pound-actions ·<br/>settings-actions (breeds, vaccines, puroks) ·<br/>audit-actions (CSV export, audit log)"]
-  ENGAGE["Engagement<br/>notification-actions ·<br/>reminder-actions (SMS queue)"]
+  ENGAGE["Engagement<br/>notification-actions ·<br/>reminder-actions (in-app reminders)"]
   ADMIN["Super-admin only<br/>crud-actions (users, invites, resets)"]
   CRONJOB["Scheduled<br/>/api/cron/vaccination-alerts"]
 
@@ -91,29 +91,36 @@ flowchart LR
   ACCT --> DB
   ACCT -- "ID photo upload" --> STORE
   DOMAIN --> DB
-  ENGAGE --> DB
-  ENGAGE -- "send reminder" --> SMS
+  ENGAGE -- "in-app notification" --> DB
   ADMIN --> DB
   CRONJOB --> DB
-  CRONJOB -- "send reminder" --> SMS
+  CRONJOB -- "send SMS<br/>(only real SMS path)" --> SMS
 ```
 
 ## ERD
 
+Every foreign key below is drawn from the table it actually references in
+`supabase/schema.sql` — most of them point straight at `auth.users`, not at
+`profiles` (`profiles.id` is itself just a 1:1 extension of `auth.users`).
+`breeds`, `vaccines`, and `login_attempts` are included as standalone tables:
+`animals.breed`/`vaccine_type` are free-text (no FK to `breeds`/`vaccines`),
+and `login_attempts` is keyed by the attempted email, not a user id — so none
+of the three have a relationship to draw.
+
 ```mermaid
 erDiagram
   AUTH_USERS ||--|| PROFILES : "has account"
-  PROFILES ||--o{ ANIMALS : owns
+  AUTH_USERS ||--o{ ANIMALS : owns
   PUROKS ||--o{ ANIMALS : "located in"
   ANIMALS ||--o{ VACCINATION_HISTORY : "vaccinated in"
-  PROFILES ||--o{ VACCINATION_HISTORY : records
+  AUTH_USERS ||--o{ VACCINATION_HISTORY : records
   ANIMALS ||--o{ VACCINATION_ALERTS : triggers
-  PROFILES ||--o{ VACCINATION_ALERTS : "notified via"
-  PROFILES ||--o{ NOTIFICATIONS : receives
-  PROFILES ||--o{ FEEDBACK : submits
-  PROFILES ||--o{ AUDIT_LOG : "acted in"
-  PROFILES ||--o{ STAFF_INVITES : redeems
-  PROFILES ||--o{ ACCOUNT_OTPS : requests
+  AUTH_USERS ||--o{ VACCINATION_ALERTS : "notified via"
+  AUTH_USERS ||--o{ NOTIFICATIONS : receives
+  AUTH_USERS ||--o{ FEEDBACK : submits
+  AUTH_USERS ||--o{ AUDIT_LOG : "acted in"
+  AUTH_USERS ||--o{ STAFF_INVITES : redeems
+  AUTH_USERS ||--o{ ACCOUNT_OTPS : requests
 
   AUTH_USERS {
     uuid id PK
@@ -188,6 +195,21 @@ erDiagram
     text purpose
     text channel
   }
+  BREEDS {
+    bigint id PK
+    text name
+    enum species "Dog Cat"
+  }
+  VACCINES {
+    bigint id PK
+    text name
+  }
+  LOGIN_ATTEMPTS {
+    bigint id PK
+    text email
+    text ip_address
+    boolean success
+  }
 ```
 
 ## DFD — Level 0 (Context Diagram)
@@ -210,8 +232,7 @@ flowchart LR
   SUPER -- "user & role management, staff invites" --> SYS
   SYS -- "system-wide audit log, user directory" --> SUPER
 
-  SYS -- "reminder message" --> SMS
-  SMS -- "delivery status" --> SYS
+  SYS -- "reminder message<br/>(scheduled cron job only)" --> SMS
 ```
 
 ## DFD — Level 1
@@ -264,12 +285,12 @@ flowchart TB
   STAFF -- "review feedback" --> P5
   P5 <--> D6
 
+  STAFF -- "queue reminder" --> P6
   D3 --> P6
   D5 --> P6
   P6 <--> D7
-  P6 -- "reminder" --> SMSGW
-  SMSGW -- "delivery status" --> P6
   P6 -- "in-app notice" --> CIV
+  P6 -- "reminder<br/>(scheduled cron job only)" --> SMSGW
 
   P1 --> P7
   P2 --> P7
@@ -327,7 +348,7 @@ flowchart LR
     UC13(["View coverage map"])
     UC14(["Manage stray & pound records"])
     UC15(["Export CSV report"])
-    UC16(["Queue SMS reminders"])
+    UC16(["Queue vaccination<br/>reminders (in-app)"])
   end
 
   subgraph UC_ADMIN["Administration"]
@@ -346,7 +367,6 @@ flowchart LR
   BHW["Barangay<br/>Health Worker"]
   ADMIN["Administrator"]
   SUPER["Super Admin"]
-  SMSGW["SMS Gateway"]
 
   CIV --> UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 & UC8
   VIEW --> UC1 & UC3 & UC7 & UC8
@@ -354,7 +374,6 @@ flowchart LR
   UC1B & UC3B & UC7B & UC8B & UC9 & UC10 & UC11 & UC12 & UC13 & UC14 & UC15 & UC16 --> BHW
   UC1B & UC3B & UC7B & UC8B & UC9 & UC10 & UC11 & UC12 & UC13 & UC14 & UC15 & UC16 & UC17 --> ADMIN
   UC1B & UC17 & UC18 & UC19 & UC20 & UC21 --> SUPER
-  UC16 -. "sends via" .-> SMSGW
 
   UC8 ~~~ UC1B
 ```

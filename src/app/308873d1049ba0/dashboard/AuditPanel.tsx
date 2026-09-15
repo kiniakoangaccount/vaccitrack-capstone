@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { fetchAuditLogPage } from "../../audit-actions";
-import { ShieldCheck, ChevronLeft, ChevronRight, Filter, ScanLine, Trash2, Pencil, Bell, CheckCircle2, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, ScanLine } from "lucide-react";
 
 interface AuditRow {
   id: number;
@@ -100,7 +100,7 @@ export function AuditEmpty({ message }: { message?: string }) {
 
 export default function AuditPanel() {
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const limit = 20;
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);

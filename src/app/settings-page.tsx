@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase";
-import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Plus, Edit2, MapPin, Save, X } from "lucide-react";
+import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Edit2, MapPin, Save } from "lucide-react";
 
 export default function SettingsPage() {
   const supabase = createClient();
@@ -14,8 +15,8 @@ export default function SettingsPage() {
         <div className={`data-mode ${supabase ? "live" : "demo"}`}><span /> {supabase ? "Connected to Supabase" : "Demo mode"}</div>
         <nav className="side-nav" aria-label="Main navigation">
           <p className="nav-label">Management</p>
-          <a href="/" className="nav-item"><Bell size={17} /> My account</a>
-          <a href="/profile" className="nav-item"><SettingsIcon size={17} /> Account settings</a>
+          <Link href="/" className="nav-item"><Bell size={17} /> My account</Link>
+          <Link href="/profile" className="nav-item"><SettingsIcon size={17} /> Account settings</Link>
         </nav>
         <div className="sidebar-footer"><div className="user-row"><span className="avatar">UP</span><span><strong>VacciTrack user</strong><small>Demo account</small></span><ChevronDown size={15} /></div></div>
       </aside>
@@ -76,15 +77,17 @@ function BreedManager() {
   const [form, setForm] = useState({ name: "", species: "Dog" });
   const [editing, setEditing] = useState<number | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!supabase) return;
     setLoading(true);
     const { data } = await supabase.from("breeds").select("id, name, species").order("species, name");
     setBreeds(data ?? []);
     setLoading(false);
-  };
+  }, [supabase]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    queueMicrotask(() => { void load(); });
+  }, [load]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,15 +164,17 @@ function PurokManager() {
   const [form, setForm] = useState({ name: "", latitude: "", longitude: "" });
   const [editing, setEditing] = useState<number | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!supabase) return;
     setLoading(true);
     const { data } = await supabase.from("puroks").select("id, name, latitude, longitude").order("name");
     setPuroks(((data ?? []) as { id: number; name: string | null; latitude: number | null; longitude: number | null }[]).map((r) => ({ id: r.id, name: r.name ?? "", latitude: String(r.latitude ?? ""), longitude: String(r.longitude ?? "") })));
     setLoading(false);
-  };
+  }, [supabase]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    queueMicrotask(() => { void load(); });
+  }, [load]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,15 +248,17 @@ function VaccineManager() {
   const [form, setForm] = useState({ name: "" });
   const [editing, setEditing] = useState<number | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!supabase) return;
     setLoading(true);
     const { data } = await supabase.from("vaccines").select("id, name").order("name");
     setVaccines(data ?? []);
     setLoading(false);
-  };
+  }, [supabase]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    queueMicrotask(() => { void load(); });
+  }, [load]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

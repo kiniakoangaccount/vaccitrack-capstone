@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { adminLogin } from "./actions";
 import { PawPrint, ShieldCheck } from "lucide-react";
 
@@ -67,9 +68,9 @@ export default function AdminLoginPage() {
           </button>
         </form>
 
-        <a href="/" className="admin-login-back">
+        <Link href="/" className="admin-login-back">
           ← Back to VacciTrack
-        </a>
+        </Link>
       </div>
     </main>
   );

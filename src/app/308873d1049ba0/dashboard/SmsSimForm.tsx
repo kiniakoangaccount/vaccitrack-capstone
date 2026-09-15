@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Send, CheckCircle2, AlertTriangle } from "lucide-react";
+import { simulateSmsAlert } from "../../audit-actions";
 
 interface SmsSimFormProps {
   onSimulated?: () => void;
@@ -18,17 +19,10 @@ export function SmsSimForm({ onSimulated }: SmsSimFormProps = {}) {
     e.preventDefault();
     if (!recipient || !message) return;
     setStatus("sending");
-    const params = new URLSearchParams();
-    params.set("recipient", recipient);
-    params.set("message", message);
-    params.set("checkAnnotations", checkAnnotations ? "on" : "off");
+    const fullMessage = checkAnnotations ? `${message} (includes animal notes)` : message;
     try {
-      const res = await fetch("/308873d1049ba0/dashboard?tab=overview", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params.toString(),
-      });
-      if (res.ok) {
+      const result = await simulateSmsAlert(recipient, fullMessage);
+      if (!result.error) {
         setStatus("success");
         setLastResult("SMS simulation recorded in the audit log.");
         setRecipient("");
@@ -37,7 +31,7 @@ export function SmsSimForm({ onSimulated }: SmsSimFormProps = {}) {
         onSimulated?.();
       } else {
         setStatus("error");
-        setLastResult("Unable to record the simulation. Try again.");
+        setLastResult(result.error);
       }
     } catch {
       setStatus("error");

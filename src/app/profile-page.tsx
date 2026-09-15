@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { updateProfile, getAccountChannels, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp } from "./profile-actions";
@@ -62,8 +63,8 @@ export default function ProfilePage() {
         <div className={`data-mode ${supabase ? "live" : "demo"}`}><span /> {supabase ? "Connected to Supabase" : "Demo mode"}</div>
         <nav className="side-nav" aria-label="Main navigation">
           <p className="nav-label">Workspace</p>
-          <a href="/" className="nav-item"><User size={17} /> My account</a>
-          <a href="/settings" className="nav-item"><Bell size={17} /> Account settings</a>
+          <Link href="/" className="nav-item"><User size={17} /> My account</Link>
+          <Link href="/settings" className="nav-item"><Bell size={17} /> Account settings</Link>
         </nav>
         <div className="sidebar-footer"><div className="user-row"><span className="avatar">UP</span><span><strong>VacciTrack user</strong><small>Demo account</small></span><EyeOff size={15} /></div></div>
       </aside>

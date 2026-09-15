@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   Bell,
@@ -91,7 +92,6 @@ type SupabaseAnimalRecord = {
   puroks: { name: string } | { name: string }[] | null;
 };
 
-type DashboardStats = { registered: number; vaccinated: number; dueSoon: number; overdue: number };
 type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Reports" | "Risk" | "Map" | "Pound" | "Feedback" | "Team" | "Audit" | "Profile" | "Settings";
 
 function RoleBlocked({ role, message }: { role: string; message?: string }) {
@@ -169,6 +169,7 @@ export interface UserNotification {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [animalRecords, setAnimalRecords] = useState<Animal[]>([]);
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("Overview");
@@ -189,7 +190,6 @@ export default function Home() {
   const [registrationForm, setRegistrationForm] = useState({ username: "", fullName: "", email: "", contact: "", password: "" });
   const [idImageFile, setIdImageFile] = useState<File | null>(null);
   const [form, setForm] = useState({ name: "", species: "Dog" as Animal["species"], classification: "Pet" as "Pet" | "Stray", neutered: "Not neutered" as "Neutered" | "Not neutered", breed: "", age: "", sex: "", color: "", owner: "", contact: "", impoundArea: "", purok: purokOptions[0].name, vaccineDate: "", vaccineType: vaccineOptions[0], nextDue: "", latitude: "", longitude: "", notes: "" });
-  const [liveStats, setLiveStats] = useState<DashboardStats | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [chartPeriod, setChartPeriod] = useState("Last 6 months");
@@ -234,7 +234,7 @@ export default function Home() {
   useEffect(() => {
     const supabase = createClient();
     if (!supabase) {
-      setAuthChecked(true);
+      queueMicrotask(() => setAuthChecked(true));
       return;
     }
 
@@ -273,22 +273,11 @@ export default function Home() {
       const ownerId = user.id;
 
       const today = new Date();
-      const todayIso = today.toISOString().slice(0, 10);
       // Note: intentionally unbounded (no .limit()) — Registry, Map, and Risk
       // analysis all need the complete animal set, not just recent additions.
       const recentQuery = supabase.from("animals").select("id, name, species, classification, neutered, breed, age, sex, color, owner_name, contact_number, impound_area, vaccinated, vaccine_date, next_due_date, vaccine_type, latitude, longitude, notes, pound_status, puroks(name)").order("created_at", { ascending: false });
-      const totalQuery = supabase.from("animals").select("id", { count: "exact", head: true });
-      const vaccinatedQuery = supabase.from("animals").select("id", { count: "exact", head: true }).eq("vaccinated", true);
-      const dueQuery = supabase.from("animals").select("id", { count: "exact", head: true }).gte("next_due_date", todayIso).lte("next_due_date", new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10));
-      const overdueQuery = supabase.from("animals").select("id", { count: "exact", head: true }).lt("next_due_date", todayIso);
 
-      const [recentResult, totalResult, vaccinatedResult, dueResult, overdueResult] = await Promise.all([
-        isClientRole ? recentQuery.eq("user_id", ownerId) : recentQuery,
-        isClientRole ? totalQuery.eq("user_id", ownerId) : totalQuery,
-        isClientRole ? vaccinatedQuery.eq("user_id", ownerId) : vaccinatedQuery,
-        isClientRole ? dueQuery.eq("user_id", ownerId) : dueQuery,
-        isClientRole ? overdueQuery.eq("user_id", ownerId) : overdueQuery,
-      ]);
+      const recentResult = await (isClientRole ? recentQuery.eq("user_id", ownerId) : recentQuery);
       if (!mounted) return;
       if (recentResult.error) {
         setLoadError("Supabase could not load the registry.");
@@ -325,7 +314,6 @@ export default function Home() {
           } satisfies Animal;
         });
       setAnimalRecords(records);
-      setLiveStats({ registered: totalResult.count ?? 0, vaccinated: vaccinatedResult.count ?? 0, dueSoon: dueResult.count ?? 0, overdue: overdueResult.count ?? 0 });
       setIsLive(true);
       });
 
@@ -338,7 +326,7 @@ export default function Home() {
     const tabParam = new URLSearchParams(window.location.search).get("tab");
     const validTabs: WorkspaceTab[] = ["Overview", "Registry", "Planning", "Reports", "Risk", "Map", "Pound", "Feedback", "Team", "Audit", "Profile", "Settings"];
     if (tabParam && (validTabs as string[]).includes(tabParam)) {
-      setActiveTab(tabParam as WorkspaceTab);
+      queueMicrotask(() => setActiveTab(tabParam as WorkspaceTab));
     }
   }, []);
 
@@ -462,15 +450,12 @@ export default function Home() {
     );
   }, [animalRecords, query]);
 
-  const dashboardStats = useMemo(() => {
-    if (liveStats) return liveStats;
-    return {
-      registered: animalRecords.length,
-      vaccinated: animalRecords.filter((animal) => animal.vaccinated).length,
-      dueSoon: animalRecords.filter((animal) => animal.status === "Due soon").length,
-      overdue: animalRecords.filter((animal) => animal.status === "Overdue").length,
-    };
-  }, [animalRecords, isLive]);
+  const dashboardStats = useMemo(() => ({
+    registered: animalRecords.length,
+    vaccinated: animalRecords.filter((animal) => animal.vaccinated).length,
+    dueSoon: animalRecords.filter((animal) => animal.status === "Due soon").length,
+    overdue: animalRecords.filter((animal) => animal.status === "Overdue").length,
+  }), [animalRecords]);
 
   const riskRows = useMemo(() => purokOptions.map((purok) => {
     const purokName = purok.name;
@@ -480,10 +465,10 @@ export default function Home() {
     return { purok: purokName, total: records.length, vaccinated, rate, risk: records.length === 0 ? "NO DATA" : rate < 50 ? "HIGH" : rate < 70 ? "MODERATE" : "LOW" };
   }), [animalRecords]);
 
-  const reportAnimals = useMemo(() => animalRecords.filter((animal) => {
+  const reportAnimals = animalRecords.filter((animal) => {
     if (!animal.nextDueDate) return true;
     return animal.nextDueDate >= reportRange.from && animal.nextDueDate <= reportRange.to;
-  }), [animalRecords, reportRange]);
+  });
 
   const reportSummary = useMemo(() => ({
     total: reportAnimals.length,
@@ -700,7 +685,7 @@ export default function Home() {
       {showMobileNav && <div className="sidebar-backdrop" onClick={() => setShowMobileNav(false)} />}
 
       <section className="content-area">
-        <header className="topbar"><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Operations <span>/</span> {activeTab}</div><div className="top-actions">{authUser && <button className="icon-button" aria-label="Notifications" aria-expanded={showNotifications} onClick={() => { setShowNotifications((current) => !current); setShowAccountMenu(false); }}><Bell size={18} />{notifications.length > 0 && <span className="notification-dot" />}</button>}<div className="profile-menu-wrap"><button className="profile-button" aria-haspopup="menu" aria-expanded={showAccountMenu} onClick={() => { if (authUser) { setShowAccountMenu((current) => !current); setShowNotifications(false); } else { setActiveTab("Feedback"); } }}><CircleUserRound size={20} /> <span>{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span></button>{showAccountMenu && authUser && <div className="account-menu" role="menu"><button role="menuitem" onClick={() => { window.location.href = "/profile"; }}><CircleUserRound size={15} /> Manage my account</button><button role="menuitem" onClick={() => { window.location.href = "/settings"; }}><ShieldCheck size={15} /> Settings</button><button role="menuitem" onClick={signOut}><X size={15} /> Sign out</button></div>}</div></div>{showNotifications && authUser && <div className="notification-panel"><div className="notification-panel-head"><strong>Notifications</strong><button onClick={() => void readAllNotifications()}>Mark all read</button></div>{notifications.length === 0 ? <p className="notification-empty">You are all caught up.</p> : notifications.map((notification) => <button className="notification-item" key={notification.id} onClick={() => void readNotification(notification.id)}><span className={`notification-icon ${notification.type === "danger" ? "danger" : ""}`}><Bell size={15} /></span><span><strong>{notification.title}</strong><small>{notification.message}</small></span></button>)}</div>}</header>
+        <header className="topbar"><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Operations <span>/</span> {activeTab}</div><div className="top-actions">{authUser && <button className="icon-button" aria-label="Notifications" aria-expanded={showNotifications} onClick={() => { setShowNotifications((current) => !current); setShowAccountMenu(false); }}><Bell size={18} />{notifications.length > 0 && <span className="notification-dot" />}</button>}<div className="profile-menu-wrap"><button className="profile-button" aria-haspopup="menu" aria-expanded={showAccountMenu} onClick={() => { if (authUser) { setShowAccountMenu((current) => !current); setShowNotifications(false); } else { setActiveTab("Feedback"); } }}><CircleUserRound size={20} /> <span>{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span></button>{showAccountMenu && authUser && <div className="account-menu" role="menu"><button role="menuitem" onClick={() => router.push("/profile")}><CircleUserRound size={15} /> Manage my account</button><button role="menuitem" onClick={() => router.push("/settings")}><ShieldCheck size={15} /> Settings</button><button role="menuitem" onClick={signOut}><X size={15} /> Sign out</button></div>}</div></div>{showNotifications && authUser && <div className="notification-panel"><div className="notification-panel-head"><strong>Notifications</strong><button onClick={() => void readAllNotifications()}>Mark all read</button></div>{notifications.length === 0 ? <p className="notification-empty">You are all caught up.</p> : notifications.map((notification) => <button className="notification-item" key={notification.id} onClick={() => void readNotification(notification.id)}><span className={`notification-icon ${notification.type === "danger" ? "danger" : ""}`}><Bell size={15} /></span><span><strong>{notification.title}</strong><small>{notification.message}</small></span></button>)}</div>}</header>
         <div className="page-content">
           <div className="page-heading"><div><p className="eyebrow">{formatTodayLabel()}</p><h1>{activeTab === "Overview" ? `Good morning, ${authUser?.fullName.split(" ")[0] ?? "Maria"}.` : activeTab}</h1><p className="heading-sub">{activeTab === "Overview" ? "Here is what needs your attention across the barangay." : "Barangay Estefania animal health operations"}</p></div></div>
 

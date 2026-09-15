@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getAdminSession, adminLogout } from "../actions";
 import { createAdminClient } from "@/lib/supabase-admin";
 import UsersPanel from "./UsersPanel";
@@ -7,11 +8,10 @@ import FeedbackPanel from "./FeedbackPanel";
 import AuditPanel from "./AuditPanel";
 import InvitesPanel from "./InvitesPanel";
 import { listStaffInvites, type StaffInvite } from "./crud-actions";
-import { writeAuditLog, simulateSmsAlert } from "../../audit-actions";
 import {
   ShieldCheck, Users, PawPrint, Activity, Bell,
-  ClipboardList, LogOut, MessageSquare, Clock, XCircle,
-  Send, CheckCircle2, AlertTriangle, UserPlus, MapPin,
+  LogOut, MessageSquare, Clock, XCircle,
+  CheckCircle2, UserPlus, MapPin,
 } from "lucide-react";
 import { SmsSimForm } from "./SmsSimForm";
 import AdminMapPanel from "./AdminMapPanel";
@@ -41,16 +41,6 @@ interface FeedbackRow {
   category: string;
   message: string;
   status: string;
-  created_at: string;
-}
-
-interface AuditRow {
-  id: number;
-  user_id: string | null;
-  action: string;
-  table_name: string;
-  record_id: number | null;
-  notes: string | null;
   created_at: string;
 }
 
@@ -91,7 +81,6 @@ export default async function AdminDashboardPage({
   let profiles: Profile[] = [];
   let pendingProfiles: PendingProfile[] = [];
   let feedbackRows: FeedbackRow[] = [];
-  let auditRows: AuditRow[] = [];
   let invites: StaffInvite[] = [];
   let mapAnimals: MapAnimal[] = [];
 
@@ -123,13 +112,6 @@ export default async function AdminDashboardPage({
   if (supaCfg && tab === "invites") {
     const { invites: rows } = await listStaffInvites();
     invites = rows ?? [];
-  }
-
-  if (supaCfg && tab === "audit") {
-    const { data } = await db!.from("audit_log")
-      .select("id, user_id, action, table_name, record_id, notes, created_at")
-      .order("created_at", { ascending: false }).limit(80);
-    auditRows = (data as AuditRow[]) ?? [];
   }
 
   if (supaCfg && tab === "map") {
@@ -230,60 +212,60 @@ export default async function AdminDashboardPage({
               )}
 
               <div className="admin-stat-grid">
-                <a href="/308873d1049ba0/dashboard?tab=users" className="admin-stat-card admin-stat-hoverable admin-stat-link">
+                <Link href="/308873d1049ba0/dashboard?tab=users" className="admin-stat-card admin-stat-hoverable admin-stat-link">
                   <span className="admin-stat-icon blue"><Users size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.users : "—"}</p>
                   <p className="admin-stat-label">Registered users</p>
-                </a>
-                <a href="/?tab=Registry" className="admin-stat-card admin-stat-hoverable admin-stat-link">
+                </Link>
+                <Link href="/?tab=Registry" className="admin-stat-card admin-stat-hoverable admin-stat-link">
                   <span className="admin-stat-icon green"><PawPrint size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.animals : "—"}</p>
                   <p className="admin-stat-label">Animal records</p>
-                </a>
-                <a href="/308873d1049ba0/dashboard?tab=pending" className="admin-stat-card admin-stat-hoverable admin-stat-link">
+                </Link>
+                <Link href="/308873d1049ba0/dashboard?tab=pending" className="admin-stat-card admin-stat-hoverable admin-stat-link">
                   <span className="admin-stat-icon amber"><Clock size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.pending : "—"}</p>
                   <p className="admin-stat-label">Pending verifications</p>
-                </a>
-                <a href="/308873d1049ba0/dashboard?tab=feedback" className="admin-stat-card admin-stat-hoverable admin-stat-link">
+                </Link>
+                <Link href="/308873d1049ba0/dashboard?tab=feedback" className="admin-stat-card admin-stat-hoverable admin-stat-link">
                   <span className="admin-stat-icon red"><MessageSquare size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.feedback : "—"}</p>
                   <p className="admin-stat-label">New feedback items</p>
-                </a>
+                </Link>
               </div>
 
               <div className="admin-quick-grid">
-                <a href="/308873d1049ba0/dashboard?tab=pending" className="admin-quick-card admin-quick-warn">
+                <Link href="/308873d1049ba0/dashboard?tab=pending" className="admin-quick-card admin-quick-warn">
                   <Clock size={20} />
                   <div>
                     <strong>Pending verifications</strong>
                     <p>{stats.pending} account{stats.pending !== 1 ? "s" : ""} waiting for ID review</p>
                   </div>
                   <span>Review →</span>
-                </a>
-                <a href="/308873d1049ba0/dashboard?tab=feedback" className="admin-quick-card admin-quick-blue">
+                </Link>
+                <Link href="/308873d1049ba0/dashboard?tab=feedback" className="admin-quick-card admin-quick-blue">
                   <MessageSquare size={20} />
                   <div>
                     <strong>Unread feedback</strong>
                     <p>{stats.feedback} new message{stats.feedback !== 1 ? "s" : ""} from users</p>
                   </div>
                   <span>View →</span>
-                </a>
-                <a href="/308873d1049ba0/dashboard?tab=audit" className="admin-quick-card admin-quick-green">
+                </Link>
+                <Link href="/308873d1049ba0/dashboard?tab=audit" className="admin-quick-card admin-quick-green">
                   <ShieldCheck size={20} />
                   <div>
                     <strong>Audit log</strong>
                     <p>Track all system changes and actions</p>
                   </div>
                   <span>Open →</span>
-                </a>
+                </Link>
               </div>
 
               <div className="admin-info-grid">
                 <div className="admin-info-card">
                   <div className="admin-info-head"><ShieldCheck size={16} /><span>Recent activity</span></div>
                   <p className="admin-muted">The audit log shows every create, update, delete, and SMS operation across the system.</p>
-                  <a href="/308873d1049ba0/dashboard?tab=audit" className="admin-link">View audit log <span>→</span></a>
+                  <Link href="/308873d1049ba0/dashboard?tab=audit" className="admin-link">View audit log <span>→</span></Link>
                 </div>
                 <div className="admin-info-card">
                   <div className="admin-info-head"><CheckCircle2 size={16} /><span>SMS simulation</span></div>

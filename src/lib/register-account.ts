@@ -56,12 +56,16 @@ export async function createAccountFromForm(
     upsert: true,
   });
   if (uploadError) {
-    await db.from("profiles").update({ role, status }).eq("id", userId);
-    return { error: `Account created, but the ID photo failed to upload: ${uploadError.message}. Contact an administrator.`, userId };
+    await db.auth.admin.deleteUser(userId).catch(() => {});
+    return { error: "Could not upload the ID photo. Please try again." };
   }
 
   const { error: profileError } = await db.from("profiles").update({ role, status, id_document_reference: path }).eq("id", userId);
-  if (profileError) return { error: profileError.message, userId };
+  if (profileError) {
+    await db.storage.from("id-documents").remove([path]).catch(() => {});
+    await db.auth.admin.deleteUser(userId).catch(() => {});
+    return { error: "Could not finish creating the account. Please try again." };
+  }
 
   return { userId };
 }
