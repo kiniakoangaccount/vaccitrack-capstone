@@ -14,7 +14,7 @@ export async function queueVaccinationReminders(
   if (!user) return { error: authError ?? "You must be signed in." };
 
   const { data: profile } = await db.from("profiles").select("role").eq("id", user.id).maybeSingle();
-  if (!profile || !["admin", "veterinarian", "bhw"].includes(profile.role)) return { error: "Only staff accounts can send reminders." };
+  if (!profile || !["admin", "bhw"].includes(profile.role)) return { error: "Only staff accounts can send reminders." };
 
   const ids = [...new Set(animalIds.filter((id) => Number.isInteger(id)))];
   if (ids.length === 0 || !message.trim()) return { error: "Select at least one animal and enter a message." };

@@ -26,7 +26,7 @@ export interface StaffInvite {
   created_at: string;
 }
 
-const INVITABLE_ROLES = ["bhw", "veterinarian", "admin"];
+const INVITABLE_ROLES = ["bhw", "admin"];
 
 export async function createStaffInvite(role: string): Promise<{ token?: string; error?: string }> {
   try {
@@ -88,7 +88,7 @@ export async function revokeStaffInvite(id: number): Promise<{ error?: string }>
 export async function updateUserRole(userId: string, role: string): Promise<{ error?: string }> {
   try {
     const db = await requireAdmin();
-    const validRoles = ["admin", "veterinarian", "bhw", "client", "viewer"];
+    const validRoles = ["admin", "bhw", "client", "viewer"];
     if (!validRoles.includes(role)) return { error: "Invalid role." };
     const { error } = await db.from("profiles").update({ role }).eq("id", userId);
     if (error) return { error: error.message };

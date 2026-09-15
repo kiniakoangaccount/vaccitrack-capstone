@@ -23,7 +23,7 @@ async function isStaffUser(userId: string): Promise<boolean> {
   const db = createAdminClient();
   if (!db) return false;
   const { data } = await db.from("profiles").select("role").eq("id", userId).maybeSingle();
-  return !!data && ["admin", "veterinarian", "bhw"].includes(data.role);
+  return !!data && ["admin", "bhw"].includes(data.role);
 }
 
 export async function createNotification(payload: { userId: string; title: string; message: string; type?: string }): Promise<{ error?: string }> {

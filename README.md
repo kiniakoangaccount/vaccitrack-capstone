@@ -75,7 +75,7 @@ For CLI publishing, from this directory run `npx vercel login`, then `npx vercel
 
 The dashboard starts in demo mode when Supabase variables are absent, so it can be shown immediately. When the variables are present and an authenticated user can read `animals`, it loads live records and derives the summary metrics from them. The registration form inserts into Supabase; without Supabase configured, a registration is kept in the browser session for demonstration.
 
-For a live demo, create an Auth user, add a matching `profiles` row with an `admin`, `veterinarian`, or `bhw` role, then sign in through the dashboard. Anonymous Supabase sessions are sent to the sign-in screen and cannot register records because of RLS.
+For a live demo, create an Auth user, add a matching `profiles` row with an `admin` or `bhw` role, then sign in through the dashboard. Anonymous Supabase sessions are sent to the sign-in screen and cannot register records because of RLS.
 
 ## Security notes
 

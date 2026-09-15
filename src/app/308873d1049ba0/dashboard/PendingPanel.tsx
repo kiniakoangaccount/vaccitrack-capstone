@@ -19,7 +19,6 @@ interface Profile {
 const ROLE_LABELS: Record<string, string> = {
   client: "Civilian / pet owner",
   bhw: "Barangay Health Worker",
-  veterinarian: "Veterinarian",
   admin: "Administrator application",
   viewer: "Viewer",
 };

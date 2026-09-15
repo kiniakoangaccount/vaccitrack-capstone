@@ -18,7 +18,7 @@ export async function registerViaInvite(formData: FormData): Promise<{ error?: s
   if (invite.used_at) return { error: "This invite link has already been used." };
   if (new Date(invite.expires_at) < new Date()) return { error: "This invite link has expired." };
 
-  const role = invite.role as "bhw" | "veterinarian" | "admin";
+  const role = invite.role as "bhw" | "admin";
   const status = role === "admin" ? "pending" : "active";
 
   const result = await createAccountFromForm(formData, role, status);

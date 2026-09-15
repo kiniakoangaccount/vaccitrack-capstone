@@ -14,12 +14,11 @@ interface Profile {
   created_at: string;
 }
 
-const ROLES = ["admin", "veterinarian", "bhw", "client", "viewer"] as const;
+const ROLES = ["admin", "bhw", "client", "viewer"] as const;
 const STATUSES = ["active", "disabled", "pending"] as const;
 
 const ROLE_COLORS: Record<string, string> = {
   admin: "admin-badge-red",
-  veterinarian: "admin-badge-purple",
   bhw: "admin-badge-blue",
   client: "admin-badge-green",
   viewer: "admin-badge-gray",

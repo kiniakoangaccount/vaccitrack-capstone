@@ -6,12 +6,11 @@ import { createStaffInvite, revokeStaffInvite, type StaffInvite } from "./crud-a
 
 const ROLE_LABELS: Record<string, string> = {
   bhw: "Barangay Health Worker",
-  veterinarian: "Veterinarian",
   admin: "Administrator",
 };
 
 export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
-  const [role, setRole] = useState<"bhw" | "veterinarian" | "admin">("bhw");
+  const [role, setRole] = useState<"bhw" | "admin">("bhw");
   const [generatedLink, setGeneratedLink] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -36,11 +35,10 @@ export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
     <>
       <div className="admin-info-card" style={{ marginBottom: 20 }}>
         <div className="admin-info-head"><UserPlus size={16} /><span>Generate an invite link</span></div>
-        <p className="admin-muted">BHW and veterinarian invites activate the account immediately once someone registers through the link. Administrator invites still land in Pending verification for your final approval.</p>
+        <p className="admin-muted">BHW invites activate the account immediately once someone registers through the link. Administrator invites still land in Pending verification for your final approval.</p>
         <div className="admin-row-actions" style={{ marginTop: 10, gap: 10 }}>
           <select className="admin-form-select" value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
             <option value="bhw">Barangay Health Worker</option>
-            <option value="veterinarian">Veterinarian</option>
             <option value="admin">Administrator</option>
           </select>
           <button className="admin-btn-primary" onClick={generate} disabled={isPending}>

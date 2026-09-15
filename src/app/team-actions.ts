@@ -13,14 +13,14 @@ export async function getTeamMembers(): Promise<{ members?: TeamMember[]; error?
   if (!user) return { error: authError ?? "You must be signed in." };
 
   const { data: caller } = await db.from("profiles").select("role").eq("id", user.id).maybeSingle();
-  if (!caller || !["admin", "veterinarian", "bhw"].includes(caller.role)) {
+  if (!caller || !["admin", "bhw"].includes(caller.role)) {
     return { error: "Only staff accounts can view the team list." };
   }
 
   const { data, error } = await db
     .from("profiles")
     .select("id, full_name, role, username, status")
-    .in("role", ["admin", "veterinarian", "bhw"])
+    .in("role", ["admin", "bhw"])
     .order("role")
     .order("full_name");
   if (error) return { error: error.message };

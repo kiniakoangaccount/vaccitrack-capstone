@@ -1,9 +1,9 @@
--- VacciTrack Supabase setup
+﻿-- VacciTrack Supabase setup
 -- Safe to run repeatedly. Existing records are preserved.
 
 do $$
 begin
-  create type public.user_role as enum ('admin', 'veterinarian', 'bhw', 'client', 'viewer');
+  create type public.user_role as enum ('admin', 'bhw', 'client', 'viewer');
 exception when duplicate_object then null;
 end $$;
 
@@ -42,6 +42,9 @@ alter table public.profiles add column if not exists id_document_reference text;
 alter table public.profiles add column if not exists status public.account_status not null default 'active';
 create unique index if not exists profiles_username_unique on public.profiles (username) where username is not null;
 
+-- The veterinarian role has been retired; reassign any existing accounts to bhw.
+update public.profiles set role = 'bhw' where role::text = 'veterinarian';
+
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -72,6 +75,7 @@ create table if not exists public.animals (
   name text not null,
   species public.animal_species not null default 'Dog',
   classification public.animal_classification not null default 'Pet',
+  neutered boolean not null default false,
   owner_name text not null,
   contact_number text,
   impound_area text,
@@ -102,6 +106,7 @@ alter table public.animals add column if not exists color text;
 alter table public.animals add column if not exists notes text;
 alter table public.animals add column if not exists updated_at timestamptz not null default now();
 alter table public.animals add column if not exists pound_status text;
+alter table public.animals add column if not exists neutered boolean not null default false;
 
 do $$
 begin
@@ -375,13 +380,13 @@ create policy "Authenticated users can read puroks"
 drop policy if exists "Staff can manage puroks" on public.puroks;
 create policy "Staff can manage puroks"
   on public.puroks for all to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'veterinarian', 'bhw')))
-  with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'veterinarian', 'bhw')));
+  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')))
+  with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')));
 
 drop policy if exists "Staff can read animals" on public.animals;
 create policy "Staff can read animals"
   on public.animals for select to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'veterinarian', 'bhw')));
+  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')));
 
 drop policy if exists "Clients can read own animals" on public.animals;
 create policy "Clients can read own animals"
@@ -391,7 +396,7 @@ create policy "Clients can read own animals"
 drop policy if exists "Staff can add animals" on public.animals;
 create policy "Staff can add animals"
   on public.animals for insert to authenticated
-  with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'veterinarian', 'bhw')));
+  with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')));
 
 drop policy if exists "Clients can add own animals" on public.animals;
 create policy "Clients can add own animals"
@@ -401,7 +406,7 @@ create policy "Clients can add own animals"
 drop policy if exists "Staff can update animals" on public.animals;
 create policy "Staff can update animals"
   on public.animals for update to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'veterinarian', 'bhw')));
+  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')));
 
 drop policy if exists "Clients can update own animals" on public.animals;
 create policy "Clients can update own animals"
@@ -416,8 +421,8 @@ create policy "Authenticated users can read breeds"
 drop policy if exists "Staff can manage breeds" on public.breeds;
 create policy "Staff can manage breeds"
   on public.breeds for all to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'veterinarian', 'bhw')))
-  with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'veterinarian', 'bhw')));
+  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')))
+  with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')));
 
 drop policy if exists "Authenticated users can read vaccines" on public.vaccines;
 create policy "Authenticated users can read vaccines"
@@ -426,14 +431,14 @@ create policy "Authenticated users can read vaccines"
 drop policy if exists "Staff can manage vaccines" on public.vaccines;
 create policy "Staff can manage vaccines"
   on public.vaccines for all to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'veterinarian', 'bhw')))
-  with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'veterinarian', 'bhw')));
+  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')))
+  with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')));
 
 drop policy if exists "Staff can manage vaccination history" on public.vaccination_history;
 create policy "Staff can manage vaccination history"
   on public.vaccination_history for all to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'veterinarian', 'bhw')))
-  with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'veterinarian', 'bhw')));
+  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')))
+  with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')));
 
 drop policy if exists "Users can read own animal vaccination history" on public.vaccination_history;
 create policy "Users can read own animal vaccination history"
@@ -483,12 +488,12 @@ create policy "Admins can read login attempts"
   on public.login_attempts for select to authenticated
   using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
--- Staff invite links — super-admin generates a role-locked, single-use, expiring
+-- Staff invite links â€” super-admin generates a role-locked, single-use, expiring
 -- registration link instead of anyone being able to self-select a staff role.
 create table if not exists public.staff_invites (
   id bigint generated by default as identity primary key,
   token text not null unique,
-  role public.user_role not null check (role in ('bhw', 'veterinarian', 'admin')),
+  role public.user_role not null check (role in ('bhw', 'admin')),
   expires_at timestamptz not null default (now() + interval '7 days'),
   used_at timestamptz,
   used_by uuid references auth.users(id) on delete set null,
@@ -496,6 +501,15 @@ create table if not exists public.staff_invites (
 );
 
 create index if not exists staff_invites_token_idx on public.staff_invites (token);
+
+-- The veterinarian role has been retired; drop any leftover invites for it
+-- and tighten the constraint on databases created before this change.
+delete from public.staff_invites where role::text = 'veterinarian';
+do $$
+begin
+  alter table public.staff_invites drop constraint if exists staff_invites_role_check;
+  alter table public.staff_invites add constraint staff_invites_role_check check (role in ('bhw', 'admin'));
+end $$;
 
 alter table public.staff_invites enable row level security;
 -- No client policies: only the service-role key (hidden admin dashboard, invite registration action) touches this table.

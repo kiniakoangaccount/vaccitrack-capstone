@@ -4,7 +4,6 @@ import InviteRegisterForm from "./InviteRegisterForm";
 
 const ROLE_LABELS: Record<string, string> = {
   bhw: "Barangay Health Worker",
-  veterinarian: "Veterinarian",
   admin: "Administrator",
 };
 

@@ -209,26 +209,26 @@ export default async function AdminDashboardPage({
               )}
 
               <div className="admin-stat-grid">
-                <article className="admin-stat-card admin-stat-hoverable">
+                <a href="/308873d1049ba0/dashboard?tab=users" className="admin-stat-card admin-stat-hoverable admin-stat-link">
                   <span className="admin-stat-icon blue"><Users size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.users : "—"}</p>
                   <p className="admin-stat-label">Registered users</p>
-                </article>
-                <article className="admin-stat-card admin-stat-hoverable">
+                </a>
+                <a href="/?tab=Registry" className="admin-stat-card admin-stat-hoverable admin-stat-link">
                   <span className="admin-stat-icon green"><PawPrint size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.animals : "—"}</p>
                   <p className="admin-stat-label">Animal records</p>
-                </article>
-                <article className="admin-stat-card admin-stat-hoverable">
+                </a>
+                <a href="/308873d1049ba0/dashboard?tab=pending" className="admin-stat-card admin-stat-hoverable admin-stat-link">
                   <span className="admin-stat-icon amber"><Clock size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.pending : "—"}</p>
                   <p className="admin-stat-label">Pending verifications</p>
-                </article>
-                <article className="admin-stat-card admin-stat-hoverable">
+                </a>
+                <a href="/308873d1049ba0/dashboard?tab=feedback" className="admin-stat-card admin-stat-hoverable admin-stat-link">
                   <span className="admin-stat-icon red"><MessageSquare size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.feedback : "—"}</p>
                   <p className="admin-stat-label">New feedback items</p>
-                </article>
+                </a>
               </div>
 
               <div className="admin-quick-grid">
@@ -310,7 +310,7 @@ export default async function AdminDashboardPage({
               <div className="admin-page-heading">
                 <p className="eyebrow">STAFF ONBOARDING</p>
                 <h1>Invite staff</h1>
-                <p className="heading-sub">Generate a role-locked registration link for a BHW, veterinarian, or administrator. Each link works once and expires after 7 days.</p>
+                <p className="heading-sub">Generate a role-locked registration link for a BHW or administrator. Each link works once and expires after 7 days.</p>
               </div>
               {!supaCfg ? <NotConfigured /> : <InvitesPanel invites={invites} />}
             </>

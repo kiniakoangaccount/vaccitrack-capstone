@@ -5,7 +5,7 @@ const MAX_ID_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export async function createAccountFromForm(
   formData: FormData,
-  role: "client" | "bhw" | "veterinarian" | "admin",
+  role: "client" | "bhw" | "admin",
   status: "pending" | "active"
 ): Promise<{ error?: string; userId?: string }> {
   const db = createAdminClient();

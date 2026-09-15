@@ -19,7 +19,7 @@ export async function addVaccinationRecord(
   const { user, error: authError } = await getAuthenticatedUser();
   if (!user) return { error: authError ?? "You must be signed in." };
   const { data: profile } = await db.from("profiles").select("role").eq("id", user.id).maybeSingle();
-  if (!profile || !["admin", "veterinarian", "bhw"].includes(profile.role)) {
+  if (!profile || !["admin", "bhw"].includes(profile.role)) {
     return { error: "Only staff accounts can record vaccinations." };
   }
 

@@ -60,7 +60,7 @@ export async function exportAnimalsCsv(
 
   const { data: profile } = await db.from("profiles").select("role").eq("id", user.id).maybeSingle();
   const role = profile?.role;
-  if (!role || !["admin", "veterinarian", "bhw", "client"].includes(role)) {
+  if (!role || !["admin", "bhw", "client"].includes(role)) {
     return { error: "You are not authorized to export reports." };
   }
   const isClient = role === "client";
