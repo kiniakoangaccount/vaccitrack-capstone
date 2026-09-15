@@ -300,7 +300,7 @@ button { cursor: pointer; }
 .animal-name-link .small { color: var(--muted); }
 
 /* ── Leaflet map integration ────────────────────────────────────────────── */
-.leaflet-map-wrap { height: 420px; position: relative; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); overflow: hidden; }
+.leaflet-map-wrap { display: flex; flex-direction: column; height: 420px; position: relative; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); overflow: hidden; }
 .leaflet-map-toolbar { display: flex; gap: 12px; padding: 12px; border-bottom: 1px solid var(--line); background: var(--paper); flex-wrap: wrap; }
 .leaflet-map-search { flex: 1; min-width: 220px; }
 .leaflet-map-search input { width: 100%; max-width: 320px; }
