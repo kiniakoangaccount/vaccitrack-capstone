@@ -1,0 +1,5 @@
+import Home from "../page";
+
+export default function SignInPage() {
+  return <Home initialAuthMode="signin" />;
+}

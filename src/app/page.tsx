@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Activity,
   Bell,
@@ -186,8 +186,9 @@ export interface UserNotification {
   created_at: string;
 }
 
-export default function Home() {
+export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?: "landing" | "signin" | "register" } = {}) {
   const router = useRouter();
+  const pathname = usePathname();
   const [animalRecords, setAnimalRecords] = useState<Animal[]>([]);
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("Overview");
@@ -200,7 +201,7 @@ export default function Home() {
   const [authUser, setAuthUser] = useState<{ id: string; email: string; fullName: string; role: string; status: AccountStatus } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState("");
-  const [authMode, setAuthMode] = useState<"landing" | "signin" | "register">("landing");
+  const [authMode, setAuthMode] = useState<"landing" | "signin" | "register">(initialAuthMode);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   const [registrationSent, setRegistrationSent] = useState(false);
   const [authForm, setAuthForm] = useState({ email: "", password: "" });
@@ -251,8 +252,21 @@ export default function Home() {
     window.setTimeout(() => {
       setAuthMode(nextMode);
       setIsPageTransitioning(false);
+      if (nextMode === "landing") router.push("/", { scroll: false });
+      else if (nextMode === "signin") router.push("/signin", { scroll: false });
+      else router.push("/register", { scroll: false });
     }, 220);
   }
+
+  // /signin and /register are real, bookmarkable URLs for the auth screens;
+  // once a visit to one of them resolves into a signed-in session, send them
+  // back to the dashboard at "/" instead of leaving them stranded on an
+  // auth-only route.
+  useEffect(() => {
+    if (authUser && (pathname === "/signin" || pathname === "/register")) {
+      router.replace("/");
+    }
+  }, [authUser, pathname, router]);
 
   useEffect(() => {
     const supabase = createClient();
