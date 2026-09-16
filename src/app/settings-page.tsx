@@ -3,16 +3,18 @@
 import { useCallback, useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
-import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Edit2, MapPin, Save } from "lucide-react";
+import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Edit2, MapPin, Save, Menu, X } from "lucide-react";
 
 export default function SettingsPage() {
   const supabase = createClient();
+  const [showMobileNav, setShowMobileNav] = useState(false);
   return (
     <main className="app-shell">
-      <aside className="sidebar">
+      <aside className={`sidebar ${showMobileNav ? "sidebar-open" : ""}`}>
         <div className="brand"><span className="brand-mark"><ShieldCheck size={20} /></span><span>VacciTrack</span></div>
         <div className="workspace"><span className="workspace-dot" /> Barangay Estefania <ChevronDown size={15} /></div>
         <div className={`data-mode ${supabase ? "live" : "demo"}`}><span /> {supabase ? "Connected to Supabase" : "Demo mode"}</div>
+        <button className="sidebar-close" aria-label="Close navigation" onClick={() => setShowMobileNav(false)}><X size={18} /></button>
         <nav className="side-nav" aria-label="Main navigation">
           <p className="nav-label">Management</p>
           <Link href="/" className="nav-item"><Bell size={17} /> My account</Link>
@@ -20,9 +22,10 @@ export default function SettingsPage() {
         </nav>
         <div className="sidebar-footer"><div className="user-row"><span className="avatar">UP</span><span><strong>VacciTrack user</strong><small>Demo account</small></span><ChevronDown size={15} /></div></div>
       </aside>
+      {showMobileNav && <div className="sidebar-backdrop" onClick={() => setShowMobileNav(false)} />}
 
       <section className="content-area">
-        <header className="topbar"><div className="crumb">Settings <span>/</span> Lookup tables</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><ChevronDown size={18} /></button></div></header>
+        <header className="topbar"><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Settings <span>/</span> Lookup tables</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><ChevronDown size={18} /></button></div></header>
 
         <div className="page-content">
           <div className="page-heading">

@@ -5,12 +5,13 @@ import Link from "next/link";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { updateProfile, getAccountChannels, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp } from "./profile-actions";
-import { ShieldCheck, Bell, Eye, EyeOff, User, Key, CheckCircle2, AlertCircle } from "lucide-react";
+import { ShieldCheck, Bell, Eye, EyeOff, User, Key, CheckCircle2, AlertCircle, Menu, X } from "lucide-react";
 
 type Channel = "email" | "sms";
 
 export default function ProfilePage() {
   const supabase = createClient();
+  const [showMobileNav, setShowMobileNav] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -57,10 +58,11 @@ export default function ProfilePage() {
 
   return (
     <main className="app-shell">
-      <aside className="sidebar">
+      <aside className={`sidebar ${showMobileNav ? "sidebar-open" : ""}`}>
         <div className="brand"><span className="brand-mark"><ShieldCheck size={20} /></span><span>VacciTrack</span></div>
         <div className="workspace"><span className="workspace-dot" /> Barangay Estefania</div>
         <div className={`data-mode ${supabase ? "live" : "demo"}`}><span /> {supabase ? "Connected to Supabase" : "Demo mode"}</div>
+        <button className="sidebar-close" aria-label="Close navigation" onClick={() => setShowMobileNav(false)}><X size={18} /></button>
         <nav className="side-nav" aria-label="Main navigation">
           <p className="nav-label">Workspace</p>
           <Link href="/" className="nav-item"><User size={17} /> My account</Link>
@@ -68,9 +70,10 @@ export default function ProfilePage() {
         </nav>
         <div className="sidebar-footer"><div className="user-row"><span className="avatar">UP</span><span><strong>VacciTrack user</strong><small>Demo account</small></span><EyeOff size={15} /></div></div>
       </aside>
+      {showMobileNav && <div className="sidebar-backdrop" onClick={() => setShowMobileNav(false)} />}
 
       <section className="content-area">
-        <header className="topbar"><div className="crumb">Account <span>/</span> Profile</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><Eye size={18} /></button></div></header>
+        <header className="topbar"><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Account <span>/</span> Profile</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><Eye size={18} /></button></div></header>
 
         <div className="page-content">
           <div className="page-heading">

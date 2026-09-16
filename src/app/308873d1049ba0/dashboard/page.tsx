@@ -11,7 +11,7 @@ import { listStaffInvites, type StaffInvite } from "./crud-actions";
 import {
   ShieldCheck, Users, PawPrint, Activity, Bell,
   LogOut, MessageSquare, Clock, XCircle,
-  CheckCircle2, UserPlus, MapPin,
+  CheckCircle2, UserPlus, MapPin, Menu,
 } from "lucide-react";
 import { SmsSimForm } from "./SmsSimForm";
 import AdminMapPanel from "./AdminMapPanel";
@@ -142,6 +142,7 @@ export default async function AdminDashboardPage({
 
   return (
     <main className="admin-shell">
+      <input type="checkbox" id="admin-nav-toggle" className="admin-nav-toggle-checkbox" />
       {/* ── Sidebar ── */}
       <aside className="admin-sidebar">
         <div className="admin-sidebar-brand">
@@ -181,10 +182,12 @@ export default async function AdminDashboardPage({
           </form>
         </div>
       </aside>
+      <label htmlFor="admin-nav-toggle" className="admin-sidebar-backdrop" aria-hidden="true" />
 
       {/* ── Content ── */}
       <section className="admin-content">
         <header className="admin-topbar">
+          <label htmlFor="admin-nav-toggle" className="admin-mobile-nav-toggle" aria-label="Open navigation"><Menu size={20} /></label>
           <div className="admin-crumb">
             Admin <span>/</span> {navItems.find((n) => n.key === tab)?.label}
           </div>
