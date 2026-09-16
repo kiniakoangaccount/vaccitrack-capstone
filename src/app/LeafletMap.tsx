@@ -23,14 +23,23 @@ export interface MapPurok {
   longitude: number;
 }
 
+export interface LeafletMapHandle {
+  /** Smoothly pan/zoom the map to a coordinate, e.g. after a geolocation fix. */
+  flyTo: (lat: number, lng: number, zoom?: number) => void;
+}
+
 interface LeafletMapProps {
   animals: MapAnimal[];
   puroks: MapPurok[];
   onPickCoordinates?: (lat: number, lng: number) => void;
   pickMode?: boolean;
+  // A plain callback instead of a forwarded ref: this component is loaded via
+  // next/dynamic, whose wrapper is a plain function component and silently
+  // drops any ref passed through it.
+  onMapReady?: (handle: LeafletMapHandle) => void;
 }
 
-export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMode = false }: LeafletMapProps) {
+export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMode = false, onMapReady }: LeafletMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const markersLayer = useRef<L.LayerGroup | null>(null);
@@ -40,6 +49,20 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
   const [showPuroks, setShowPuroks] = useState(true);
   const [mapSearch, setMapSearch] = useState("");
   const [selectedAnimal, setSelectedAnimal] = useState<MapAnimal | null>(null);
+
+  // Read the latest pickMode/onPickCoordinates from the click handler via refs
+  // instead of the effect below, so the map is created once per mount and
+  // never torn down just because the parent re-rendered with a new callback
+  // identity (e.g. after every pin placement, which itself triggers a
+  // re-render — recreating the map on every click broke picking a 2nd pin).
+  const pickModeRef = useRef(pickMode);
+  const onPickCoordinatesRef = useRef(onPickCoordinates);
+  const onMapReadyRef = useRef(onMapReady);
+  useEffect(() => {
+    pickModeRef.current = pickMode;
+    onPickCoordinatesRef.current = onPickCoordinates;
+    onMapReadyRef.current = onMapReady;
+  }, [pickMode, onPickCoordinates, onMapReady]);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -61,17 +84,23 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
 
     mapInstance.current = map;
 
-    if (pickMode && onPickCoordinates) {
-      map.on("click", (e: L.LeafletMouseEvent) => {
-        if (e.latlng) onPickCoordinates(e.latlng.lat, e.latlng.lng);
-      });
-    }
+    map.on("click", (e: L.LeafletMouseEvent) => {
+      if (pickModeRef.current && onPickCoordinatesRef.current && e.latlng) {
+        onPickCoordinatesRef.current(e.latlng.lat, e.latlng.lng);
+      }
+    });
+
+    onMapReadyRef.current?.({
+      flyTo: (lat, lng, zoom = 16) => {
+        mapInstance.current?.flyTo([lat, lng], zoom, { animate: true });
+      },
+    });
 
     return () => {
       map.remove();
       mapInstance.current = null;
     };
-  }, [pickMode, onPickCoordinates]);
+  }, []);
 
   // Purok zone circles
   useEffect(() => {

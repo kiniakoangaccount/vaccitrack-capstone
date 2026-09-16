@@ -314,6 +314,12 @@ button { cursor: pointer; }
 .map-picker-field .leaflet-map-wrap { height: 220px; }
 .map-picker-hint { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
 .map-picker-hint small { color: var(--muted); }
+.map-picker-search { position: relative; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--muted); }
+.map-picker-search input { flex: 1; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 17px; }
+.map-picker-suggestions { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; margin: 0; padding: 6px; list-style: none; background: var(--white); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 28px #17312624; }
+.map-picker-suggestions li + li { margin-top: 2px; }
+.map-picker-suggestions button { display: block; width: 100%; padding: 8px 10px; text-align: left; border: 0; border-radius: 6px; background: transparent; color: var(--ink); font-size: 15px; cursor: pointer; }
+.map-picker-suggestions button:hover { background: #eef4ef; }
 
 /* ── Pound / stray directory ────────────────────────────────────────────── */
 .status-info { color: #3a6ea5; background: #eaf1fa; }

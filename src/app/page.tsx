@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -14,6 +14,7 @@ import {
   Dog,
   FileText,
   Home as HomeIcon,
+  Loader2,
   MapPin,
   Menu,
   MessageSquare,
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { registerUser } from "./register-action";
+import { searchLocation, type LocationSuggestion } from "./geocode-action";
 import { resolveUsernameToEmail } from "./signin-action";
 import { exportAnimalsCsv } from "./audit-actions";
 import { markAllNotificationsRead, markNotificationRead } from "./notification-actions";
@@ -37,6 +39,7 @@ import { getTeamMembers, type TeamMember } from "./team-actions";
 import { purokOptions, getAnimalStatus } from "@/lib/map-data";
 import AuditPanel from "./308873d1049ba0/dashboard/AuditPanel";
 import dynamic from "next/dynamic";
+import type { LeafletMapHandle } from "./LeafletMap";
 
 const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
 
@@ -93,6 +96,14 @@ type SupabaseAnimalRecord = {
 };
 
 type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Reports" | "Risk" | "Map" | "Pound" | "Feedback" | "Team" | "Audit" | "Profile" | "Settings";
+
+// signIn() reloads the page on success to re-run the auth-check effect fresh.
+// That reload resets authMode back to its "landing" default before the effect
+// can react to a rejected (pending/disabled) account, so the error it sets
+// never had anywhere to render. This sessionStorage flag survives the reload
+// and tells the effect the rejection should surface on the sign-in form
+// instead of silently landing back on the marketing page.
+const POST_SIGNIN_FLAG = "vt-post-signin-attempt";
 
 function RoleBlocked({ role, message }: { role: string; message?: string }) {
   return (
@@ -190,6 +201,11 @@ export default function Home() {
   const [registrationForm, setRegistrationForm] = useState({ username: "", fullName: "", email: "", contact: "", password: "" });
   const [idImageFile, setIdImageFile] = useState<File | null>(null);
   const [form, setForm] = useState({ name: "", species: "Dog" as Animal["species"], classification: "Pet" as "Pet" | "Stray", neutered: "Not neutered" as "Neutered" | "Not neutered", breed: "", age: "", sex: "", color: "", owner: "", contact: "", impoundArea: "", purok: purokOptions[0].name, vaccineDate: "", vaccineType: vaccineOptions[0], nextDue: "", latitude: "", longitude: "", notes: "" });
+  const pickerMapRef = useRef<LeafletMapHandle | null>(null);
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const skipNextLocationSearchRef = useRef(false);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [chartPeriod, setChartPeriod] = useState("Last 6 months");
@@ -238,6 +254,15 @@ export default function Home() {
       return;
     }
 
+    let justAttemptedSignIn = false;
+    try {
+      justAttemptedSignIn = sessionStorage.getItem(POST_SIGNIN_FLAG) === "1";
+      sessionStorage.removeItem(POST_SIGNIN_FLAG);
+    } catch {
+      // sessionStorage can throw in private/locked-down browser contexts —
+      // worst case we fall back to the pre-fix landing-page behavior.
+    }
+
     let mounted = true;
     void supabase.auth.getUser().then(async ({ data: { user }, error }: SupabaseAuthResponse) => {
       if (!mounted) return;
@@ -258,6 +283,7 @@ export default function Home() {
       if (status !== "active") {
         await supabase.auth.signOut();
         setAuthError(status === "pending" ? "Your civilian account is pending administrator verification." : "This account is disabled. Contact the barangay administrator.");
+        if (justAttemptedSignIn) setAuthMode("signin");
         setAuthChecked(true);
         return;
       }
@@ -369,6 +395,11 @@ export default function Home() {
         setAuthError(`Supabase sign-in error${error.code ? ` (${error.code})` : ""}: ${error.message}`);
       }
       return;
+    }
+    try {
+      sessionStorage.setItem(POST_SIGNIN_FLAG, "1");
+    } catch {
+      // Best-effort — see the comment on POST_SIGNIN_FLAG's declaration.
     }
     window.location.reload();
   }
@@ -517,6 +548,30 @@ export default function Home() {
     });
   }, [chartMonths]);
 
+  // Predictive place search for the location picker: debounce keystrokes and
+  // drop stale results so a fast typist doesn't see an older query's matches
+  // replace a newer one.
+  useEffect(() => {
+    if (skipNextLocationSearchRef.current) {
+      skipNextLocationSearchRef.current = false;
+      return;
+    }
+    const query = locationQuery.trim();
+    if (query.length < 3) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const result = await searchLocation(query);
+      if (!cancelled) {
+        setLocationSuggestions(result.results ?? []);
+        setIsSearchingLocation(false);
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [locationQuery]);
+
   async function submitFeedback(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!feedbackMessage.trim()) return;
@@ -579,9 +634,22 @@ export default function Home() {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (position) => pickCoordinates(position.coords.latitude, position.coords.longitude),
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        pickCoordinates(latitude, longitude);
+        pickerMapRef.current?.flyTo(latitude, longitude, 16);
+      },
       () => setFormError("Could not access your location. Pick a point on the map instead."),
+      { enableHighAccuracy: true, timeout: 5000 },
     );
+  }
+
+  function selectLocationSuggestion(suggestion: LocationSuggestion) {
+    pickCoordinates(suggestion.lat, suggestion.lon);
+    pickerMapRef.current?.flyTo(suggestion.lat, suggestion.lon, 16);
+    skipNextLocationSearchRef.current = true;
+    setLocationQuery(suggestion.label);
+    setLocationSuggestions([]);
   }
 
   async function registerAnimal(event: FormEvent<HTMLFormElement>) {
@@ -719,7 +787,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      {showRegister && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowRegister(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="register-title"><div className="modal-heading"><div><p className="eyebrow">NEW RECORD</p><h2 id="register-title">Register an animal</h2></div><button className="icon-button" aria-label="Close registration form" onClick={() => setShowRegister(false)}><X size={18} /></button></div><form className="animal-form" onSubmit={registerAnimal}><label>Animal name<input required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Bantay" /></label><label>Species<select value={form.species} onChange={(event) => setForm({ ...form, species: event.target.value as Animal["species"], breed: "" })}><option>Dog</option><option>Cat</option></select></label><label>Classification<select value={form.classification} onChange={(event) => setForm({ ...form, classification: event.target.value as "Pet" | "Stray" })}><option>Pet</option><option>Stray</option></select></label><label>Neuter status<select value={form.neutered} onChange={(event) => setForm({ ...form, neutered: event.target.value as "Neutered" | "Not neutered" })}><option>Not neutered</option><option>Neutered</option></select></label><label>Breed<select value={form.breed} onChange={(event) => setForm({ ...form, breed: event.target.value })}><option value="">Select breed</option>{breedOptions.filter((breed) => breed.species === form.species).map((breed) => <option key={breed.id} value={breed.name}>{breed.name}</option>)}</select></label><label>Sex<input required maxLength={20} value={form.sex} onChange={(event) => setForm({ ...form, sex: event.target.value })} /></label><label>Age (months)<input type="number" min="0" max="360" value={form.age} onChange={(event) => setForm({ ...form, age: event.target.value })} placeholder="e.g. 36" /></label><label>Color / markings<input maxLength={60} value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} placeholder="e.g. Brown" /></label><label>Civilian / owner name<input required maxLength={120} value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} placeholder="Full name" /></label><label>Contact number<input required inputMode="numeric" pattern="09[0-9]{9}" value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} placeholder="09171234567" /></label><label>Geospatial pin area<select value={form.purok} onChange={(event) => setForm({ ...form, purok: event.target.value })}>{purokOptions.map((purok) => <option key={purok.id} value={purok.name}>{purok.name}</option>)}</select></label><label>Impound area <small>(optional)</small><input maxLength={120} value={form.impoundArea} onChange={(event) => setForm({ ...form, impoundArea: event.target.value })} placeholder="e.g. Barangay kennel A" /></label><label>Last vaccination<input type="date" max={new Date().toISOString().slice(0, 10)} value={form.vaccineDate} onChange={(event) => { const vaccineDate = event.target.value; setForm((current) => ({ ...current, vaccineDate, nextDue: vaccineDate ? addMonths(vaccineDate, 6) : "" })); }} /></label><label>Vaccine type<select value={form.vaccineType} onChange={(event) => setForm({ ...form, vaccineType: event.target.value })}>{vaccineOptions.map((vaccine) => <option key={vaccine} value={vaccine}>{vaccine}</option>)}</select></label><label>Next vaccination<input type="date" min={form.vaccineDate || undefined} value={form.nextDue} onChange={(event) => setForm({ ...form, nextDue: event.target.value })} /></label><div className="map-picker-field"><div className="map-picker-hint"><small>Click the map to drop a pin, or use your current location.</small><button type="button" className="secondary-button" onClick={useMyLocation}><MapPin size={13} /> Use my location</button></div><LeafletMap animals={form.latitude && form.longitude ? [{ id: "picked", name: "Selected location", species: form.species, owner: form.owner || "—", purok: form.purok, vaccinated: false, status: "Pending", latitude: Number(form.latitude), longitude: Number(form.longitude) }] : []} puroks={purokOptions} pickMode onPickCoordinates={pickCoordinates} /></div><label>Notes <small>(optional)</small><textarea rows={3} maxLength={400} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Temperament, medical notes, etc." /></label>{formError && <p className="form-error">{formError}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowRegister(false)}>Cancel</button><button className="primary-button" disabled={isSaving}>{isSaving ? "Registering..." : "Register animal"}</button></div></form></section></div>}
+      {showRegister && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowRegister(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="register-title"><div className="modal-heading"><div><p className="eyebrow">NEW RECORD</p><h2 id="register-title">Register an animal</h2></div><button className="icon-button" aria-label="Close registration form" onClick={() => setShowRegister(false)}><X size={18} /></button></div><form className="animal-form" onSubmit={registerAnimal}><label>Animal name<input required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Bantay" /></label><label>Species<select value={form.species} onChange={(event) => setForm({ ...form, species: event.target.value as Animal["species"], breed: "" })}><option>Dog</option><option>Cat</option></select></label><label>Classification<select value={form.classification} onChange={(event) => setForm({ ...form, classification: event.target.value as "Pet" | "Stray" })}><option>Pet</option><option>Stray</option></select></label><label>Neuter status<select value={form.neutered} onChange={(event) => setForm({ ...form, neutered: event.target.value as "Neutered" | "Not neutered" })}><option>Not neutered</option><option>Neutered</option></select></label><label>Breed<select value={form.breed} onChange={(event) => setForm({ ...form, breed: event.target.value })}><option value="">Select breed</option>{breedOptions.filter((breed) => breed.species === form.species).map((breed) => <option key={breed.id} value={breed.name}>{breed.name}</option>)}</select></label><label>Sex<input required maxLength={20} value={form.sex} onChange={(event) => setForm({ ...form, sex: event.target.value })} /></label><label>Age (months)<input type="number" min="0" max="360" value={form.age} onChange={(event) => setForm({ ...form, age: event.target.value })} placeholder="e.g. 36" /></label><label>Color / markings<input maxLength={60} value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} placeholder="e.g. Brown" /></label><label>Civilian / owner name<input required maxLength={120} value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} placeholder="Full name" /></label><label>Contact number<input required inputMode="numeric" pattern="09[0-9]{9}" value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} placeholder="09171234567" /></label><label>Geospatial pin area<select value={form.purok} onChange={(event) => setForm({ ...form, purok: event.target.value })}>{purokOptions.map((purok) => <option key={purok.id} value={purok.name}>{purok.name}</option>)}</select></label><label>Impound area <small>(optional)</small><input maxLength={120} value={form.impoundArea} onChange={(event) => setForm({ ...form, impoundArea: event.target.value })} placeholder="e.g. Barangay kennel A" /></label><label>Last vaccination<input type="date" max={new Date().toISOString().slice(0, 10)} value={form.vaccineDate} onChange={(event) => { const vaccineDate = event.target.value; setForm((current) => ({ ...current, vaccineDate, nextDue: vaccineDate ? addMonths(vaccineDate, 6) : "" })); }} /></label><label>Vaccine type<select value={form.vaccineType} onChange={(event) => setForm({ ...form, vaccineType: event.target.value })}>{vaccineOptions.map((vaccine) => <option key={vaccine} value={vaccine}>{vaccine}</option>)}</select></label><label>Next vaccination<input type="date" min={form.vaccineDate || undefined} value={form.nextDue} onChange={(event) => setForm({ ...form, nextDue: event.target.value })} /></label><div className="map-picker-field"><div className="map-picker-hint"><small>Search a place, click the map to drop a pin, or use your current location.</small><button type="button" className="secondary-button" onClick={useMyLocation}><MapPin size={13} /> Use my location</button></div><div className="map-picker-search"><Search size={14} /><input type="text" placeholder="Search for a place or address..." autoComplete="off" value={locationQuery} onChange={(event) => { const value = event.target.value; setLocationQuery(value); if (value.trim().length < 3) { setLocationSuggestions([]); setIsSearchingLocation(false); } else { setIsSearchingLocation(true); } }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); if (locationSuggestions[0]) selectLocationSuggestion(locationSuggestions[0]); } }} />{isSearchingLocation && <Loader2 size={14} className="admin-spin" />}{locationSuggestions.length > 0 && <ul className="map-picker-suggestions">{locationSuggestions.map((suggestion, index) => <li key={index}><button type="button" onClick={() => selectLocationSuggestion(suggestion)}>{suggestion.label}</button></li>)}</ul>}</div><LeafletMap animals={form.latitude && form.longitude ? [{ id: "picked", name: "Selected location", species: form.species, owner: form.owner || "—", purok: form.purok, vaccinated: false, status: "Pending", latitude: Number(form.latitude), longitude: Number(form.longitude) }] : []} puroks={purokOptions} pickMode onPickCoordinates={pickCoordinates} onMapReady={(handle) => { pickerMapRef.current = handle; }} /></div><label>Notes <small>(optional)</small><textarea rows={3} maxLength={400} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Temperament, medical notes, etc." /></label>{formError && <p className="form-error">{formError}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowRegister(false)}>Cancel</button><button className="primary-button" disabled={isSaving}>{isSaving ? "Registering..." : "Register animal"}</button></div></form></section></div>}
     </main>
   );
 }
