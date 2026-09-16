@@ -7,8 +7,9 @@ page, or a `.md` file rendered on GitHub/GitLab — no changes needed.
 ## IPOO
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}, 'themeVariables': {'fontSize': '17px'}}}%%
 flowchart LR
-  classDef stage text-align:left,font-size:14px;
+  classDef stage text-align:left,font-size:16px,stroke-width:2px;
 
   I["<div style='text-align:left'><b>INPUT</b><br/>- Civilian & staff account details<br/>- Animal profile & owner info<br/>- Vaccination records<br/>- Purok / geolocation data<br/>- Feedback messages<br/>- Valid-ID verification photo</div>"]:::stage
   P["<div style='text-align:left'><b>PROCESS</b><br/>- Role-based registration & ID review<br/>- Animal registry management<br/>- Vaccination scheduling & status calc.<br/>- Coverage & risk analysis<br/>- Report & CSV generation<br/>- SMS reminder queuing<br/>- Audit logging</div>"]:::stage
@@ -16,12 +17,16 @@ flowchart LR
   C["<div style='text-align:left'><b>OUTCOME</b><br/>- Higher rabies vaccination coverage<br/>- Fewer missed / overdue vaccinations<br/>- Data-driven barangay health planning<br/>- Faster record-keeping than paper logs<br/>- Transparent, auditable operations</div>"]:::stage
 
   I --> P --> O --> C
+  linkStyle default stroke-width:2px;
 ```
 
 ## System Architecture
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}, 'themeVariables': {'fontSize': '17px'}}}%%
 flowchart TB
+  classDef default stroke-width:2px;
+
   subgraph CLIENT["Client — Browser"]
     UI["Next.js client components<br/>(workspace tabs, forms, Leaflet map)"]
   end
@@ -29,7 +34,7 @@ flowchart TB
   subgraph VERCEL["Vercel — Next.js runtime"]
     MW["Middleware<br/>(admin route guard)"]
     RSC["Server Components<br/>(hidden admin dashboard, SSR)"]
-    SA["Server Actions<br/>(register, export, CRUD, invites, OTP)"]
+    SA["Server Actions<br/>(register, export, CRUD, invites, OTP, geocode)"]
     CRON["Cron route<br/>/api/cron/vaccination-alerts"]
   end
 
@@ -40,6 +45,7 @@ flowchart TB
   end
 
   TWILIO["Twilio<br/>SMS API"]
+  NOMINATIM["Nominatim<br/>(OpenStreetMap geocoding)"]
 
   UI -- "sign in (anon key)" --> AUTH
   UI -- "RLS-scoped reads/writes<br/>(anon key)" --> DB
@@ -47,15 +53,21 @@ flowchart TB
   UI -- "admin session cookie" --> MW --> RSC
   SA -- "service-role key<br/>(bypasses RLS)" --> DB
   SA --> STORAGE
+  SA -- "OTP verification code<br/>(username/password change)" --> TWILIO
+  SA -- "place search" --> NOMINATIM
   RSC -- "service-role key" --> DB
   CRON -- "read overdue + log alert<br/>(service-role key)" --> DB
   CRON -- "send reminder" --> TWILIO
+  linkStyle default stroke-width:2px;
 ```
 
 ## Front-end
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}, 'themeVariables': {'fontSize': '17px'}}}%%
 flowchart TB
+  classDef default stroke-width:2px;
+
   LAND["Landing page"] --> AUTHUI["Sign in / Register<br/>(Supabase Auth)"]
   AUTHUI --> WS
 
@@ -72,14 +84,18 @@ flowchart TB
   subgraph HIDDEN["Hidden super-admin dashboard"]
     HTABS["Overview · User accounts · Pending verification ·<br/>Invite staff · Feedback inbox · Coverage map · Audit log"]
   end
+  linkStyle default stroke-width:2px;
 ```
 
 ## Back-end
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}, 'themeVariables': {'fontSize': '17px'}}}%%
 flowchart LR
+  classDef default stroke-width:2px;
+
   ACCT["Accounts & access<br/>signin-action · register-action ·<br/>invite-register-action ·<br/>profile-actions (OTP) · team-actions"]
-  DOMAIN["Registry & vaccination domain<br/>vaccination-actions · pound-actions ·<br/>settings-actions (breeds, vaccines, puroks) ·<br/>audit-actions (CSV export, audit log)"]
+  DOMAIN["Registry & vaccination domain<br/>vaccination-actions · pound-actions ·<br/>settings-actions (breeds, vaccines, puroks) ·<br/>audit-actions (CSV export, audit log) ·<br/>geocode-action (place search)"]
   ENGAGE["Engagement<br/>notification-actions ·<br/>reminder-actions (in-app reminders)"]
   ADMIN["Super-admin only<br/>crud-actions (users, invites, resets)"]
   CRONJOB["Scheduled<br/>/api/cron/vaccination-alerts"]
@@ -87,14 +103,18 @@ flowchart LR
   DB[("Supabase Postgres<br/>+ Auth + RLS")]
   STORE["Supabase Storage<br/>(ID documents)"]
   SMS["Twilio SMS"]
+  GEO["Nominatim<br/>(place search)"]
 
   ACCT --> DB
   ACCT -- "ID photo upload" --> STORE
+  ACCT -- "OTP verification code" --> SMS
   DOMAIN --> DB
+  DOMAIN -- "place search" --> GEO
   ENGAGE -- "in-app notification" --> DB
   ADMIN --> DB
   CRONJOB --> DB
-  CRONJOB -- "send SMS<br/>(only real SMS path)" --> SMS
+  CRONJOB -- "send scheduled<br/>reminder SMS" --> SMS
+  linkStyle default stroke-width:2px;
 ```
 
 ## ERD
@@ -108,6 +128,7 @@ and `login_attempts` is keyed by the attempted email, not a user id — so none
 of the three have a relationship to draw.
 
 ```mermaid
+%%{init: {'themeVariables': {'fontSize': '17px'}}}%%
 erDiagram
   AUTH_USERS ||--|| PROFILES : "has account"
   AUTH_USERS ||--o{ ANIMALS : owns
@@ -215,7 +236,10 @@ erDiagram
 ## DFD — Level 0 (Context Diagram)
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}, 'themeVariables': {'fontSize': '17px'}}}%%
 flowchart LR
+  classDef default stroke-width:2px;
+
   CIV["Civilian /<br/>Pet Owner"]
   STAFF["Barangay Health Worker /<br/>Administrator"]
   SUPER["Super Admin"]
@@ -232,17 +256,22 @@ flowchart LR
   SUPER -- "user & role management, staff invites" --> SYS
   SYS -- "system-wide audit log, user directory" --> SUPER
 
-  SYS -- "reminder message<br/>(scheduled cron job only)" --> SMS
+  SYS -- "reminder & OTP<br/>verification SMS" --> SMS
+  linkStyle default stroke-width:2px;
 ```
 
 ## DFD — Level 1
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}, 'themeVariables': {'fontSize': '17px'}}}%%
 flowchart TB
+  classDef default stroke-width:2px;
+
   CIV["Civilian / Pet Owner"]
   STAFF["BHW / Administrator"]
   SUPER["Super Admin"]
   SMSGW["SMS Gateway"]
+  GEOSVC["Geocoding Service<br/>(Nominatim)"]
 
   P1(("1.0<br/>Manage Accounts<br/>& Access"))
   P2(("2.0<br/>Manage Animal<br/>Registry"))
@@ -265,11 +294,13 @@ flowchart TB
   SUPER -- "invite, approve, role changes" --> P1
   P1 <--> D1
   P1 <--> D2
+  P1 -- "OTP verification code<br/>(username/password change)" --> SMSGW
 
   CIV -- "register own animal" --> P2
   STAFF -- "manage any animal" --> P2
   P2 <--> D4
   P2 <--> D3
+  P2 -- "place search query" --> GEOSVC
 
   STAFF -- "record vaccination" --> P3
   P3 --> D3
@@ -298,12 +329,16 @@ flowchart TB
   P7 <--> D8
   P7 -- "audit trail" --> SUPER
   P7 -- "audit trail" --> STAFF
+  linkStyle default stroke-width:2px;
 ```
 
 ## Use Case Diagram
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}, 'themeVariables': {'fontSize': '17px'}}}%%
 flowchart LR
+  classDef default stroke-width:2px;
+
   CIV["Civilian /<br/>Pet Owner"]
   VIEW["Viewer"]
 
@@ -376,4 +411,5 @@ flowchart LR
   UC1B & UC17 & UC18 & UC19 & UC20 & UC21 --> SUPER
 
   UC8 ~~~ UC1B
+  linkStyle default stroke-width:2px;
 ```
