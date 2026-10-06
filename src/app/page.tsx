@@ -40,6 +40,7 @@ import { getTeamMembers, type TeamMember } from "./team-actions";
 import { getFeedbackList, updateFeedbackStatus, type FeedbackItem } from "./feedback-actions";
 import { createAppointment, getAppointments, updateAppointmentStatus, type AppointmentItem, type AppointmentStatus } from "./appointment-actions";
 import { purokOptions, getAnimalStatus } from "@/lib/map-data";
+import { DOG_BREEDS, CAT_BREEDS } from "@/lib/breed-data";
 import AuditPanel from "./308873d1049ba0/dashboard/AuditPanel";
 import dynamic from "next/dynamic";
 import type { LeafletMapHandle } from "./LeafletMap";
@@ -132,16 +133,6 @@ type SupabaseError = { code?: string; message: string };
 type SupabaseAuthResponse = { data: { user: { id: string; email?: string } | null }; error: SupabaseError | null };
 type AccountStatus = "active" | "disabled" | "pending";
 
-const breedOptions = [
-  { id: 1, name: "Aspin", species: "Dog" },
-  { id: 2, name: "Labrador", species: "Dog" },
-  { id: 3, name: "Shih Tzu", species: "Dog" },
-  { id: 4, name: "Pomeranian", species: "Dog" },
-  { id: 5, name: "Persian", species: "Cat" },
-  { id: 6, name: "Siamese", species: "Cat" },
-  { id: 7, name: "Puspin", species: "Cat" },
-  { id: 8, name: "Maine Coon", species: "Cat" },
-];
 
 const vaccineOptions = [
   "Rabisin (Anti-Rabies)",
@@ -283,6 +274,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const [registrationForm, setRegistrationForm] = useState({ username: "", fullName: "", email: "", contact: "", password: "" });
   const [idImageFile, setIdImageFile] = useState<File | null>(null);
   const [form, setForm] = useState({ name: "", species: "Dog" as Animal["species"], classification: "Pet" as "Pet" | "Stray", neutered: "Not neutered" as "Neutered" | "Not neutered", breed: "", age: "", sex: "", color: "", owner: "", contact: "", impoundArea: "", purok: purokOptions[0].name, vaccineDate: "", vaccineType: vaccineOptions[0], nextDue: "", latitude: "", longitude: "", notes: "" });
+  const [customBreeds, setCustomBreeds] = useState<{ name: string; species: string }[]>([]);
   const pickerMapRef = useRef<LeafletMapHandle | null>(null);
   const [locationQuery, setLocationQuery] = useState("");
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
@@ -459,6 +451,22 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     };
   }, [authUser, isStaff]);
 
+  // Breeds added via Settings → "Animal breeds" (any authenticated user can
+  // read the breeds table) supplement the built-in breed list below, so
+  // staff never have to come back to the codebase for a missing breed.
+  useEffect(() => {
+    if (!authUser) return;
+    const supabase = createClient();
+    if (!supabase) return;
+    let mounted = true;
+    void supabase.from("breeds").select("name, species").then(({ data }: { data: { name: string; species: string }[] | null }) => {
+      if (mounted && data) setCustomBreeds(data);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [authUser]);
+
   // Keeps the registry live: any insert/update/delete on `animals` (by this
   // user or, for staff, by anyone) re-fetches instead of waiting for a
   // reload. Requires the `animals` table to be added to the Supabase
@@ -621,6 +629,12 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   }), [animalRecords]);
 
   const schedulableAnimals = useMemo(() => animalRecords.filter((animal) => animal.status === "Overdue" || animal.status === "Due soon"), [animalRecords]);
+
+  const breedOptions = useMemo(() => {
+    const base = [...DOG_BREEDS.map((name) => ({ name, species: "Dog" })), ...CAT_BREEDS.map((name) => ({ name, species: "Cat" }))];
+    const extra = customBreeds.filter((custom) => !base.some((breed) => breed.species === custom.species && breed.name.toLowerCase() === custom.name.toLowerCase()));
+    return [...base, ...extra].map((breed, index) => ({ id: index + 1, name: breed.name, species: breed.species }));
+  }, [customBreeds]);
 
   const reportAnimals = animalRecords.filter((animal) => {
     if (!animal.nextDueDate) return true;
