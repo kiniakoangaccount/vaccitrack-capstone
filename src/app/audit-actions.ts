@@ -155,6 +155,15 @@ export async function fetchAuditLogPage(params: { page?: number; limit?: number;
 
   let base = db.from("audit_log").select("*", { count: "exact" });
 
+  // Every audit_log row written by the hidden super-admin dashboard (see
+  // crud-actions.ts) uses user_id: null, since that account isn't a Supabase
+  // auth user — every other write path always sets a real user_id. A regular
+  // "admin" role viewer (the normal in-app Audit tab) should never see the
+  // super-admin's actions; only the hidden dashboard's own view can.
+  if (access.actor.kind === "admin") {
+    base = base.not("user_id", "is", null);
+  }
+
   if (params.action && AUDIT_ACTIONS.includes(params.action as (typeof AUDIT_ACTIONS)[number])) {
     base = base.eq("action", params.action);
   }

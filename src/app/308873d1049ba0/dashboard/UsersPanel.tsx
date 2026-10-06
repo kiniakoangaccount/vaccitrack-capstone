@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Pencil, Trash2, X, Check, Loader2, KeyRound, Copy } from "lucide-react";
-import { updateUserRole, updateUserStatus, deleteUser, resetUserPassword } from "./crud-actions";
+import { updateUserRole, updateUserStatus, deleteUser, resetUserPassword, setUserPassword } from "./crud-actions";
 
 interface Profile {
   id: string;
@@ -34,12 +34,26 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
   const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
   const [resetTarget, setResetTarget] = useState<Profile | null>(null);
   const [resetPassword, setResetPassword] = useState("");
+  const [passwordMode, setPasswordMode] = useState<"set" | "generate">("set");
+  const [customPassword, setCustomPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [editRole, setEditRole] = useState("");
   const [editStatus, setEditStatus] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  function confirmReset() {
+  function openReset(p: Profile) {
+    setResetTarget(p);
+    setResetPassword("");
+    setCustomPassword("");
+    setConfirmPassword("");
+    setPasswordSuccess(false);
+    setPasswordMode("set");
+    setErrorMsg("");
+  }
+
+  function confirmGenerate() {
     if (!resetTarget) return;
     startTransition(async () => {
       const { password, error } = await resetUserPassword(resetTarget.id);
@@ -48,9 +62,25 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
     });
   }
 
+  function confirmSetPassword() {
+    if (!resetTarget) return;
+    if (customPassword.length < 8) { setErrorMsg("Password must be at least 8 characters long."); return; }
+    if (customPassword !== confirmPassword) { setErrorMsg("Passwords do not match."); return; }
+    setErrorMsg("");
+    startTransition(async () => {
+      const { error } = await setUserPassword(resetTarget.id, customPassword);
+      if (error) { setErrorMsg(error); return; }
+      setPasswordSuccess(true);
+    });
+  }
+
   function closeReset() {
     setResetTarget(null);
     setResetPassword("");
+    setCustomPassword("");
+    setConfirmPassword("");
+    setPasswordSuccess(false);
+    setPasswordMode("set");
     setErrorMsg("");
   }
 
@@ -123,7 +153,7 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
                     <button className="admin-action-btn admin-action-edit" onClick={() => openEdit(p)} title="Edit role / status">
                       <Pencil size={13} />
                     </button>
-                    <button className="admin-action-btn admin-action-edit" onClick={() => { setResetTarget(p); setResetPassword(""); setErrorMsg(""); }} title="Reset password">
+                    <button className="admin-action-btn admin-action-edit" onClick={() => openReset(p)} title="Change password">
                       <KeyRound size={13} />
                     </button>
                     <button className="admin-action-btn admin-action-delete" onClick={() => { setDeleteTarget(p); setErrorMsg(""); }} title="Delete account">
@@ -200,20 +230,25 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
           </div>
         </div>
       )}
-      {/* ── Reset password ── */}
+      {/* ── Change password ── */}
       {resetTarget && (
         <div className="admin-modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeReset()}>
           <div className="admin-modal admin-modal-sm">
             <div className="admin-modal-head">
-              <h2>Reset password</h2>
+              <h2>Change password</h2>
               <button className="admin-modal-close" onClick={closeReset}><X size={18} /></button>
             </div>
             <div className="admin-modal-body">
-              {!resetPassword ? (
-                <p className="admin-confirm-text">
-                  Generate a new random password for <strong>{resetTarget.full_name}</strong>. Their current password stops working immediately — share the new one with them directly, then have them change it from their account settings.
-                </p>
-              ) : (
+              {!resetPassword && !passwordSuccess && (
+                <div className="admin-row-actions">
+                  <button type="button" className={passwordMode === "set" ? "admin-btn-primary" : "admin-btn-secondary"} onClick={() => { setPasswordMode("set"); setErrorMsg(""); }}>Set password</button>
+                  <button type="button" className={passwordMode === "generate" ? "admin-btn-primary" : "admin-btn-secondary"} onClick={() => { setPasswordMode("generate"); setErrorMsg(""); }}>Generate random</button>
+                </div>
+              )}
+
+              {passwordSuccess ? (
+                <p className="admin-confirm-text">Password updated for <strong>{resetTarget.full_name}</strong>. Share it with them directly — it will not be shown again here.</p>
+              ) : resetPassword ? (
                 <>
                   <p className="admin-confirm-text">Share this password with <strong>{resetTarget.full_name}</strong> now — it will not be shown again.</p>
                   <div className="admin-generated-password">
@@ -221,13 +256,33 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
                     <button type="button" className="admin-action-btn" title="Copy" onClick={() => navigator.clipboard?.writeText(resetPassword)}><Copy size={13} /></button>
                   </div>
                 </>
+              ) : passwordMode === "set" ? (
+                <>
+                  <p className="admin-confirm-text">Set a specific new password for <strong>{resetTarget.full_name}</strong>. Their current password stops working immediately.</p>
+                  <label className="admin-form-label">New password
+                    <input className="admin-form-select" type="password" minLength={8} autoComplete="new-password" value={customPassword} onChange={(e) => setCustomPassword(e.target.value)} placeholder="At least 8 characters" />
+                  </label>
+                  <label className="admin-form-label">Confirm password
+                    <input className="admin-form-select" type="password" minLength={8} autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-type the password" />
+                  </label>
+                </>
+              ) : (
+                <p className="admin-confirm-text">
+                  Generate a new random password for <strong>{resetTarget.full_name}</strong>. Their current password stops working immediately — share the new one with them directly, then have them change it from their account settings.
+                </p>
               )}
               {errorMsg && <p className="admin-form-error">{errorMsg}</p>}
             </div>
             <div className="admin-modal-foot">
-              <button className="admin-btn-secondary" onClick={closeReset} disabled={isPending}>{resetPassword ? "Done" : "Cancel"}</button>
-              {!resetPassword && (
-                <button className="admin-btn-primary" onClick={confirmReset} disabled={isPending}>
+              <button className="admin-btn-secondary" onClick={closeReset} disabled={isPending}>{resetPassword || passwordSuccess ? "Done" : "Cancel"}</button>
+              {!resetPassword && !passwordSuccess && passwordMode === "set" && (
+                <button className="admin-btn-primary" onClick={confirmSetPassword} disabled={isPending || !customPassword || !confirmPassword}>
+                  {isPending ? <Loader2 size={14} className="admin-spin" /> : <KeyRound size={14} />}
+                  Set password
+                </button>
+              )}
+              {!resetPassword && !passwordSuccess && passwordMode === "generate" && (
+                <button className="admin-btn-primary" onClick={confirmGenerate} disabled={isPending}>
                   {isPending ? <Loader2 size={14} className="admin-spin" /> : <KeyRound size={14} />}
                   Generate new password
                 </button>

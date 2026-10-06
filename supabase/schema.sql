@@ -560,10 +560,17 @@ create policy "Staff can manage feedback"
   using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')))
   with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')));
 
+-- Rows with user_id is null were written by the hidden super-admin
+-- dashboard (a separate, non-Supabase-auth account — see
+-- src/app/308873d1049ba0/dashboard/crud-actions.ts), which a regular admin
+-- role should never see. The app's own Audit tab already filters this via
+-- fetchAuditLogPage() in src/app/audit-actions.ts; this policy is the same
+-- rule enforced at the database level in case anything ever reads this
+-- table directly instead of through that server action.
 drop policy if exists "Admins can read audit log" on public.audit_log;
 create policy "Admins can read audit log"
   on public.audit_log for select to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+  using (user_id is not null and exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
 drop policy if exists "Users can read own notifications" on public.notifications;
 create policy "Users can read own notifications"

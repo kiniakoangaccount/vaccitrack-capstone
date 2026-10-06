@@ -138,6 +138,30 @@ export async function resetUserPassword(userId: string): Promise<{ password?: st
   }
 }
 
+export async function setUserPassword(userId: string, password: string): Promise<{ error?: string }> {
+  if (password.length < 8) return { error: "Password must be at least 8 characters long." };
+
+  try {
+    const db = await requireAdmin();
+    const session = await getAdminSession();
+
+    const { error } = await db.auth.admin.updateUserById(userId, { password });
+    if (error) return { error: error.message };
+
+    await db.from("audit_log").insert({
+      user_id: null,
+      action: "UPDATE",
+      table_name: "auth.users",
+      notes: `Administrator "${session?.username}" set a new password for account ${userId}.`,
+    });
+
+    revalidatePath(DASH);
+    return {};
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 export async function deleteUser(userId: string): Promise<{ error?: string }> {
   try {
     const db = await requireAdmin();
