@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Cat, CheckCircle2, Dog, MapPin, Plus, Syringe, X } from "lucide-react";
 import { addVaccinationRecord } from "./vaccination-actions";
+import { todayLocalIso } from "@/lib/dates";
 
 export interface AnimalDetail {
   id: number | string;
@@ -70,7 +71,7 @@ export default function AnimalDetailPanel({
       setError("Vaccination date is required.");
       return;
     }
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = todayLocalIso();
     if (vaccineDate > todayIso) {
       setError("Vaccination date cannot be in the future.");
       return;
@@ -150,7 +151,7 @@ export default function AnimalDetailPanel({
             {showAddForm && (
               <div className="booster-form">
                 <label>Vaccination date
-                  <input type="date" max={new Date().toISOString().slice(0, 10)} value={vaccineDate} onChange={(e) => setVaccineDate(e.target.value)} />
+                  <input type="date" max={todayLocalIso()} value={vaccineDate} onChange={(e) => setVaccineDate(e.target.value)} />
                 </label>
                 <label>Next due date
                   <input type="date" min={vaccineDate || undefined} value={nextDueDate} onChange={(e) => setNextDueDate(e.target.value)} />

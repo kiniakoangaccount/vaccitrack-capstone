@@ -42,10 +42,10 @@ export async function deleteBreed(id: number): Promise<{ error?: string }> {
   return {};
 }
 
-export async function addVaccine(name: string): Promise<{ error?: string }> {
+export async function addVaccine(name: string, species: string): Promise<{ error?: string }> {
   const db = createAdminClient();
   if (!db) return { error: "Service unavailable." };
-  const { error } = await db.from("vaccines").insert({ name });
+  const { error } = await db.from("vaccines").insert({ name, species });
   if (error) return { error: error.message };
   return {};
 }

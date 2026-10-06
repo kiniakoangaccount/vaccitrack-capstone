@@ -244,18 +244,18 @@ function PurokManager() {
 }
 function VaccineManager() {
   const supabase = createClient();
-  const [vaccines, setVaccines] = useState<{ id: number; name: string }[]>([]);
+  const [vaccines, setVaccines] = useState<{ id: number; name: string; species: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ name: "" });
+  const [form, setForm] = useState({ name: "", species: "Both" });
   const [editing, setEditing] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!supabase) return;
     setLoading(true);
-    const { data } = await supabase.from("vaccines").select("id, name").order("name");
-    setVaccines(data ?? []);
+    const { data } = await supabase.from("vaccines").select("id, name, species").order("name");
+    setVaccines(((data ?? []) as { id: number; name: string; species: string | null }[]).map((v) => ({ ...v, species: v.species ?? "Both" })));
     setLoading(false);
   }, [supabase]);
 
@@ -269,7 +269,7 @@ function VaccineManager() {
     if (!form.name.trim()) return;
     setError("");
     setSaving(true);
-    const payload = { name: form.name.trim() };
+    const payload = { name: form.name.trim(), species: form.species };
     if (editing) {
       const { error } = await supabase.from("vaccines").update(payload).eq("id", editing);
       if (error) { setError(error.message); setSaving(false); return; }
@@ -278,7 +278,7 @@ function VaccineManager() {
       if (error) { setError(error.message); setSaving(false); return; }
     }
     setSaving(false);
-    setForm({ name: "" });
+    setForm({ name: "", species: "Both" });
     setEditing(null);
     if (editing) {
       setVaccines((prev) => prev.map((v) => (v.id === editing ? { ...v, ...payload } : v)));
@@ -299,10 +299,17 @@ function VaccineManager() {
   return (
     <div>
       <form className="settings-form" onSubmit={submit}>
-        <input className="account-input" placeholder="Vaccine name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+        <div className="settings-grid-2">
+          <input className="account-input" placeholder="Vaccine name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <select className="account-input" value={form.species} onChange={(e) => setForm({ ...form, species: e.target.value })}>
+            <option value="Both">Dog &amp; Cat</option>
+            <option value="Dog">Dog only</option>
+            <option value="Cat">Cat only</option>
+          </select>
+        </div>
         <div className="settings-actions">
           <button className="primary-button" type="submit" disabled={saving || !form.name.trim()}><Save size={14} /> {editing ? "Update" : "Add"} vaccine</button>
-          {editing && <button className="secondary-button" type="button" onClick={() => { setEditing(null); setForm({ name: "" }); }}>Cancel</button>}
+          {editing && <button className="secondary-button" type="button" onClick={() => { setEditing(null); setForm({ name: "", species: "Both" }); }}>Cancel</button>}
         </div>
       </form>
       {error && <div className="notice danger"><Trash2 size={14} /><span>{error}</span></div>}
@@ -311,9 +318,10 @@ function VaccineManager() {
           <li key={v.id} className="settings-row">
             <div className="settings-row-main">
               <span className="settings-row-name">{v.name}</span>
+              <span className="settings-row-meta"><span className="settings-species-tag" data-species={v.species.toLowerCase()}>{v.species === "Both" ? "Dog & Cat" : v.species}</span></span>
             </div>
             <div className="settings-row-actions">
-              <button className="icon-button" title="Edit" onClick={() => { setEditing(v.id); setForm({ name: v.name }); }}><Edit2 size={13} /></button>
+              <button className="icon-button" title="Edit" onClick={() => { setEditing(v.id); setForm({ name: v.name, species: v.species }); }}><Edit2 size={13} /></button>
               <button className="icon-button" title="Remove" onClick={() => remove(v.id)}><Trash2 size={13} /></button>
             </div>
           </li>

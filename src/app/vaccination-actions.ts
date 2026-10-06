@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
+import { getManilaDateIso } from "@/lib/dates";
 
 export async function addVaccinationRecord(
   animalId: number,
@@ -21,6 +22,12 @@ export async function addVaccinationRecord(
   const { data: profile } = await db.from("profiles").select("role").eq("id", user.id).maybeSingle();
   if (!profile || !["admin", "bhw"].includes(profile.role)) {
     return { error: "Only staff accounts can record vaccinations." };
+  }
+
+  // The date picker already enforces this client-side, but a server action
+  // can be called directly, so it must hold here too.
+  if (payload.vaccineDate > getManilaDateIso(0)) {
+    return { error: "Vaccination date cannot be in the future." };
   }
 
   const { data, error } = await db

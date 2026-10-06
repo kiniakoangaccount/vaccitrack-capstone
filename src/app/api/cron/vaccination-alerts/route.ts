@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { sendSms, normalizePhilippineNumber } from "@/lib/sms";
+import { getManilaDateIso } from "@/lib/dates";
 
 type AnimalAlert = {
   id: number;
@@ -10,19 +11,6 @@ type AnimalAlert = {
   user_id: string;
   contact_number: string | null;
 };
-
-function getManilaDate(offsetDays = 0): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Manila",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const year = Number(parts.find((part) => part.type === "year")?.value);
-  const month = Number(parts.find((part) => part.type === "month")?.value);
-  const day = Number(parts.find((part) => part.type === "day")?.value);
-  return new Date(Date.UTC(year, month - 1, day + offsetDays)).toISOString().slice(0, 10);
-}
 
 function formatDate(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
@@ -56,8 +44,8 @@ export async function GET(request: Request) {
   const db = createAdminClient();
   if (!db) return NextResponse.json({ error: "Supabase service configuration is incomplete." }, { status: 503 });
 
-  const todayDate = getManilaDate(0);
-  const upcomingDueDate = getManilaDate(7);
+  const todayDate = getManilaDateIso(0);
+  const upcomingDueDate = getManilaDateIso(7);
 
   // Two batches: animals due in exactly 7 days (upcoming) and animals whose
   // due date has already passed (overdue). Overdue animals don't share one
