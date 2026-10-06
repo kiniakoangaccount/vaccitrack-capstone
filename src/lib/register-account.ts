@@ -31,6 +31,14 @@ export async function createAccountFromForm(
   if (!idImage.type.startsWith("image/")) return { error: "The ID upload must be an image file." };
   if (idImage.size > MAX_ID_IMAGE_BYTES) return { error: "The ID image must be smaller than 5MB." };
 
+  // Usernames are also used to sign in, so they must be unique. The profiles
+  // table only enforces this via a unique index, not the auth.users insert's
+  // `on conflict (id)`, so an unchecked collision here surfaces later as a
+  // misleading "email already exists" error (the resulting Postgres
+  // unique-violation message also matches that check below).
+  const { data: existingUsername } = await db.from("profiles").select("id").eq("username", username).maybeSingle();
+  if (existingUsername) return { error: "That username is already taken. Please choose another." };
+
   const { data, error } = await db.auth.admin.createUser({
     email: email || placeholderEmailFor(username),
     password,
