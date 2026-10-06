@@ -8,6 +8,7 @@ import {
   Bell,
   Cat,
   CheckCircle2,
+  CalendarClock,
   CalendarDays,
   CircleUserRound,
   ClipboardList,
@@ -37,6 +38,7 @@ import { queueVaccinationReminders } from "./reminder-actions";
 import { updatePoundStatus, type PoundStatus } from "./pound-actions";
 import { getTeamMembers, type TeamMember } from "./team-actions";
 import { getFeedbackList, updateFeedbackStatus, type FeedbackItem } from "./feedback-actions";
+import { createAppointment, getAppointments, updateAppointmentStatus, type AppointmentItem, type AppointmentStatus } from "./appointment-actions";
 import { purokOptions, getAnimalStatus } from "@/lib/map-data";
 import AuditPanel from "./308873d1049ba0/dashboard/AuditPanel";
 import dynamic from "next/dynamic";
@@ -96,7 +98,7 @@ type SupabaseAnimalRecord = {
   puroks: { name: string } | { name: string }[] | null;
 };
 
-type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Reports" | "Risk" | "Map" | "Pound" | "Feedback" | "Team" | "Audit" | "Profile" | "Settings";
+type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Appointments" | "Reports" | "Risk" | "Map" | "Pound" | "Feedback" | "Team" | "Audit" | "Profile" | "Settings";
 
 // signIn() reloads the page on success to re-run the auth-check effect fresh.
 // That reload resets authMode back to its "landing" default before the effect
@@ -166,6 +168,35 @@ function formatVaccineDate(vaccineDate?: string | null) {
   return new Date(`${vaccineDate}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
 }
 
+const AGE_GROUP_ORDER = ["Under 1 year", "1–3 years", "3–7 years", "7+ years", "Unknown"];
+
+function ageGroupLabel(ageMonths?: number): string {
+  if (ageMonths === undefined || ageMonths === null) return "Unknown";
+  if (ageMonths < 12) return "Under 1 year";
+  if (ageMonths < 36) return "1–3 years";
+  if (ageMonths < 84) return "3–7 years";
+  return "7+ years";
+}
+
+// Groups animals by an arbitrary key (breed, age group, vaccine type, ...)
+// and reports vaccination coverage per group, reusing the same shape the
+// purok-based riskRows/Coverage rows already use.
+function buildCoverageBreakdown(animals: Animal[], keyFn: (animal: Animal) => string, order?: string[]) {
+  const totals = new Map<string, { total: number; vaccinated: number }>();
+  for (const animal of animals) {
+    const key = keyFn(animal);
+    const entry = totals.get(key) ?? { total: 0, vaccinated: 0 };
+    entry.total += 1;
+    if (animal.vaccinated) entry.vaccinated += 1;
+    totals.set(key, entry);
+  }
+  const keys = order ? order.filter((key) => totals.has(key)) : Array.from(totals.keys()).sort();
+  return keys.map((key) => {
+    const { total, vaccinated } = totals.get(key)!;
+    return { label: key, total, vaccinated, rate: total ? Math.round((vaccinated / total) * 100) : 0 };
+  });
+}
+
 function addMonths(dateStr: string, months: number) {
   const date = new Date(`${dateStr}T00:00:00`);
   date.setMonth(date.getMonth() + months);
@@ -183,6 +214,51 @@ export interface UserNotification {
   type: string;
   is_read: boolean;
   created_at: string;
+}
+
+// Shared by the initial load and the realtime refresh below, so both stay in
+// sync with exactly the same query/mapping instead of two copies drifting.
+async function loadAnimalRecords(
+  supabase: NonNullable<ReturnType<typeof createClient>>,
+  isClientRole: boolean,
+  ownerId: string
+): Promise<Animal[] | null> {
+  const today = new Date();
+  // Note: intentionally unbounded (no .limit()) — Registry, Map, and Risk
+  // analysis all need the complete animal set, not just recent additions.
+  const recentQuery = supabase.from("animals").select("id, name, species, classification, neutered, breed, age, sex, color, owner_name, contact_number, impound_area, vaccinated, vaccine_date, next_due_date, vaccine_type, latitude, longitude, notes, pound_status, puroks(name)").order("created_at", { ascending: false });
+  const recentResult = await (isClientRole ? recentQuery.eq("user_id", ownerId) : recentQuery);
+  if (recentResult.error) return null;
+
+  return ((recentResult.data ?? []) as SupabaseAnimalRecord[]).map((record) => {
+    const nextDueDate = record.next_due_date ?? null;
+    const vaccinated = Boolean(record.vaccinated);
+    return {
+      id: record.id,
+      name: record.name,
+      species: record.species,
+      classification: record.classification,
+      neutered: record.neutered ?? undefined,
+      breed: record.breed ?? undefined,
+      age: record.age ?? undefined,
+      sex: record.sex ?? undefined,
+      color: record.color ?? undefined,
+      owner: record.owner_name,
+      vaccinated,
+      vaccineDate: record.vaccine_date ?? null,
+      purok: Array.isArray(record.puroks) ? record.puroks[0]?.name ?? "Unassigned" : record.puroks?.name ?? "Unassigned",
+      status: getAnimalStatus(vaccinated, nextDueDate, today),
+      nextDueDate,
+      nextDue: formatDueDate(nextDueDate),
+      contact: record.contact_number ?? "",
+      impoundArea: record.impound_area ?? "",
+      vaccineType: record.vaccine_type ?? undefined,
+      latitude: record.latitude ?? undefined,
+      longitude: record.longitude ?? undefined,
+      notes: record.notes ?? undefined,
+      poundStatus: record.pound_status ?? null,
+    } satisfies Animal;
+  });
 }
 
 export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?: "landing" | "signin" | "register" } = {}) {
@@ -217,6 +293,9 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
   const [feedbackListError, setFeedbackListError] = useState("");
+  const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  const [appointmentForm, setAppointmentForm] = useState({ animalId: "", assignedTo: "", scheduledDate: "", notes: "" });
+  const [appointmentError, setAppointmentError] = useState("");
   const [chartPeriod, setChartPeriod] = useState("Last 6 months");
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -320,47 +399,12 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       const isClientRole = resolvedRole === "client";
       const ownerId = user.id;
 
-      const today = new Date();
-      // Note: intentionally unbounded (no .limit()) — Registry, Map, and Risk
-      // analysis all need the complete animal set, not just recent additions.
-      const recentQuery = supabase.from("animals").select("id, name, species, classification, neutered, breed, age, sex, color, owner_name, contact_number, impound_area, vaccinated, vaccine_date, next_due_date, vaccine_type, latitude, longitude, notes, pound_status, puroks(name)").order("created_at", { ascending: false });
-
-      const recentResult = await (isClientRole ? recentQuery.eq("user_id", ownerId) : recentQuery);
+      const records = await loadAnimalRecords(supabase, isClientRole, ownerId);
       if (!mounted) return;
-      if (recentResult.error) {
+      if (records === null) {
         setLoadError("Supabase could not load the registry.");
         return;
       }
-
-      const records = ((recentResult.data ?? []) as SupabaseAnimalRecord[]).map((record) => {
-          const nextDueDate = record.next_due_date ?? null;
-          const vaccinated = Boolean(record.vaccinated);
-          return {
-            id: record.id,
-            name: record.name,
-            species: record.species,
-            classification: record.classification,
-            neutered: record.neutered ?? undefined,
-            breed: record.breed ?? undefined,
-            age: record.age ?? undefined,
-            sex: record.sex ?? undefined,
-            color: record.color ?? undefined,
-            owner: record.owner_name,
-            vaccinated,
-            vaccineDate: record.vaccine_date ?? null,
-            purok: Array.isArray(record.puroks) ? record.puroks[0]?.name ?? "Unassigned" : record.puroks?.name ?? "Unassigned",
-            status: getAnimalStatus(vaccinated, nextDueDate, today),
-            nextDueDate,
-            nextDue: formatDueDate(nextDueDate),
-            contact: record.contact_number ?? "",
-            impoundArea: record.impound_area ?? "",
-            vaccineType: record.vaccine_type ?? undefined,
-            latitude: record.latitude ?? undefined,
-            longitude: record.longitude ?? undefined,
-            notes: record.notes ?? undefined,
-            poundStatus: record.pound_status ?? null,
-          } satisfies Animal;
-        });
       setAnimalRecords(records);
       setIsLive(true);
       });
@@ -372,7 +416,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
 
   useEffect(() => {
     const tabParam = new URLSearchParams(window.location.search).get("tab");
-    const validTabs: WorkspaceTab[] = ["Overview", "Registry", "Planning", "Reports", "Risk", "Map", "Pound", "Feedback", "Team", "Audit", "Profile", "Settings"];
+    const validTabs: WorkspaceTab[] = ["Overview", "Registry", "Planning", "Appointments", "Reports", "Risk", "Map", "Pound", "Feedback", "Team", "Audit", "Profile", "Settings"];
     if (tabParam && (validTabs as string[]).includes(tabParam)) {
       queueMicrotask(() => setActiveTab(tabParam as WorkspaceTab));
     }
@@ -401,6 +445,48 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       mounted = false;
     };
   }, [authUser, isStaff]);
+
+  useEffect(() => {
+    if (!authUser || !isStaff) return;
+    let mounted = true;
+    void getAppointments().then((result) => {
+      if (!mounted) return;
+      if (result.items) setAppointments(result.items);
+      else if (result.error) setAppointmentError(result.error);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [authUser, isStaff]);
+
+  // Keeps the registry live: any insert/update/delete on `animals` (by this
+  // user or, for staff, by anyone) re-fetches instead of waiting for a
+  // reload. Requires the `animals` table to be added to the Supabase
+  // `supabase_realtime` publication (see supabase/schema.sql).
+  useEffect(() => {
+    if (!authUser) return;
+    const supabase = createClient();
+    if (!supabase) return;
+
+    const isClientRole = isClient;
+    const ownerId = authUser.id;
+    const channel = supabase
+      .channel(`animals-live-${ownerId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "animals", ...(isClientRole ? { filter: `user_id=eq.${ownerId}` } : {}) },
+        () => {
+          void loadAnimalRecords(supabase, isClientRole, ownerId).then((records) => {
+            if (records) setAnimalRecords(records);
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [authUser, isClient]);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -534,6 +620,8 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     return { purok: purokName, total: records.length, vaccinated, rate, risk: records.length === 0 ? "NO DATA" : rate < 50 ? "HIGH" : rate < 70 ? "MODERATE" : "LOW" };
   }), [animalRecords]);
 
+  const schedulableAnimals = useMemo(() => animalRecords.filter((animal) => animal.status === "Overdue" || animal.status === "Due soon"), [animalRecords]);
+
   const reportAnimals = animalRecords.filter((animal) => {
     if (!animal.nextDueDate) return true;
     return animal.nextDueDate >= reportRange.from && animal.nextDueDate <= reportRange.to;
@@ -545,6 +633,10 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     expiring: reportAnimals.filter((animal) => animal.status === "Due soon" || animal.status === "Overdue").length,
     impounded: reportAnimals.filter((animal) => animal.impoundArea).length,
   }), [reportAnimals]);
+
+  const coverageByBreed = useMemo(() => buildCoverageBreakdown(reportAnimals, (animal) => animal.breed?.trim() || "Unspecified"), [reportAnimals]);
+  const coverageByAgeGroup = useMemo(() => buildCoverageBreakdown(reportAnimals, (animal) => ageGroupLabel(animal.age), AGE_GROUP_ORDER), [reportAnimals]);
+  const coverageByVaccine = useMemo(() => buildCoverageBreakdown(reportAnimals, (animal) => animal.vaccineType?.trim() || "Not recorded"), [reportAnimals]);
 
   const strayAnimals = useMemo(() => {
     const normalized = poundQuery.trim().toLowerCase();
@@ -630,6 +722,32 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     setFeedbackItems((current) => current.map((item) => (item.id === id ? { ...item, status } : item)));
     const { error } = await updateFeedbackStatus(id, status);
     if (error) setFeedbackListError(error);
+  }
+
+  async function submitAppointment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppointmentError("");
+    if (!appointmentForm.animalId || !appointmentForm.assignedTo || !appointmentForm.scheduledDate) return;
+
+    const { error } = await createAppointment({
+      animalId: Number(appointmentForm.animalId),
+      assignedTo: appointmentForm.assignedTo,
+      scheduledDate: appointmentForm.scheduledDate,
+      notes: appointmentForm.notes.trim() || undefined,
+    });
+    if (error) {
+      setAppointmentError(error);
+      return;
+    }
+    setAppointmentForm({ animalId: "", assignedTo: "", scheduledDate: "", notes: "" });
+    const result = await getAppointments();
+    if (result.items) setAppointments(result.items);
+  }
+
+  async function changeAppointmentStatus(id: number, status: AppointmentStatus) {
+    setAppointments((current) => current.map((item) => (item.id === id ? { ...item, status } : item)));
+    const { error } = await updateAppointmentStatus(id, status);
+    if (error) setAppointmentError(error);
   }
 
   async function handleExportCsv() {
@@ -795,6 +913,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
           <button className={`nav-item ${activeTab === "Overview" ? "selected" : ""}`} onClick={() => selectTab("Overview")}><Activity size={17} /> Overview</button>
           {!isViewer && <button className={`nav-item ${activeTab === "Registry" ? "selected" : ""}`} onClick={() => selectTab("Registry")}><ClipboardList size={17} /> {isClient ? "My animals" : "Animal registry"} <span className="nav-count">{dashboardStats.registered}</span></button>}
           {isStaff && <button className={`nav-item ${activeTab === "Planning" ? "selected" : ""}`} onClick={() => selectTab("Planning")}><CalendarDays size={17} /> Vaccination planning</button>}
+          {isStaff && <button className={`nav-item ${activeTab === "Appointments" ? "selected" : ""}`} onClick={() => selectTab("Appointments")}><CalendarClock size={17} /> Appointments</button>}
           {isStaff && <button className={`nav-item ${activeTab === "Reports" ? "selected" : ""}`} onClick={() => selectTab("Reports")}><FileText size={17} /> Reports</button>}
           {isStaff && <button className={`nav-item ${activeTab === "Risk" ? "selected" : ""}`} onClick={() => selectTab("Risk")}><ShieldCheck size={17} /> Risk analysis</button>}
           {isStaff && <button className={`nav-item ${activeTab === "Map" ? "selected" : ""}`} onClick={() => selectTab("Map")}><MapPin size={17} /> Coverage map</button>}
@@ -817,7 +936,8 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
           {activeTab !== "Overview" && <section className="workspace-panel">
             {activeTab === "Registry" && (isViewer ? <RoleBlocked role={userRole} message="The animal registry is not available for viewer accounts. Viewers can access Overview and Feedback only." /> : <div className="module-content"><div className="module-intro"><div><p className="eyebrow">REGISTRY MANAGEMENT</p><h2>{isClient ? "My registered animals" : "All animal records"}</h2><p>{isClient ? "Review your registered pets and their vaccination schedules." : "Search, review, and register dogs and cats across every purok."}</p></div><div className="module-actions"><button className="secondary-button" onClick={handleExportCsv} disabled={isExporting}><FileText size={15} /> {isExporting ? "Exporting..." : isClient ? "Export my report" : "Export CSV"}</button>{canManageAnimals && <button className="primary-button" onClick={() => setShowRegister(true)}><Plus size={17} /> New record</button>}</div></div><div className="search-box wide-search"><Search size={16} /><input aria-label="Search all animals" placeholder="Search name, civilian, purok, or species..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th></tr></thead><tbody>{filteredAnimals.map((animal) => <tr key={`module-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredAnimals.length === 0 && <div className="empty-state">No records found.</div>}</div></div>)}
             {activeTab === "Planning" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PROGRAM PLANNING</p><h2>Vaccination plan</h2><p>Prioritize overdue animals and upcoming vaccination drives.</p></div><span className="module-chip"><CalendarDays size={14} /> 90-day view</span></div><div className="planning-grid"><div className="planning-list"><h3>Needs immediate action</h3>{animalRecords.filter((animal) => animal.status === "Overdue").map((animal) => <div className="planning-row" key={`overdue-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}{animalRecords.filter((animal) => animal.status === "Overdue").length === 0 && <p className="module-muted"><CheckCircle2 size={16} /> No overdue vaccinations.</p>}</div><div className="planning-list"><h3>Upcoming vaccinations</h3>{animalRecords.filter((animal) => animal.status === "Due soon").map((animal) => <div className="planning-row" key={`due-${animal.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}</div></div></div> : <RoleBlocked role={userRole} message="Vaccination planning is only available for staff accounts (admin, bhw)." />)}
-            {activeTab === "Reports" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">REPORTING</p><h2>Vaccination report by date range</h2><p>Review coverage, expiring vaccinations, and impound cases within a selected period.</p><p className="report-period">Period: {reportRange.from} to {reportRange.to}</p></div><button className="secondary-button no-print" onClick={printReport}><FileText size={15} /> Print report</button></div><div className="report-controls no-print"><label>From<input type="date" value={reportRange.from} onChange={(event) => setReportRange({ ...reportRange, from: event.target.value })} /></label><label>To<input type="date" min={reportRange.from} value={reportRange.to} onChange={(event) => setReportRange({ ...reportRange, to: event.target.value })} /></label></div>{reportRange.to < reportRange.from ? <p className="form-error">The end date must be on or after the start date.</p> : <><div className="report-grid"><article><strong>{reportSummary.total}</strong><span>Records in range</span></article><article><strong>{reportSummary.vaccinated}</strong><span>Vaccinated</span></article><article><strong>{reportSummary.expiring}</strong><span>Expired / due soon</span></article><article><strong>{reportSummary.impounded}</strong><span>In impound area</span></article></div><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th></tr></thead><tbody>{reportAnimals.map((animal) => <tr key={`report-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{reportAnimals.length === 0 && <div className="empty-state">No records in this date range.</div>}</div><div className="planning-grid no-print"><div className="planning-list"><h3>Expiry detection</h3>{reportAnimals.filter((animal) => animal.status === "Due soon" || animal.status === "Overdue").map((animal) => <div className="planning-row" key={`expiry-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name} — {animal.owner}</strong><small>{animal.contact || "No contact recorded"} · {animal.nextDue}</small></span><em>{animal.status}</em></div>)}</div><form className="planning-list" onSubmit={(event) => { event.preventDefault(); setBulkSent(true); }}><h3>Send reminder to many</h3><p className="heading-sub">Recipients: {reportAnimals.filter((animal) => (animal.status === "Due soon" || animal.status === "Overdue") && animal.contact).length} valid contacts</p><textarea required rows={4} value={bulkMessage} onChange={(event) => setBulkMessage(event.target.value)} />{bulkSent && <p className="module-muted"><CheckCircle2 size={15} /> Reminder queue prepared for valid contacts.</p>}<button className="primary-button" type="submit"><Send size={15} /> Queue reminders</button></form></div></>}</div> : <RoleBlocked role={userRole} message="Reports are only available for staff accounts (admin, bhw)." />)}
+            {activeTab === "Appointments" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">CLINIC WORKFLOW</p><h2>Vaccination appointments</h2><p>Schedule upcoming vaccination visits and assign them to a BHW or admin staff member.</p></div></div><form className="feedback-form" onSubmit={submitAppointment}><label>Animal<select required value={appointmentForm.animalId} onChange={(event) => setAppointmentForm({ ...appointmentForm, animalId: event.target.value })}><option value="">Select an animal needing vaccination</option>{schedulableAnimals.map((animal) => <option key={animal.id} value={animal.id}>{animal.name} — {animal.owner} ({animal.purok})</option>)}</select></label><label>Assign to<select required value={appointmentForm.assignedTo} onChange={(event) => setAppointmentForm({ ...appointmentForm, assignedTo: event.target.value })}><option value="">Select staff</option>{teamMembers.map((member) => <option key={member.id} value={member.id}>{member.fullName} ({member.role})</option>)}</select></label><label>Scheduled date<input required type="date" min={new Date().toISOString().slice(0, 10)} value={appointmentForm.scheduledDate} onChange={(event) => setAppointmentForm({ ...appointmentForm, scheduledDate: event.target.value })} /></label><label>Notes <small>(optional)</small><textarea rows={3} value={appointmentForm.notes} onChange={(event) => setAppointmentForm({ ...appointmentForm, notes: event.target.value })} /></label>{appointmentError && <p className="form-error">{appointmentError}</p>}<button className="primary-button" type="submit"><CalendarClock size={16} /> Schedule appointment</button></form><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Owner</th><th>Assigned to</th><th>Scheduled date</th><th>Status</th></tr></thead><tbody>{appointments.map((appointment) => <tr key={`appt-${appointment.id}`}><td>{appointment.animalName}</td><td>{appointment.ownerName}</td><td>{appointment.assignedName}</td><td>{formatVaccineDate(appointment.scheduledDate)}</td><td><select className="pound-status-select" value={appointment.status} onChange={(event) => void changeAppointmentStatus(appointment.id, event.target.value as AppointmentStatus)}><option>Scheduled</option><option>Completed</option><option>Missed</option><option>Cancelled</option></select></td></tr>)}</tbody></table>{appointments.length === 0 && <div className="empty-state">No appointments scheduled yet.</div>}</div></div> : <RoleBlocked role={userRole} message="Appointments are only available for staff accounts (admin, bhw)." />)}
+            {activeTab === "Reports" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">REPORTING</p><h2>Vaccination report by date range</h2><p>Review coverage, expiring vaccinations, and impound cases within a selected period.</p><p className="report-period">Period: {reportRange.from} to {reportRange.to}</p></div><button className="secondary-button no-print" onClick={printReport}><FileText size={15} /> Print report</button></div><div className="report-controls no-print"><label>From<input type="date" value={reportRange.from} onChange={(event) => setReportRange({ ...reportRange, from: event.target.value })} /></label><label>To<input type="date" min={reportRange.from} value={reportRange.to} onChange={(event) => setReportRange({ ...reportRange, to: event.target.value })} /></label></div>{reportRange.to < reportRange.from ? <p className="form-error">The end date must be on or after the start date.</p> : <><div className="report-grid"><article><strong>{reportSummary.total}</strong><span>Records in range</span></article><article><strong>{reportSummary.vaccinated}</strong><span>Vaccinated</span></article><article><strong>{reportSummary.expiring}</strong><span>Expired / due soon</span></article><article><strong>{reportSummary.impounded}</strong><span>In impound area</span></article></div><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th></tr></thead><tbody>{reportAnimals.map((animal) => <tr key={`report-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{reportAnimals.length === 0 && <div className="empty-state">No records in this date range.</div>}</div><div className="risk-grid"><div className="planning-list"><h3>Coverage by breed</h3>{coverageByBreed.length === 0 ? <p className="module-muted">No records in range.</p> : coverageByBreed.map((row) => <Coverage key={`breed-${row.label}`} name={row.label} value={row.rate} count={`${row.vaccinated} / ${row.total}`} />)}</div><div className="planning-list"><h3>Coverage by age group</h3>{coverageByAgeGroup.length === 0 ? <p className="module-muted">No records in range.</p> : coverageByAgeGroup.map((row) => <Coverage key={`age-${row.label}`} name={row.label} value={row.rate} count={`${row.vaccinated} / ${row.total}`} />)}</div><div className="planning-list"><h3>Coverage by vaccine type</h3>{coverageByVaccine.length === 0 ? <p className="module-muted">No records in range.</p> : coverageByVaccine.map((row) => <Coverage key={`vaccine-${row.label}`} name={row.label} value={row.rate} count={`${row.vaccinated} / ${row.total}`} />)}</div></div><div className="planning-grid no-print"><div className="planning-list"><h3>Expiry detection</h3>{reportAnimals.filter((animal) => animal.status === "Due soon" || animal.status === "Overdue").map((animal) => <div className="planning-row" key={`expiry-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name} — {animal.owner}</strong><small>{animal.contact || "No contact recorded"} · {animal.nextDue}</small></span><em>{animal.status}</em></div>)}</div><form className="planning-list" onSubmit={(event) => { event.preventDefault(); setBulkSent(true); }}><h3>Send reminder to many</h3><p className="heading-sub">Recipients: {reportAnimals.filter((animal) => (animal.status === "Due soon" || animal.status === "Overdue") && animal.contact).length} valid contacts</p><textarea required rows={4} value={bulkMessage} onChange={(event) => setBulkMessage(event.target.value)} />{bulkSent && <p className="module-muted"><CheckCircle2 size={15} /> Reminder queue prepared for valid contacts.</p>}<button className="primary-button" type="submit"><Send size={15} /> Queue reminders</button></form></div></>}</div> : <RoleBlocked role={userRole} message="Reports are only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Risk" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">DECISION SUPPORT</p><h2>Risk analysis by purok</h2><p>Areas below 70% coverage need targeted follow-up.</p></div><span className="module-chip"><ShieldCheck size={14} /> 70% target</span></div><div className="risk-grid">{riskRows.map((row) => <article className={`risk-card risk-${row.risk.toLowerCase().replace(" ", "-")}`} key={row.purok}><div className="risk-card-head"><h3>{row.purok}</h3><span>{row.risk}</span></div><div className="risk-count"><strong>{row.rate}%</strong><small>{row.vaccinated} vaccinated of {row.total}</small></div><div className="progress"><span style={{ width: `${row.rate}%` }} /></div><p>{row.total === 0 ? "No animals registered in this purok." : row.rate < 70 ? `${Math.max(0, Math.ceil(row.total * .7) - row.vaccinated)} more needed to reach target.` : "Herd immunity target met."}</p></article>)}</div></div> : <RoleBlocked role={userRole} message="Risk analysis is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Map" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">GEOSPATIAL COVERAGE</p><h2>Barangay coverage map</h2><p>Use purok-level records to plan field visits and vaccination drives.</p></div><span className="module-chip"><MapPin size={14} /> {purokOptions.length} puroks monitored</span></div><LeafletMap animals={animalRecords.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species, owner: animal.owner, purok: animal.purok, vaccinated: animal.vaccinated, status: animal.status, latitude: animal.latitude, longitude: animal.longitude }))} puroks={purokOptions} /><div className="map-legend"><span><i className="legend-dot good" /> Vaccinated</span><span><i className="legend-dot warn" /> Due soon</span><span><i className="legend-dot danger" /> Overdue</span></div></div> : <RoleBlocked role={userRole} message="Coverage map is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Pound" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">STRAY &amp; POUND</p><h2>Stray dog directory</h2><p>Track impounded and stray animals through intake, observation, and outcome.</p></div><span className="module-chip"><HomeIcon size={14} /> {strayAnimals.length} strays</span></div><div className="pound-filters"><div className="search-box"><Search size={16} /><input aria-label="Search strays" placeholder="Search name, purok, or impound area..." value={poundQuery} onChange={(event) => setPoundQuery(event.target.value)} /></div><select value={poundStatusFilter} onChange={(event) => setPoundStatusFilter(event.target.value as PoundStatus | "All")}><option value="All">All statuses</option>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></div>{poundError && <p className="form-error">{poundError}</p>}{strayAnimals.length === 0 ? <div className="empty-state">No stray animals match the current filters.</div> : <div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th><th>Pound status</th></tr></thead><tbody>{strayAnimals.map((animal) => <tr key={`pound-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td><td><select className="pound-status-select" value={animal.poundStatus ?? "Impounded"} onChange={(event) => changePoundStatus(animal.id, event.target.value as PoundStatus)}>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></td></tr>)}</tbody></table></div>}</div> : <RoleBlocked role={userRole} message="Stray and pound records are only available for staff accounts (admin, bhw)." />)}
