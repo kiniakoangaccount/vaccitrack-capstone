@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
 import { getManilaDateIso } from "@/lib/dates";
+import { logAudit } from "@/lib/audit";
 
 export async function addVaccinationRecord(
   animalId: number,
@@ -59,6 +60,14 @@ export async function addVaccinationRecord(
     }).eq("id", animalId);
     if (animalError) return { error: animalError.message };
   }
+
+  await logAudit(db, {
+    userId: user.id,
+    action: "INSERT",
+    tableName: "vaccination_history",
+    recordId: data.id,
+    notes: `Vaccination recorded for animal #${animalId}${payload.vaccineType ? ` (${payload.vaccineType})` : ""}.`,
+  });
 
   return { id: data.id };
 }

@@ -143,20 +143,21 @@ export async function GET(request: Request) {
     if (result.error) {
       await db.from("vaccination_alerts").update({ status: "failed", error_message: result.error }).eq("id", alertId);
       failures.push(`${animal.name}: ${result.error}`);
-      continue;
+    } else {
+      await db.from("vaccination_alerts").update({ status: "sent", provider_message_id: result.messageId ?? null, error_message: null, sent_at: new Date().toISOString() }).eq("id", alertId);
+      sent += 1;
     }
 
-    await db.from("vaccination_alerts").update({ status: "sent", provider_message_id: result.messageId ?? null, error_message: null, sent_at: new Date().toISOString() }).eq("id", alertId);
+    // The in-app notification is the fallback channel, not an echo of SMS
+    // success — it must land even when SMS is unconfigured or fails, or the
+    // owner gets no reminder through any channel at all.
     await db.from("notifications").insert({
       user_id: animal.user_id,
-      title: kind === "overdue" ? "Overdue vaccination reminder sent" : "Vaccination reminder sent",
-      message: kind === "overdue"
-        ? `${animal.name}'s vaccination was due on ${formatDate(dueDate)}. An SMS reminder was sent to the registered mobile number.`
-        : `${animal.name}'s vaccination expires on ${formatDate(dueDate)}. An SMS reminder was sent to the registered mobile number.`,
+      title: kind === "overdue" ? "Overdue vaccination" : "Vaccination due soon",
+      message,
       type: kind === "overdue" ? "danger" : "warning",
       dedupe_key: `sms:${animal.id}:${dueDate}`,
     });
-    sent += 1;
   }
 
   return NextResponse.json({ todayDate, upcomingDueDate, matched: targets.length, sent, skipped, failures });

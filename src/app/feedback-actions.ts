@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
+import { logAudit } from "@/lib/audit";
 
 export type FeedbackItem = {
   id: number;
@@ -24,7 +25,7 @@ async function requireStaff() {
     return { error: "Only staff accounts (admin, bhw) can manage feedback." } as const;
   }
 
-  return { db } as const;
+  return { db, userId: user.id } as const;
 }
 
 // Staff (admin, bhw) can view feedback submitted by clients. Clients can only send feedback.
@@ -62,9 +63,10 @@ export async function getFeedbackList(): Promise<{ items?: FeedbackItem[]; error
 export async function updateFeedbackStatus(feedbackId: number, status: "New" | "Reviewed" | "Resolved"): Promise<{ error?: string }> {
   const result = await requireStaff();
   if ("error" in result) return { error: result.error };
-  const { db } = result;
+  const { db, userId } = result;
 
   const { error } = await db.from("feedback").update({ status }).eq("id", feedbackId);
   if (error) return { error: error.message };
+  await logAudit(db, { userId, action: "UPDATE", tableName: "feedback", recordId: feedbackId, notes: `Feedback status changed to "${status}".` });
   return {};
 }

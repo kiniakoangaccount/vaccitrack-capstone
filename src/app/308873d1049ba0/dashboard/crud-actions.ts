@@ -213,17 +213,3 @@ export async function deleteFeedback(feedbackId: number): Promise<{ error?: stri
     return { error: (e as Error).message };
   }
 }
-
-// ── ANIMALS ───────────────────────────────────────────────────────────────
-
-export async function deleteAnimal(animalId: number): Promise<{ error?: string }> {
-  try {
-    const db = await requireAdmin();
-    const { error } = await db.from("animals").delete().eq("id", animalId);
-    if (error) return { error: error.message };
-    revalidatePath(DASH);
-    return {};
-  } catch (e) {
-    return { error: (e as Error).message };
-  }
-}

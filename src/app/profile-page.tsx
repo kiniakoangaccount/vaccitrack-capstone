@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { updateProfile, getAccountChannels, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp } from "./profile-actions";
@@ -9,8 +10,14 @@ import { ShieldCheck, Bell, Eye, EyeOff, User, Key, CheckCircle2, AlertCircle, M
 
 type Channel = "email" | "sms";
 
+function initials(fullName: string) {
+  return fullName.trim().split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "VT";
+}
+
 export default function ProfilePage() {
   const supabase = createClient();
+  const router = useRouter();
+  const [checkingAuth, setCheckingAuth] = useState(Boolean(supabase));
   const [showMobileNav, setShowMobileNav] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -35,7 +42,8 @@ export default function ProfilePage() {
     if (!supabase) return;
     void supabase.auth.getUser().then(async (result: { data: { user: SupabaseUser | null } }) => {
       const user = result.data.user;
-      if (!user) return;
+      if (!user) { router.replace("/signin"); return; }
+      setCheckingAuth(false);
       const { data } = await supabase.from("profiles").select("full_name, contact_number, username").eq("id", user.id).maybeSingle();
       setProfile({ fullName: data?.full_name ?? "", email: user.email ?? "", contact: data?.contact_number ?? "", username: data?.username ?? "" });
     });
@@ -45,7 +53,7 @@ export default function ProfilePage() {
       setUsernameChannel(defaultChannel);
       setPasswordChannel(defaultChannel);
     });
-  }, [supabase]);
+  }, [supabase, router]);
 
   async function sendCode(purpose: "username_change" | "password_change", channel: Channel) {
     setError("");
@@ -54,6 +62,10 @@ export default function ProfilePage() {
     if (result.error) { setError(result.error); return false; }
     setSuccess(`A verification code was sent via ${channel === "email" ? "email" : "SMS"}.`);
     return true;
+  }
+
+  if (checkingAuth) {
+    return <main className="auth-shell"><section className="auth-card auth-loading"><div className="brand"><ShieldCheck size={20} /><span>VacciTrack</span></div><p className="heading-sub">Checking your session...</p></section></main>;
   }
 
   return (
@@ -68,7 +80,7 @@ export default function ProfilePage() {
           <Link href="/" className="nav-item"><User size={17} /> My account</Link>
           <Link href="/settings" className="nav-item"><Bell size={17} /> Account settings</Link>
         </nav>
-        <div className="sidebar-footer"><div className="user-row"><span className="avatar">UP</span><span><strong>VacciTrack user</strong><small>Demo account</small></span><EyeOff size={15} /></div></div>
+        <div className="sidebar-footer"><div className="user-row"><span className="avatar">{initials(profile.fullName)}</span><span><strong>{profile.fullName || "VacciTrack user"}</strong><small>{profile.username ? `@${profile.username}` : "No username set"}</small></span><EyeOff size={15} /></div></div>
       </aside>
       {showMobileNav && <div className="sidebar-backdrop" onClick={() => setShowMobileNav(false)} />}
 

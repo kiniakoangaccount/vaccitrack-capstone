@@ -2,8 +2,9 @@
 
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
+import { logAudit } from "@/lib/audit";
 
-const POUND_STATUSES = ["Impounded", "Under Observation", "Up for Adoption", "Reclaimed"] as const;
+const POUND_STATUSES = ["Under Observation", "Up for Adoption", "Reclaimed"] as const;
 export type PoundStatus = (typeof POUND_STATUSES)[number];
 
 export async function updatePoundStatus(
@@ -25,5 +26,6 @@ export async function updatePoundStatus(
 
   const { error } = await db.from("animals").update({ pound_status: status }).eq("id", animalId);
   if (error) return { error: error.message };
+  await logAudit(db, { userId: user.id, action: "UPDATE", tableName: "animals", recordId: animalId, notes: `Pound status changed to "${status}".` });
   return {};
 }

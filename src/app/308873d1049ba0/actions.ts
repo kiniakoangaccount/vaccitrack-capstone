@@ -1,11 +1,19 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { createAdminClient } from "@/lib/supabase-admin";
 
 const SESSION_COOKIE = "admin_session";
 const SESSION_MAX_AGE = 60 * 60 * 8;
+const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
+const MAX_FAILED_ATTEMPTS = 5;
+
+async function getClientIp(): Promise<string> {
+  const h = await headers();
+  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
 
 function getSessionSignature(payload: string): string | null {
   const secret = process.env.ADMIN_SESSION_SECRET;
@@ -24,8 +32,28 @@ export async function adminLogin(formData: FormData): Promise<{ error: string } 
   const adminPassword = process.env.ADMIN_PASSWORD;
   const username = (formData.get("username") as string | null)?.trim() ?? "";
   const password = (formData.get("password") as string | null) ?? "";
+  const ip = await getClientIp();
+  const db = createAdminClient();
 
-  if (!adminUsername || !adminPassword || !process.env.ADMIN_SESSION_SECRET || username !== adminUsername || password !== adminPassword) {
+  if (db) {
+    const { count } = await db
+      .from("login_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("ip_address", ip)
+      .eq("success", false)
+      .gte("created_at", new Date(Date.now() - LOCKOUT_WINDOW_MS).toISOString());
+    if ((count ?? 0) >= MAX_FAILED_ATTEMPTS) {
+      return { error: "Too many failed attempts. Try again in 15 minutes." };
+    }
+  }
+
+  const ok = Boolean(
+    adminUsername && adminPassword && process.env.ADMIN_SESSION_SECRET &&
+    username === adminUsername && password === adminPassword
+  );
+  await db?.from("login_attempts").insert({ email: username, ip_address: ip, success: ok });
+
+  if (!ok) {
     return { error: "Invalid username or password." };
   }
 

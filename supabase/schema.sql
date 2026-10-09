@@ -112,7 +112,7 @@ do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'animals_pound_status_check') then
     alter table public.animals add constraint animals_pound_status_check
-      check (pound_status is null or pound_status in ('Impounded', 'Under Observation', 'Up for Adoption', 'Reclaimed'));
+      check (pound_status is null or pound_status in ('Under Observation', 'Up for Adoption', 'Reclaimed'));
   end if;
 end $$;
 
@@ -571,6 +571,15 @@ drop policy if exists "Admins can read audit log" on public.audit_log;
 create policy "Admins can read audit log"
   on public.audit_log for select to authenticated
   using (user_id is not null and exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+
+-- Lets a client self-log their own animal registration (src/app/page.tsx
+-- registerAnimal, which inserts via the RLS-respecting browser client
+-- rather than a server action). Scoped tight: only their own user_id, only
+-- an INSERT on animals — they cannot write any other audit entry.
+drop policy if exists "Users can log their own animal registration" on public.audit_log;
+create policy "Users can log their own animal registration"
+  on public.audit_log for insert to authenticated
+  with check (user_id = auth.uid() and action = 'INSERT' and table_name = 'animals');
 
 drop policy if exists "Users can read own notifications" on public.notifications;
 create policy "Users can read own notifications"

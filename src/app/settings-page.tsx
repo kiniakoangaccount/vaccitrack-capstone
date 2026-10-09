@@ -2,12 +2,37 @@
 
 import { useCallback, useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Edit2, MapPin, Save, Menu, X } from "lucide-react";
 
+function initials(fullName: string) {
+  return fullName.trim().split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "VT";
+}
+
 export default function SettingsPage() {
   const supabase = createClient();
+  const router = useRouter();
+  const [checkingAuth, setCheckingAuth] = useState(Boolean(supabase));
   const [showMobileNav, setShowMobileNav] = useState(false);
+  const [profile, setProfile] = useState({ fullName: "", username: "" });
+
+  useEffect(() => {
+    if (!supabase) return;
+    void supabase.auth.getUser().then(async (result: { data: { user: SupabaseUser | null } }) => {
+      const user = result.data.user;
+      if (!user) { router.replace("/signin"); return; }
+      setCheckingAuth(false);
+      const { data } = await supabase.from("profiles").select("full_name, username").eq("id", user.id).maybeSingle();
+      setProfile({ fullName: data?.full_name ?? "", username: data?.username ?? "" });
+    });
+  }, [supabase, router]);
+
+  if (checkingAuth) {
+    return <main className="auth-shell"><section className="auth-card auth-loading"><div className="brand"><ShieldCheck size={20} /><span>VacciTrack</span></div><p className="heading-sub">Checking your session...</p></section></main>;
+  }
+
   return (
     <main className="app-shell">
       <aside className={`sidebar ${showMobileNav ? "sidebar-open" : ""}`}>
@@ -20,7 +45,7 @@ export default function SettingsPage() {
           <Link href="/" className="nav-item"><Bell size={17} /> My account</Link>
           <Link href="/profile" className="nav-item"><SettingsIcon size={17} /> Account settings</Link>
         </nav>
-        <div className="sidebar-footer"><div className="user-row"><span className="avatar">UP</span><span><strong>VacciTrack user</strong><small>Demo account</small></span><ChevronDown size={15} /></div></div>
+        <div className="sidebar-footer"><div className="user-row"><span className="avatar">{initials(profile.fullName)}</span><span><strong>{profile.fullName || "VacciTrack user"}</strong><small>{profile.username ? `@${profile.username}` : "No username set"}</small></span><ChevronDown size={15} /></div></div>
       </aside>
       {showMobileNav && <div className="sidebar-backdrop" onClick={() => setShowMobileNav(false)} />}
 

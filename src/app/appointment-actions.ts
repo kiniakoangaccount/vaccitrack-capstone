@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
+import { logAudit } from "@/lib/audit";
 
 export type AppointmentStatus = "Scheduled" | "Completed" | "Cancelled" | "Missed";
 
@@ -104,15 +105,18 @@ export async function createAppointment(payload: {
     .single();
   if (error) return { error: error.message };
 
+  await logAudit(db, { userId, action: "INSERT", tableName: "appointments", recordId: data.id, notes: `Appointment scheduled for ${payload.scheduledDate}.` });
+
   return { id: data.id };
 }
 
 export async function updateAppointmentStatus(id: number, status: AppointmentStatus): Promise<{ error?: string }> {
   const result = await requireStaff();
   if ("error" in result) return { error: result.error };
-  const { db } = result;
+  const { db, userId } = result;
 
   const { error } = await db.from("appointments").update({ status }).eq("id", id);
   if (error) return { error: error.message };
+  await logAudit(db, { userId, action: "UPDATE", tableName: "appointments", recordId: id, notes: `Appointment status changed to "${status}".` });
   return {};
 }

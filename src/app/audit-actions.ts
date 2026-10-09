@@ -35,34 +35,6 @@ function getPurokName(puroks: unknown): string {
   return "";
 }
 
-export async function writeAuditLog(
-  userId: string,
-  action: "INSERT" | "UPDATE" | "DELETE" | "SMS_SENT" | "SMS_ATTEMPT",
-  tableName: string,
-  recordId?: number,
-  notes?: string
-): Promise<{ error?: string }> {
-  const access = await requireAuditAccess();
-  if (!access.ok) return { error: access.error };
-  if (!AUDIT_ACTIONS.includes(action)) return UNAUTHORIZED;
-
-  const db = createAdminClient();
-  if (!db) return { error: "Service unavailable." };
-
-  const { error } = await db.from("audit_log").insert({
-    user_id: userId,
-    action,
-    table_name: tableName,
-    record_id: recordId,
-    notes,
-  });
-  if (error) {
-    console.error("writeAuditLog failed:", error.message);
-    return { error: "Could not write the audit entry." };
-  }
-  return {};
-}
-
 export async function simulateSmsAlert(
   recipient: string,
   message: string
