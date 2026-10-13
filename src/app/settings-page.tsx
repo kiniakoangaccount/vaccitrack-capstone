@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
-import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Edit2, MapPin, Save, Menu, X } from "lucide-react";
+import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Edit2, MapPin, Save, Menu, X, ArrowLeft } from "lucide-react";
 
 function initials(fullName: string) {
   return fullName.trim().split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "VT";
@@ -50,7 +50,7 @@ export default function SettingsPage() {
       {showMobileNav && <div className="sidebar-backdrop" onClick={() => setShowMobileNav(false)} />}
 
       <section className="content-area">
-        <header className="topbar"><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Settings <span>/</span> Lookup tables</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><ChevronDown size={18} /></button></div></header>
+        <header className="topbar"><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Settings <span>/</span> Lookup tables</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><ArrowLeft size={18} /></button></div></header>
 
         <div className="page-content">
           <div className="page-heading">

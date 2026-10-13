@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { updateProfile, getAccountChannels, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp } from "./profile-actions";
-import { ShieldCheck, Bell, Eye, EyeOff, User, Key, CheckCircle2, AlertCircle, Menu, X } from "lucide-react";
+import { ShieldCheck, Bell, Eye, EyeOff, User, Key, CheckCircle2, AlertCircle, Menu, X, ArrowLeft } from "lucide-react";
 
 type Channel = "email" | "sms";
 
@@ -85,7 +85,7 @@ export default function ProfilePage() {
       {showMobileNav && <div className="sidebar-backdrop" onClick={() => setShowMobileNav(false)} />}
 
       <section className="content-area">
-        <header className="topbar"><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Account <span>/</span> Profile</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><Eye size={18} /></button></div></header>
+        <header className="topbar"><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Account <span>/</span> Profile</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><ArrowLeft size={18} /></button></div></header>
 
         <div className="page-content">
           <div className="page-heading">

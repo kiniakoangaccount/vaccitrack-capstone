@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { PawPrint, CheckCircle2 } from "lucide-react";
+import { PawPrint, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { registerViaInvite } from "../../invite-register-action";
 
 export default function InviteRegisterForm({ token, role, roleLabel }: { token: string; role: string; roleLabel: string }) {
@@ -10,6 +10,7 @@ export default function InviteRegisterForm({ token, role, roleLabel }: { token: 
   const [idImageFile, setIdImageFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,7 +83,12 @@ export default function InviteRegisterForm({ token, role, roleLabel }: { token: 
             <input required type="file" accept="image/*" onChange={(e) => setIdImageFile(e.target.files?.[0] ?? null)} />
           </label>
           <label>Password
-            <input required minLength={8} type="password" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <div className="password-field">
+              <input required minLength={8} type={showPassword ? "text" : "password"} autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+              <button type="button" className="password-toggle" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((current) => !current)}>
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </label>
           {error && <p className="form-error">{error}</p>}
           <button className="primary-button" type="submit">Create account</button>
