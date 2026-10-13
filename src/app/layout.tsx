@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
@@ -8,6 +8,11 @@ const displayFont = Space_Grotesk({ subsets: ["latin"], variable: "--font-displa
 export const metadata: Metadata = {
   title: "VacciTrack | Animal Health Monitor",
   description: "A focused vaccination monitoring dashboard for barangay field teams.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

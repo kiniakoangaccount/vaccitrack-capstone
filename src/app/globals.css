@@ -42,21 +42,19 @@ button { cursor: pointer; }
 @media (max-width: 640px) {
   .auth-shell { padding: 16px; align-items: flex-start; padding-top: max(32px, env(safe-area-inset-top)); }
   .auth-card { padding: 30px 22px; border-radius: 14px; }
-  .auth-card .brand { font-size: 27px; margin-bottom: 38px; }
-  .auth-card h1 { font-size: 30px; }
-  .auth-card .heading-sub { font-size: 16px; line-height: 1.5; }
+  .auth-card .brand { margin-bottom: 38px; }
+  .auth-card h1 { font-size: 42px; }
+  .auth-card .heading-sub { font-size: 18px; line-height: 1.5; }
   .auth-form { gap: 20px; }
   .auth-form label { font-size: 16px; }
-  .auth-form input, .auth-form select { padding: 15px 14px; font-size: 18px; border-radius: 8px; }
-  .auth-form .password-field input { padding-right: 48px; }
-  .password-toggle { width: 48px; }
-  .password-toggle svg { width: 21px; height: 21px; }
-  .auth-form .primary-button { padding: 15px; font-size: 18px; border-radius: 8px; }
-  .auth-back, .auth-switch { font-size: 16px; }
-  .terms-details { font-size: 15px; padding: 12px 14px; }
-  .terms-check { font-size: 15px; }
-  .confirmation h1 { font-size: 26px; }
-  .confirmation p { font-size: 16px; }
+  .auth-form input, .auth-form select { padding: 16px 14px; font-size: 19px; border-radius: 8px; }
+  .auth-form .password-field input { padding-right: 50px; }
+  .password-toggle { width: 50px; }
+  .password-toggle svg { width: 22px; height: 22px; }
+  .auth-form .primary-button { padding: 17px; font-size: 19px; border-radius: 8px; }
+  .auth-back, .auth-switch { font-size: 17px; }
+  .terms-intro, .terms-check { font-size: 16px; }
+  .confirmation p { font-size: 18px; }
 }
 .nav-label { padding: 0 12px; color: #91a097; font-size: 14px; letter-spacing: 1px; font-weight: 700; text-transform: uppercase; }
 .nav-label-spaced { margin-top: 30px; }
@@ -479,5 +477,20 @@ button { cursor: pointer; }
   }
   .sidebar.sidebar-open { transform: translateX(0); }
   .sidebar-backdrop { display: block; position: fixed; inset: 0; background: rgba(15, 30, 20, .4); z-index: 35; }
+  .topbar { padding: 0 18px; }
+  .crumb { font-size: 15px; }
+  .page-content { padding: 26px 18px 56px; }
+  .page-heading { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .page-heading h1 { font-size: 30px; }
+  .heading-sub { font-size: 16px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .module-content { padding: 18px; }
+  .module-intro { flex-direction: column; align-items: stretch; gap: 14px; }
+  .module-actions { justify-content: stretch; }
+  .module-actions .primary-button, .module-actions .secondary-button { flex: 1; justify-content: center; }
+  .wide-search { width: 100%; }
+  .search-box { width: 100%; }
+  .primary-button, .secondary-button { padding: 13px 16px; font-size: 16px; }
+  .module-table { margin: 0 -18px -18px; }
 }
 .role-info-card .role-help { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); color: #91a098; font-size: 15px; }
