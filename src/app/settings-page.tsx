@@ -50,12 +50,12 @@ export default function SettingsPage() {
       {showMobileNav && <div className="sidebar-backdrop" onClick={() => setShowMobileNav(false)} />}
 
       <section className="content-area">
-        <header className="topbar"><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Settings <span>/</span> Lookup tables</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><ArrowLeft size={18} /></button></div></header>
+        <header className="topbar"><div className="topbar-left"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><ArrowLeft size={18} /></button><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Settings <span>/</span> Lookup tables</div></div></header>
 
         <div className="page-content">
           <div className="page-heading">
             <p className="eyebrow">LOOKUP TABLES</p>
-            <h1>Puroks, breeds, and vaccines</h1>
+            <h1>Puroks and vaccines</h1>
             <p className="heading-sub">Manage the shared lists used across the registry and planning tools.</p>
           </div>
 
@@ -73,16 +73,6 @@ export default function SettingsPage() {
             <section className="settings-section">
               <div className="settings-card">
                 <div className="settings-head">
-                  <h2>Animal breeds</h2>
-                  <p>Breed options grouped by species. Used in the animal registration form.</p>
-                </div>
-                {supabase ? <BreedManager /> : <div className="settings-empty"><Edit2 size={24} /><p>Supabase is not configured, so breeds are only available as demo values in the registry.</p></div>}
-              </div>
-            </section>
-
-            <section className="settings-section">
-              <div className="settings-card">
-                <div className="settings-head">
                   <h2>Vaccines</h2>
                   <p>Available vaccine types for dropdown selection in vaccination records.</p>
                 </div>
@@ -93,93 +83,6 @@ export default function SettingsPage() {
         </div>
       </section>
     </main>
-  );
-}
-
-function BreedManager() {
-  const supabase = createClient();
-  const [breeds, setBreeds] = useState<{ id: number; name: string; species: string }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [form, setForm] = useState({ name: "", species: "Dog" });
-  const [editing, setEditing] = useState<number | null>(null);
-
-  const load = useCallback(async () => {
-    if (!supabase) return;
-    setLoading(true);
-    const { data } = await supabase.from("breeds").select("id, name, species").order("species, name");
-    setBreeds(data ?? []);
-    setLoading(false);
-  }, [supabase]);
-
-  useEffect(() => {
-    queueMicrotask(() => { void load(); });
-  }, [load]);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase) return;
-    setError("");
-    setSaving(true);
-    const payload = { name: form.name.trim(), species: form.species };
-    if (editing) {
-      const { error } = await supabase.from("breeds").update(payload).eq("id", editing);
-      if (error) { setError(error.message); setSaving(false); return; }
-    } else {
-      const { error } = await supabase.from("breeds").insert(payload);
-      if (error) { setError(error.message); setSaving(false); return; }
-    }
-    setSaving(false);
-    setForm({ name: "", species: "Dog" });
-    setEditing(null);
-    if (editing) {
-      setBreeds((prev) => prev.map((b) => (b.id === editing ? { ...b, ...payload } : b)));
-    } else {
-      setBreeds((prev) => [...prev, { ...payload, id: 0 }]);
-    }
-  };
-
-  const remove = async (id: number) => {
-    if (!supabase) return;
-    if (!confirm("Remove this breed?")) return;
-    const { error } = await supabase.from("breeds").delete().eq("id", id);
-    if (error) { setError(error.message); return; }
-    setBreeds((prev) => prev.filter((b) => b.id !== id));
-    setError("");
-  };
-
-  return (
-    <div>
-      <form className="settings-form" onSubmit={submit}>
-        <div className="settings-grid-2">
-          <input className="account-input" placeholder="Breed name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <select className="account-input" value={form.species} onChange={(e) => setForm({ ...form, species: e.target.value })}>
-            <option>Dog</option>
-            <option>Cat</option>
-          </select>
-        </div>
-        <div className="settings-actions">
-          <button className="primary-button" type="submit" disabled={saving || !form.name.trim()}><Save size={14} /> {editing ? "Update" : "Add"} breed</button>
-          {editing && <button className="secondary-button" type="button" onClick={() => { setEditing(null); setForm({ name: "", species: "Dog" }); }}>Cancel</button>}
-        </div>
-      </form>
-      {error && <div className="notice danger"><Trash2 size={14} /><span>{error}</span></div>}
-      <ul className="settings-list">
-        {loading ? <li className="settings-empty-row">Loading…</li> : breeds.length === 0 ? <li className="settings-empty-row">No breeds yet.</li> : breeds.map((b) => (
-          <li key={b.id} className="settings-row">
-            <div className="settings-row-main">
-              <span className="settings-row-name">{b.name}</span>
-              <span className="settings-row-meta"><span className="settings-species-tag" data-species={b.species.toLowerCase()}>{b.species}</span></span>
-            </div>
-            <div className="settings-row-actions">
-              <button className="icon-button" title="Edit" onClick={() => { setEditing(b.id); setForm({ name: b.name, species: b.species }); }}><Edit2 size={13} /></button>
-              <button className="icon-button" title="Remove" onClick={() => remove(b.id)}><Trash2 size={13} /></button>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 

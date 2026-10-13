@@ -85,7 +85,7 @@ export default function ProfilePage() {
       {showMobileNav && <div className="sidebar-backdrop" onClick={() => setShowMobileNav(false)} />}
 
       <section className="content-area">
-        <header className="topbar"><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Account <span>/</span> Profile</div><div className="top-actions"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><ArrowLeft size={18} /></button></div></header>
+        <header className="topbar"><div className="topbar-left"><button className="icon-button" aria-label="Back" onClick={() => window.history.back()}><ArrowLeft size={18} /></button><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Account <span>/</span> Profile</div></div></header>
 
         <div className="page-content">
           <div className="page-heading">
