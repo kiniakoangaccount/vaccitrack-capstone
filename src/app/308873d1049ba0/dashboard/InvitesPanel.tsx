@@ -16,6 +16,7 @@ export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
   const [isPending, startTransition] = useTransition();
 
   function generate() {
+    if (!window.confirm(`Generate a new ${ROLE_LABELS[role]} invite link?`)) return;
     setErrorMsg("");
     setGeneratedLink("");
     startTransition(async () => {
@@ -26,6 +27,7 @@ export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
   }
 
   function revoke(id: number) {
+    if (!window.confirm("Revoke this invite link? Anyone holding it will no longer be able to use it.")) return;
     startTransition(async () => {
       await revokeStaffInvite(id);
     });

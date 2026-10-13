@@ -28,7 +28,8 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
   const [acted, setActed] = useState<Record<string, "approved" | "rejected">>({});
   const [isPending, startTransition] = useTransition();
 
-  function handleApprove(id: string) {
+  function handleApprove(id: string, fullName: string) {
+    if (!window.confirm(`Approve ${fullName}'s account? They will be able to sign in immediately.`)) return;
     startTransition(async () => {
       const { error } = await approveUser(id);
       if (error) { setErrors((prev) => ({ ...prev, [id]: error })); return; }
@@ -36,7 +37,8 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
     });
   }
 
-  function handleReject(id: string) {
+  function handleReject(id: string, fullName: string) {
+    if (!window.confirm(`Reject ${fullName}'s account application? This cannot be undone.`)) return;
     startTransition(async () => {
       const { error } = await rejectUser(id);
       if (error) { setErrors((prev) => ({ ...prev, [id]: error })); return; }
@@ -92,7 +94,7 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
           <div className="admin-pending-actions">
             <button
               className="admin-btn-approve"
-              onClick={() => handleApprove(p.id)}
+              onClick={() => handleApprove(p.id, p.full_name)}
               disabled={isPending}
             >
               {isPending ? <Loader2 size={13} className="admin-spin" /> : <CheckCircle2 size={13} />}
@@ -100,7 +102,7 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
             </button>
             <button
               className="admin-btn-reject"
-              onClick={() => handleReject(p.id)}
+              onClick={() => handleReject(p.id, p.full_name)}
               disabled={isPending}
             >
               {isPending ? <Loader2 size={13} className="admin-spin" /> : <XCircle size={13} />}

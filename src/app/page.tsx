@@ -631,6 +631,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   }
 
   async function signOut() {
+    if (!window.confirm("Sign out of VacciTrack?")) return;
     const supabase = createClient();
     if (supabase) await supabase.auth.signOut();
     window.location.reload();

@@ -98,6 +98,7 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
 
   function saveEdit() {
     if (!editTarget) return;
+    if (!window.confirm(`Save changes to ${editTarget.full_name}'s account? Role: ${editRole}, status: ${editStatus}.`)) return;
     setErrorMsg("");
     startTransition(async () => {
       const [r1, r2] = await Promise.all([
