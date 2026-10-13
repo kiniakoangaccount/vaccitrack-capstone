@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { approveUser, rejectUser } from "./crud-actions";
+import AdminConfirmDialog from "./AdminConfirmDialog";
 
 interface Profile {
   id: string;
@@ -27,9 +28,9 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [acted, setActed] = useState<Record<string, "approved" | "rejected">>({});
   const [isPending, startTransition] = useTransition();
+  const [confirmTarget, setConfirmTarget] = useState<{ id: string; fullName: string; action: "approve" | "reject" } | null>(null);
 
-  function handleApprove(id: string, fullName: string) {
-    if (!window.confirm(`Approve ${fullName}'s account? They will be able to sign in immediately.`)) return;
+  function handleApprove(id: string) {
     startTransition(async () => {
       const { error } = await approveUser(id);
       if (error) { setErrors((prev) => ({ ...prev, [id]: error })); return; }
@@ -37,8 +38,7 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
     });
   }
 
-  function handleReject(id: string, fullName: string) {
-    if (!window.confirm(`Reject ${fullName}'s account application? This cannot be undone.`)) return;
+  function handleReject(id: string) {
     startTransition(async () => {
       const { error } = await rejectUser(id);
       if (error) { setErrors((prev) => ({ ...prev, [id]: error })); return; }
@@ -59,6 +59,7 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
   }
 
   return (
+    <>
     <div className="admin-pending-grid">
       {visible.map((p) => (
         <article key={p.id} className="admin-pending-card admin-pending-card-hover">
@@ -94,7 +95,7 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
           <div className="admin-pending-actions">
             <button
               className="admin-btn-approve"
-              onClick={() => handleApprove(p.id, p.full_name)}
+              onClick={() => setConfirmTarget({ id: p.id, fullName: p.full_name, action: "approve" })}
               disabled={isPending}
             >
               {isPending ? <Loader2 size={13} className="admin-spin" /> : <CheckCircle2 size={13} />}
@@ -102,7 +103,7 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
             </button>
             <button
               className="admin-btn-reject"
-              onClick={() => handleReject(p.id, p.full_name)}
+              onClick={() => setConfirmTarget({ id: p.id, fullName: p.full_name, action: "reject" })}
               disabled={isPending}
             >
               {isPending ? <Loader2 size={13} className="admin-spin" /> : <XCircle size={13} />}
@@ -112,5 +113,25 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
         </article>
       ))}
     </div>
+    <AdminConfirmDialog
+      open={confirmTarget !== null}
+      title={confirmTarget?.action === "approve" ? "Approve account" : "Reject account"}
+      message={
+        confirmTarget?.action === "approve"
+          ? `Approve ${confirmTarget.fullName}'s account? They will be able to sign in immediately.`
+          : `Reject ${confirmTarget?.fullName}'s account application? This cannot be undone.`
+      }
+      confirmLabel={confirmTarget?.action === "approve" ? "Approve" : "Reject"}
+      danger={confirmTarget?.action === "reject"}
+      busy={isPending}
+      onConfirm={() => {
+        if (!confirmTarget) return;
+        if (confirmTarget.action === "approve") handleApprove(confirmTarget.id);
+        else handleReject(confirmTarget.id);
+        setConfirmTarget(null);
+      }}
+      onCancel={() => setConfirmTarget(null)}
+    />
+    </>
   );
 }

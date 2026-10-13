@@ -13,6 +13,14 @@ html { scroll-behavior: smooth; }
 .row-clickable { cursor: pointer; }.row-clickable:hover { background: #f3f7f4; }
 .modal-heading-actions { display: flex; gap: 6px; align-items: start; }
 .modal.animal-detail-modal { width: min(100%, 760px); }
+.modal.confirm-modal { width: min(100%, 400px); text-align: center; }
+.confirm-modal h2 { margin: 0; font-family: var(--font-display), sans-serif; font-size: 23px; }
+.confirm-icon { display: grid; place-items: center; width: 44px; height: 44px; margin: 0 auto 14px; color: var(--red); background: #fcedeb; border-radius: 50%; }
+.confirm-message { margin: 10px 0 0; color: var(--muted); font-size: 16px; line-height: 1.6; }
+.confirm-actions { justify-content: center; margin-top: 22px; }
+.confirm-actions .secondary-button, .confirm-actions .primary-button { flex: 1; justify-content: center; }
+.danger-button { background: var(--red) !important; box-shadow: 0 4px 12px #c85f5726 !important; }
+.danger-button:hover { background: #b14e47 !important; }
 .animal-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 18px; }
 .animal-detail-avatar { display: grid; place-items: center; width: 46px; height: 46px; margin-bottom: 16px; color: var(--green); background: #eef6ef; border-radius: 50%; }
 .animal-detail-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }

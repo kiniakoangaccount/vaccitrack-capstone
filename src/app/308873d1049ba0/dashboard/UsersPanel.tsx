@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Pencil, Trash2, X, Check, Loader2, KeyRound, Copy } from "lucide-react";
 import { updateUserRole, updateUserStatus, deleteUser, resetUserPassword, setUserPassword } from "./crud-actions";
+import AdminConfirmDialog from "./AdminConfirmDialog";
 
 interface Profile {
   id: string;
@@ -40,6 +41,7 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [editRole, setEditRole] = useState("");
   const [editStatus, setEditStatus] = useState("");
+  const [confirmSaveEdit, setConfirmSaveEdit] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -93,12 +95,18 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
 
   function closeEdit() {
     setEditTarget(null);
+    setConfirmSaveEdit(false);
     setErrorMsg("");
   }
 
   function saveEdit() {
     if (!editTarget) return;
-    if (!window.confirm(`Save changes to ${editTarget.full_name}'s account? Role: ${editRole}, status: ${editStatus}.`)) return;
+    setConfirmSaveEdit(true);
+  }
+
+  function performSaveEdit() {
+    if (!editTarget) return;
+    setConfirmSaveEdit(false);
     setErrorMsg("");
     startTransition(async () => {
       const [r1, r2] = await Promise.all([
@@ -206,6 +214,16 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
           </div>
         </div>
       )}
+
+      <AdminConfirmDialog
+        open={confirmSaveEdit && editTarget !== null}
+        title="Save account changes"
+        message={editTarget ? `Save changes to ${editTarget.full_name}'s account? Role: ${editRole}, status: ${editStatus}.` : ""}
+        confirmLabel="Save changes"
+        busy={isPending}
+        onConfirm={performSaveEdit}
+        onCancel={() => setConfirmSaveEdit(false)}
+      />
 
       {/* ── Delete confirm ── */}
       {deleteTarget && (

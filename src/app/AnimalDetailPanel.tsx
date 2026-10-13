@@ -5,6 +5,7 @@ import { Cat, CheckCircle2, Dog, Edit2, MapPin, Plus, Save, Syringe, Trash2, X }
 import { addVaccinationRecord } from "./vaccination-actions";
 import { deleteAnimalRecord, updateAnimalRecord, type AnimalEditFields } from "./animal-actions";
 import { todayLocalIso } from "@/lib/dates";
+import ConfirmDialog from "./ConfirmDialog";
 
 export interface AnimalDetail {
   id: number | string;
@@ -143,6 +144,7 @@ export default function AnimalDetailPanel({
     const { error: err } = await deleteAnimalRecord(Number(animal.id));
     setIsDeleting(false);
     if (err) { setDeleteError(err); return; }
+    setShowDeleteConfirm(false);
     onDeleted();
   }
 
@@ -164,19 +166,6 @@ export default function AnimalDetailPanel({
             <button className="icon-button" aria-label="Close animal profile" onClick={onClose}><X size={18} /></button>
           </div>
         </div>
-
-        {showDeleteConfirm && (
-          <div className="booster-form">
-            <p className="animal-detail-notes">Permanently delete <strong>{animal.name}</strong>&apos;s record, including its vaccination history? This cannot be undone.</p>
-            {deleteError && <p className="form-error">{deleteError}</p>}
-            <div className="booster-actions">
-              <button className="secondary-button" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>Cancel</button>
-              <button className="primary-button" onClick={confirmDelete} disabled={isDeleting}>
-                <Trash2 size={14} /> {isDeleting ? "Deleting..." : "Delete permanently"}
-              </button>
-            </div>
-          </div>
-        )}
 
         <div className="animal-detail-grid">
           <div className="animal-detail-info">
@@ -306,6 +295,16 @@ export default function AnimalDetailPanel({
           </div>
         </div>
       </section>
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Delete animal record"
+        message={deleteError || `Permanently delete ${animal.name}'s record, including its vaccination history? This cannot be undone.`}
+        confirmLabel="Delete permanently"
+        danger
+        busy={isDeleting}
+        onConfirm={confirmDelete}
+        onCancel={() => { setShowDeleteConfirm(false); setDeleteError(""); }}
+      />
     </div>
   );
 }

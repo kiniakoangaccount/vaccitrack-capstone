@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Edit2, MapPin, Save, Menu, X, ArrowLeft } from "lucide-react";
+import ConfirmDialog from "./ConfirmDialog";
 
 function initials(fullName: string) {
   return fullName.trim().split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "VT";
@@ -94,6 +95,8 @@ function PurokManager() {
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", latitude: "", longitude: "" });
   const [editing, setEditing] = useState<number | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<{ id: number; name: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const load = useCallback(async () => {
     if (!supabase) return;
@@ -132,11 +135,13 @@ function PurokManager() {
 
   const remove = async (id: number) => {
     if (!supabase) return;
-    if (!confirm("Remove this purok? Animal records referencing it will become unassigned.")) return;
+    setRemoving(true);
     const { error } = await supabase.from("puroks").delete().eq("id", id);
-    if (error) { setError(error.message); return; }
+    setRemoving(false);
+    if (error) { setError(error.message); setRemoveTarget(null); return; }
     setPuroks((prev) => prev.filter((p) => p.id !== id));
     setError("");
+    setRemoveTarget(null);
   };
 
   return (
@@ -162,11 +167,21 @@ function PurokManager() {
             </div>
             <div className="settings-row-actions">
               <button className="icon-button" title="Edit" onClick={() => { setEditing(p.id); setForm({ name: p.name, latitude: p.latitude, longitude: p.longitude }); }}><Edit2 size={13} /></button>
-              <button className="icon-button" title="Remove" onClick={() => remove(p.id)}><Trash2 size={13} /></button>
+              <button className="icon-button" title="Remove" onClick={() => setRemoveTarget({ id: p.id, name: p.name })}><Trash2 size={13} /></button>
             </div>
           </li>
         ))}
       </ul>
+      <ConfirmDialog
+        open={removeTarget !== null}
+        title="Remove purok"
+        message={`Remove "${removeTarget?.name}"? Animal records referencing it will become unassigned.`}
+        confirmLabel="Remove"
+        danger
+        busy={removing}
+        onConfirm={() => removeTarget && remove(removeTarget.id)}
+        onCancel={() => setRemoveTarget(null)}
+      />
     </div>
   );
 }
@@ -178,6 +193,8 @@ function VaccineManager() {
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", species: "Both" });
   const [editing, setEditing] = useState<number | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<{ id: number; name: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const load = useCallback(async () => {
     if (!supabase) return;
@@ -217,11 +234,13 @@ function VaccineManager() {
 
   const remove = async (id: number) => {
     if (!supabase) return;
-    if (!confirm("Remove this vaccine?")) return;
+    setRemoving(true);
     const { error } = await supabase.from("vaccines").delete().eq("id", id);
-    if (error) { setError(error.message); return; }
+    setRemoving(false);
+    if (error) { setError(error.message); setRemoveTarget(null); return; }
     setVaccines((prev) => prev.filter((v) => v.id !== id));
     setError("");
+    setRemoveTarget(null);
   };
 
   return (
@@ -250,11 +269,21 @@ function VaccineManager() {
             </div>
             <div className="settings-row-actions">
               <button className="icon-button" title="Edit" onClick={() => { setEditing(v.id); setForm({ name: v.name, species: v.species }); }}><Edit2 size={13} /></button>
-              <button className="icon-button" title="Remove" onClick={() => remove(v.id)}><Trash2 size={13} /></button>
+              <button className="icon-button" title="Remove" onClick={() => setRemoveTarget({ id: v.id, name: v.name })}><Trash2 size={13} /></button>
             </div>
           </li>
         ))}
       </ul>
+      <ConfirmDialog
+        open={removeTarget !== null}
+        title="Remove vaccine"
+        message={`Remove "${removeTarget?.name}" from the vaccine list?`}
+        confirmLabel="Remove"
+        danger
+        busy={removing}
+        onConfirm={() => removeTarget && remove(removeTarget.id)}
+        onCancel={() => setRemoveTarget(null)}
+      />
     </div>
   );
 }

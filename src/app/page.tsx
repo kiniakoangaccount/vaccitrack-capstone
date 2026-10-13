@@ -50,6 +50,7 @@ import AuditPanel from "./308873d1049ba0/dashboard/AuditPanel";
 import dynamic from "next/dynamic";
 import type { LeafletMapHandle } from "./LeafletMap";
 import AnimalDetailPanel, { type VaccinationHistoryRow } from "./AnimalDetailPanel";
+import ConfirmDialog from "./ConfirmDialog";
 
 const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
 
@@ -317,6 +318,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const [poundQuery, setPoundQuery] = useState("");
   const [poundStatusFilter, setPoundStatusFilter] = useState<PoundStatus | "All">("All");
   const [poundError, setPoundError] = useState("");
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; confirmLabel?: string; danger?: boolean; onConfirm: () => void } | null>(null);
   const supabaseConfigured = Boolean(createClient());
 
   // Role-based access helpers matching the RBAC matrix in supabase/schema.sql.
@@ -630,11 +632,18 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     setRegistrationSent(true);
   }
 
-  async function signOut() {
-    if (!window.confirm("Sign out of VacciTrack?")) return;
-    const supabase = createClient();
-    if (supabase) await supabase.auth.signOut();
-    window.location.reload();
+  function signOut() {
+    setConfirmDialog({
+      title: "Sign out",
+      message: "Sign out of VacciTrack?",
+      confirmLabel: "Sign out",
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        const supabase = createClient();
+        if (supabase) await supabase.auth.signOut();
+        window.location.reload();
+      },
+    });
   }
 
   async function readNotification(notificationId: number) {
@@ -662,10 +671,21 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   }
 
   function setBulkSent(value: boolean) {
+    if (!value) {
+      setBulkSentState(false);
+      return;
+    }
     const eligibleCount = reportAnimals.filter((animal) => (animal.status === "Due soon" || animal.status === "Overdue") && animal.contact).length;
-    if (value && !window.confirm(`Send this reminder to ${eligibleCount} contact${eligibleCount === 1 ? "" : "s"}? This cannot be undone.`)) return;
-    setBulkSentState(value);
-    if (value) void queueReminders();
+    setConfirmDialog({
+      title: "Send bulk reminder",
+      message: `Send this reminder to ${eligibleCount} contact${eligibleCount === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Send reminder",
+      onConfirm: () => {
+        setConfirmDialog(null);
+        setBulkSentState(true);
+        void queueReminders();
+      },
+    });
   }
 
   const filteredAnimals = useMemo(() => {
@@ -1060,6 +1080,15 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       </section>
       {showRegister && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowRegister(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="register-title"><div className="modal-heading"><div><p className="eyebrow">NEW RECORD</p><h2 id="register-title">Register an animal</h2></div><button className="icon-button" aria-label="Close registration form" onClick={() => setShowRegister(false)}><X size={18} /></button></div><form className="animal-form" onSubmit={registerAnimal}><label>Animal name<input required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Bantay" /></label><label>Species<select value={form.species} onChange={(event) => { const species = event.target.value as Animal["species"]; setForm({ ...form, species, breed: "", vaccineType: firstVaccineFor(species) }); }}><option>Dog</option><option>Cat</option></select></label><label>Classification<select value={form.classification} onChange={(event) => setForm({ ...form, classification: event.target.value as "Pet" | "Stray" })}><option>Pet</option><option>Stray</option></select></label><label>Neuter status<select value={form.neutered} onChange={(event) => setForm({ ...form, neutered: event.target.value as "Neutered" | "Not neutered" })}><option>Not neutered</option><option>Neutered</option></select></label><label>Breed<select value={form.breed} onChange={(event) => setForm({ ...form, breed: event.target.value })}><option value="">Select breed</option>{BREED_OPTIONS.filter((breed) => breed.species === form.species).map((breed) => <option key={breed.id} value={breed.name}>{breed.name}</option>)}</select></label><label>Sex<input required maxLength={20} value={form.sex} onChange={(event) => setForm({ ...form, sex: event.target.value })} /></label><label>Age (months)<input type="number" min="0" max="360" value={form.age} onChange={(event) => setForm({ ...form, age: event.target.value })} placeholder="e.g. 36" /></label><label>Color / markings<input maxLength={60} value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} placeholder="e.g. Brown" /></label><label>Civilian / owner name<input required maxLength={120} value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} placeholder="Full name" /></label><label>Contact number<input required inputMode="numeric" pattern="09[0-9]{9}" value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} placeholder="09171234567" /></label><label>Geospatial pin area<select value={form.purok} onChange={(event) => setForm({ ...form, purok: event.target.value })}>{purokOptions.map((purok) => <option key={purok.id} value={purok.name}>{purok.name}</option>)}</select></label><label>Impound area <small>(optional)</small><input maxLength={120} value={form.impoundArea} onChange={(event) => setForm({ ...form, impoundArea: event.target.value })} placeholder="e.g. Barangay kennel A" /></label><label>Last vaccination<input type="date" max={todayLocalIso()} value={form.vaccineDate} onChange={(event) => { const vaccineDate = event.target.value; setForm((current) => ({ ...current, vaccineDate, nextDue: vaccineDate ? addMonths(vaccineDate, 12) : "" })); }} /></label><label>Vaccine type<select value={form.vaccineType} onChange={(event) => setForm({ ...form, vaccineType: event.target.value })}>{vaccineOptions.filter((vaccine) => vaccine.species === "Both" || vaccine.species === form.species).map((vaccine) => <option key={vaccine.name} value={vaccine.name}>{vaccine.name}</option>)}</select></label><label>Next vaccination<input type="date" min={form.vaccineDate || undefined} value={form.nextDue} onChange={(event) => setForm({ ...form, nextDue: event.target.value })} /></label><div className="map-picker-field"><div className="map-picker-hint"><small>Search a place, click the map to drop a pin, or use your current location.</small><button type="button" className="secondary-button" onClick={useMyLocation}><MapPin size={13} /> Use my location</button></div><div className="map-picker-search"><Search size={14} /><input type="text" placeholder="Search for a place or address..." autoComplete="off" value={locationQuery} onChange={(event) => { const value = event.target.value; setLocationQuery(value); if (value.trim().length < 3) { setLocationSuggestions([]); setIsSearchingLocation(false); } else { setIsSearchingLocation(true); } }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); if (locationSuggestions[0]) selectLocationSuggestion(locationSuggestions[0]); } }} />{isSearchingLocation && <Loader2 size={14} className="admin-spin" />}{locationSuggestions.length > 0 && <ul className="map-picker-suggestions">{locationSuggestions.map((suggestion, index) => <li key={index}><button type="button" onClick={() => selectLocationSuggestion(suggestion)}>{suggestion.label}</button></li>)}</ul>}</div><LeafletMap animals={form.latitude && form.longitude ? [{ id: "picked", name: "Selected location", species: form.species, owner: form.owner || "—", purok: form.purok, vaccinated: false, status: "Pending", latitude: Number(form.latitude), longitude: Number(form.longitude) }] : []} puroks={purokOptions} pickMode onPickCoordinates={pickCoordinates} onMapReady={(handle) => { pickerMapRef.current = handle; }} /></div><label>Notes <small>(optional)</small><textarea rows={3} maxLength={400} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Temperament, medical notes, etc." /></label>{formError && <p className="form-error">{formError}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowRegister(false)}>Cancel</button><button className="primary-button" disabled={isSaving}>{isSaving ? "Registering..." : "Register animal"}</button></div></form></section></div>}
       {selectedAnimal && <AnimalDetailPanel animal={selectedAnimal} history={vaccinationHistory} vaccines={vaccineOptions.filter((vaccine) => vaccine.species === "Both" || vaccine.species === selectedAnimal.species).map((vaccine) => vaccine.name)} canManage={isStaff} onClose={() => setSelectedAnimal(null)} onRecordAdded={() => openAnimalDetail(selectedAnimal)} onDeleted={() => { setAnimalRecords((current) => current.filter((a) => a.id !== selectedAnimal.id)); setSelectedAnimal(null); }} onUpdated={(fields) => { const patch = { name: fields.name, breed: fields.breed || undefined, age: fields.age ? Number(fields.age) : undefined, sex: fields.sex || undefined, color: fields.color || undefined, owner: fields.ownerName, contact: fields.contactNumber, impoundArea: fields.impoundArea, notes: fields.notes || undefined }; setAnimalRecords((current) => current.map((a) => (a.id === selectedAnimal.id ? { ...a, ...patch } : a))); setSelectedAnimal((current) => (current ? { ...current, ...patch } : current)); }} />}
+      <ConfirmDialog
+        open={confirmDialog !== null}
+        title={confirmDialog?.title ?? ""}
+        message={confirmDialog?.message ?? ""}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={() => confirmDialog?.onConfirm()}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </main>
   );
 }

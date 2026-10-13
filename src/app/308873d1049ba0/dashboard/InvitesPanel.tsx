@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { UserPlus, Copy, Trash2, Loader2 } from "lucide-react";
 import { createStaffInvite, revokeStaffInvite, type StaffInvite } from "./crud-actions";
+import AdminConfirmDialog from "./AdminConfirmDialog";
 
 const ROLE_LABELS: Record<string, string> = {
   bhw: "Barangay Health Worker",
@@ -14,9 +15,10 @@ export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
   const [generatedLink, setGeneratedLink] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [confirmGenerate, setConfirmGenerate] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<number | null>(null);
 
   function generate() {
-    if (!window.confirm(`Generate a new ${ROLE_LABELS[role]} invite link?`)) return;
     setErrorMsg("");
     setGeneratedLink("");
     startTransition(async () => {
@@ -27,7 +29,6 @@ export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
   }
 
   function revoke(id: number) {
-    if (!window.confirm("Revoke this invite link? Anyone holding it will no longer be able to use it.")) return;
     startTransition(async () => {
       await revokeStaffInvite(id);
     });
@@ -43,7 +44,7 @@ export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
             <option value="bhw">Barangay Health Worker</option>
             <option value="admin">Administrator</option>
           </select>
-          <button className="admin-btn-primary" onClick={generate} disabled={isPending}>
+          <button className="admin-btn-primary" onClick={() => setConfirmGenerate(true)} disabled={isPending}>
             {isPending ? <Loader2 size={14} className="admin-spin" /> : <UserPlus size={14} />}
             Generate link
           </button>
@@ -78,7 +79,7 @@ export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
                   <td className="admin-muted admin-nowrap">{new Date(inv.created_at).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</td>
                   <td>
                     {status === "active" && (
-                      <button className="admin-action-btn admin-action-delete" onClick={() => revoke(inv.id)} title="Revoke" disabled={isPending}>
+                      <button className="admin-action-btn admin-action-delete" onClick={() => setRevokeTarget(inv.id)} title="Revoke" disabled={isPending}>
                         <Trash2 size={13} />
                       </button>
                     )}
@@ -89,6 +90,26 @@ export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
           </tbody>
         </table>
       </div>
+
+      <AdminConfirmDialog
+        open={confirmGenerate}
+        title="Generate invite link"
+        message={`Generate a new ${ROLE_LABELS[role]} invite link?`}
+        confirmLabel="Generate"
+        busy={isPending}
+        onConfirm={() => { setConfirmGenerate(false); generate(); }}
+        onCancel={() => setConfirmGenerate(false)}
+      />
+      <AdminConfirmDialog
+        open={revokeTarget !== null}
+        title="Revoke invite link"
+        message="Revoke this invite link? Anyone holding it will no longer be able to use it."
+        confirmLabel="Revoke"
+        danger
+        busy={isPending}
+        onConfirm={() => { if (revokeTarget !== null) revoke(revokeTarget); setRevokeTarget(null); }}
+        onCancel={() => setRevokeTarget(null)}
+      />
     </>
   );
 }
