@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const bodyFont = DM_Sans({ subsets: ["latin"], variable: "--font-body" });
-const displayFont = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
+const bodyFont = Inter({ subsets: ["latin"], variable: "--font-body" });
+const displayFont = Inter({ subsets: ["latin"], variable: "--font-display" });
 
 export const metadata: Metadata = {
   title: "VacciTrack | Animal Health Monitor",

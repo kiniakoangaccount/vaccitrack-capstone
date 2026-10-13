@@ -1100,7 +1100,6 @@ function Landing({ onSignIn, isTransitioning }: { onSignIn: () => void; isTransi
       <div className={`landing-nav-wrap${scrolled ? " scrolled" : ""}`}>
         <header className="landing-nav">
           <button className="landing-brand" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-            <span className="landing-brand-mark">✣</span>
             <span><strong>VacciTrack</strong><small>BRGY. ESTEFANIA</small></span>
           </button>
           <nav aria-label="Public navigation">
