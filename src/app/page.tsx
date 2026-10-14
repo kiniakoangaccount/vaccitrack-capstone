@@ -203,6 +203,13 @@ function formatTodayLabel(date = new Date()) {
   return date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "2-digit", year: "numeric" }).toUpperCase();
 }
 
+function getTimeGreeting(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export interface UserNotification {
   id: number;
   title: string;
@@ -338,13 +345,16 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
 
   function switchAuthMode(nextMode: "landing" | "signin" | "register" | "forgot") {
     if (nextMode === authMode || isPageTransitioning) return;
+    if (nextMode === "register") {
+      router.push("/register", { scroll: false });
+      return;
+    }
     setIsPageTransitioning(true);
     window.setTimeout(() => {
       setAuthMode(nextMode);
       setIsPageTransitioning(false);
       if (nextMode === "landing") router.push("/", { scroll: false });
       else if (nextMode === "signin") router.push("/signin", { scroll: false });
-      else if (nextMode === "register") router.push("/register", { scroll: false });
       // "forgot" has no dedicated bookmarkable route — it's only ever reached
       // via the sign-in screen's link, so just swap local state in place.
     }, 220);
@@ -610,7 +620,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       return;
     }
     if (!idImageFile) {
-      setAuthError("Upload a photo of a valid ID for administrator verification.");
+      setAuthError("Choose a photo of yourself or use your camera.");
       return;
     }
     if (!acceptedTerms) {
@@ -623,7 +633,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     body.set("fullName", registrationForm.fullName);
     body.set("username", registrationForm.username);
     body.set("contact", registrationForm.contact);
-    body.set("idImage", idImageFile);
+    body.set("profilePhoto", idImageFile);
     const { error } = await registerUser(body);
     if (error) {
       setAuthError(error);
@@ -1047,7 +1057,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       <section className="content-area">
         <header className="topbar"><button className="icon-button mobile-nav-toggle" aria-label="Open navigation" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="crumb">Operations <span>/</span> {activeTab}</div><div className="top-actions">{authUser && <button className="icon-button" aria-label="Notifications" aria-expanded={showNotifications} onClick={() => { setShowNotifications((current) => !current); setShowAccountMenu(false); }}><Bell size={18} />{notifications.length > 0 && <span className="notification-dot" />}</button>}<div className="profile-menu-wrap"><button className="profile-button" aria-haspopup="menu" aria-expanded={showAccountMenu} onClick={() => { if (authUser) { setShowAccountMenu((current) => !current); setShowNotifications(false); } else { setActiveTab("Feedback"); } }}><CircleUserRound size={20} /> <span>{authUser ? authUser.fullName.slice(0, 2).toUpperCase() : "MC"}</span></button>{showAccountMenu && authUser && <div className="account-menu" role="menu"><button role="menuitem" onClick={() => router.push("/profile")}><CircleUserRound size={15} /> Manage my account</button><button role="menuitem" onClick={() => router.push("/settings")}><ShieldCheck size={15} /> Settings</button><button role="menuitem" onClick={signOut}><X size={15} /> Sign out</button></div>}</div></div>{showNotifications && authUser && <div className="notification-panel"><div className="notification-panel-head"><strong>Notifications</strong><button onClick={() => void readAllNotifications()}>Mark all read</button></div>{notifications.length === 0 ? <p className="notification-empty">You are all caught up.</p> : notifications.map((notification) => <button className="notification-item" key={notification.id} onClick={() => void readNotification(notification.id)}><span className={`notification-icon ${notification.type === "danger" ? "danger" : ""}`}><Bell size={15} /></span><span><strong>{notification.title}</strong><small>{notification.message}</small></span></button>)}</div>}</header>
         <div className="page-content">
-          <div className="page-heading"><div><p className="eyebrow">{formatTodayLabel()}</p><h1>{activeTab === "Overview" ? `Good morning, ${authUser?.fullName.split(" ")[0] ?? "Maria"}.` : activeTab}</h1><p className="heading-sub">{activeTab === "Overview" ? "Here is what needs your attention across the barangay." : "Barangay Estefania animal health operations"}</p></div></div>
+          <div className="page-heading"><div><p className="eyebrow">{formatTodayLabel()}</p><h1>{activeTab === "Overview" ? `${getTimeGreeting()}, ${authUser?.fullName.split(" ")[0] ?? "Maria"}.` : activeTab}</h1><p className="heading-sub">{activeTab === "Overview" ? "Here is what needs your attention across the barangay." : "Barangay Estefania animal health operations"}</p></div></div>
 
           {showNotice && <div className="notice"><div className="notice-icon"><Syringe size={19} /></div><div><strong>Vaccination coverage is at {dashboardStats.registered ? Math.round((dashboardStats.vaccinated / dashboardStats.registered) * 100) : 0}%</strong><p>{dashboardStats.dueSoon} animals are due for their next vaccination.</p></div>{isStaff && <button className="notice-action" onClick={() => setActiveTab("Planning")}>View plan <span>→</span></button>}<button className="notice-close" aria-label="Dismiss notice" onClick={() => setShowNotice(false)}>×</button></div>}
 

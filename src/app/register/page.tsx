@@ -1,5 +1,5 @@
-import Home from "../page";
+import RegistrationForm from "./RegistrationForm";
 
 export default function RegisterPage() {
-  return <Home initialAuthMode="register" />;
+  return <RegistrationForm />;
 }

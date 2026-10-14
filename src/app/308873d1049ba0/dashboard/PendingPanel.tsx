@@ -83,11 +83,11 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
 
           {p.idDocumentUrl ? (
             <a href={p.idDocumentUrl} target="_blank" rel="noopener noreferrer" className="admin-id-photo-link">
-              <img src={p.idDocumentUrl} alt={`ID submitted by ${p.full_name}`} className="admin-id-photo" />
+              <img src={p.idDocumentUrl} alt={`Registration photo submitted by ${p.full_name}`} className="admin-id-photo" />
               <span>View full size →</span>
             </a>
           ) : (
-            <p className="admin-muted">No ID photo on file.</p>
+            <p className="admin-muted">No registration photo on file.</p>
           )}
 
           {errors[p.id] && <p className="admin-form-error" style={{ marginBottom: 10 }}>{errors[p.id]}</p>}

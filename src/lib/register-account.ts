@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase-admin";
 import { placeholderEmailFor } from "@/lib/account";
 
-const MAX_ID_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
 
 export async function createAccountFromForm(
   formData: FormData,
@@ -16,7 +16,7 @@ export async function createAccountFromForm(
   const fullName = (formData.get("fullName") as string | null)?.trim() ?? "";
   const username = (formData.get("username") as string | null)?.trim() ?? "";
   const contact = (formData.get("contact") as string | null)?.trim() ?? "";
-  const idImage = formData.get("idImage");
+  const profilePhoto = formData.get("profilePhoto");
 
   if (!/^[a-zA-Z0-9_.-]{3,80}$/.test(username)) {
     return { error: "Username must be 3–80 characters and use only letters, numbers, dots, underscores, or hyphens." };
@@ -27,9 +27,9 @@ export async function createAccountFromForm(
   if (!fullName) return { error: "Full name is required." };
   if (password.length < 8) return { error: "Password must be at least 8 characters long." };
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email address, or leave it blank." };
-  if (!(idImage instanceof File) || idImage.size === 0) return { error: "Upload a photo of a valid ID." };
-  if (!idImage.type.startsWith("image/")) return { error: "The ID upload must be an image file." };
-  if (idImage.size > MAX_ID_IMAGE_BYTES) return { error: "The ID image must be smaller than 5MB." };
+  if (!(profilePhoto instanceof File) || profilePhoto.size === 0) return { error: "Choose a photo of yourself or use your camera." };
+  if (!profilePhoto.type.startsWith("image/")) return { error: "The uploaded photo must be an image file." };
+  if (profilePhoto.size > MAX_PROFILE_PHOTO_BYTES) return { error: "The photo must be smaller than 5MB. Choose a smaller image and try again." };
 
   // Usernames are also used to sign in, so they must be unique. The profiles
   // table only enforces this via a unique index, not the auth.users insert's
@@ -57,17 +57,17 @@ export async function createAccountFromForm(
   if (!data.user) return { error: "Registration failed. Please try again." };
   const userId = data.user.id;
 
-  const ext = (idImage.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-  const path = `${userId}/id-document.${ext}`;
-  const { error: uploadError } = await db.storage.from("id-documents").upload(path, idImage, {
-    contentType: idImage.type,
+  const path = `${userId}/profile-photo.jpg`;
+  const { error: uploadError } = await db.storage.from("id-documents").upload(path, profilePhoto, {
+    contentType: profilePhoto.type,
     upsert: true,
   });
   if (uploadError) {
     await db.auth.admin.deleteUser(userId).catch(() => {});
-    return { error: "Could not upload the ID photo. Please try again." };
+    return { error: "Could not upload your photo. Please try again." };
   }
 
+  // Keep the deployed approval-photo column and bucket contract for compatibility.
   const { error: profileError } = await db.from("profiles").update({ role, status, id_document_reference: path }).eq("id", userId);
   if (profileError) {
     await db.storage.from("id-documents").remove([path]).catch(() => {});

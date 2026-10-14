@@ -3,14 +3,16 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { PawPrint, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import ProfilePhotoInput from "../../ProfilePhotoInput";
 import { registerViaInvite } from "../../invite-register-action";
 
 export default function InviteRegisterForm({ token, role, roleLabel }: { token: string; role: string; roleLabel: string }) {
   const [form, setForm] = useState({ username: "", fullName: "", email: "", contact: "", password: "" });
-  const [idImageFile, setIdImageFile] = useState<File | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -24,7 +26,7 @@ export default function InviteRegisterForm({ token, role, roleLabel }: { token: 
       setError("Enter a valid 11-digit Philippine mobile number starting with 09.");
       return;
     }
-    if (!idImageFile) { setError("Upload a photo of a valid ID."); return; }
+    if (!profilePhoto) { setError("Choose a photo of yourself or use your camera."); return; }
 
     const body = new FormData();
     body.set("token", token);
@@ -33,11 +35,16 @@ export default function InviteRegisterForm({ token, role, roleLabel }: { token: 
     body.set("fullName", form.fullName);
     body.set("username", form.username);
     body.set("contact", form.contact);
-    body.set("idImage", idImageFile);
+    body.set("profilePhoto", profilePhoto);
 
-    const result = await registerViaInvite(body);
-    if (result.error) { setError(result.error); return; }
-    setSubmitted(true);
+    setIsSubmitting(true);
+    try {
+      const result = await registerViaInvite(body);
+      if (result.error) { setError(result.error); return; }
+      setSubmitted(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   if (submitted) {
@@ -79,9 +86,7 @@ export default function InviteRegisterForm({ token, role, roleLabel }: { token: 
           <label>Contact number
             <input required inputMode="numeric" pattern="09[0-9]{9}" placeholder="09171234567" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value.replace(/\D/g, "").slice(0, 11) })} />
           </label>
-          <label>Valid ID photo
-            <input required type="file" accept="image/*" onChange={(e) => setIdImageFile(e.target.files?.[0] ?? null)} />
-          </label>
+          <ProfilePhotoInput value={profilePhoto} onChange={setProfilePhoto} />
           <label>Password
             <div className="password-field">
               <input required minLength={8} type={showPassword ? "text" : "password"} autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
@@ -91,7 +96,8 @@ export default function InviteRegisterForm({ token, role, roleLabel }: { token: 
             </div>
           </label>
           {error && <p className="form-error">{error}</p>}
-          <button className="primary-button" type="submit">Create account</button>
+          <button className="primary-button" type="submit" disabled={isSubmitting}>{isSubmitting ? "Submitting..." : "Create account"}</button>
+          {isSubmitting && <p className="signup-status" role="status" aria-live="polite">Creating your account and uploading your photo. Please wait.</p>}
         </form>
       </section>
     </main>
