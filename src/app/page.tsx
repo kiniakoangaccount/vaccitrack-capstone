@@ -46,13 +46,18 @@ import { purokOptions, getAnimalStatus } from "@/lib/map-data";
 import { DOG_BREEDS, CAT_BREEDS } from "@/lib/breed-data";
 import { VACCINE_DATA } from "@/lib/vaccine-data";
 import { todayLocalIso } from "@/lib/dates";
-import AuditPanel from "./308873d1049ba0/dashboard/AuditPanel";
 import dynamic from "next/dynamic";
 import type { LeafletMapHandle } from "./LeafletMap";
-import AnimalDetailPanel, { type VaccinationHistoryRow } from "./AnimalDetailPanel";
+import type { VaccinationHistoryRow } from "./AnimalDetailPanel";
 import ConfirmDialog from "./ConfirmDialog";
 
 const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
+const AuditPanel = dynamic(() => import("./308873d1049ba0/dashboard/AuditPanel"), {
+  loading: () => <div className="deferred-panel-status" role="status">Loading audit log...</div>,
+});
+const AnimalDetailPanel = dynamic(() => import("./AnimalDetailPanel"), {
+  loading: () => <div className="deferred-panel-status animal-detail-loading" role="status">Loading animal details...</div>,
+});
 
 const POUND_STATUSES: PoundStatus[] = ["Under Observation", "Up for Adoption", "Reclaimed"];
 
