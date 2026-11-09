@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { ESTEFANIA_SEARCH_VIEWBOX, isWithinEstefaniaSearchArea } from "@/lib/map-data";
 
 export interface MapAnimal {
   id: number | string;
@@ -90,11 +91,24 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
+    const bounds = L.latLngBounds(
+      [ESTEFANIA_SEARCH_VIEWBOX.south, ESTEFANIA_SEARCH_VIEWBOX.west],
+      [ESTEFANIA_SEARCH_VIEWBOX.north, ESTEFANIA_SEARCH_VIEWBOX.east]
+    );
     const map = L.map(mapRef.current, {
       center: [10.6695, 122.987],
-      zoom: 15,
+      zoomControl: false,
+      maxBounds: bounds,
+      maxBoundsViscosity: 1,
       scrollWheelZoom: true,
     });
+    map.fitBounds(bounds, { padding: [8, 8] });
+    map.setMinZoom(map.getZoom());
+    L.control.zoom({
+      position: "topright",
+      zoomInTitle: "Zoom in",
+      zoomOutTitle: "Zoom out to the Estefania area limit",
+    }).addTo(map);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
@@ -108,14 +122,21 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
     mapInstance.current = map;
 
     map.on("click", (e: L.LeafletMouseEvent) => {
-      if (pickModeRef.current && onPickCoordinatesRef.current && e.latlng) {
+      if (
+        pickModeRef.current &&
+        onPickCoordinatesRef.current &&
+        e.latlng &&
+        isWithinEstefaniaSearchArea(e.latlng.lat, e.latlng.lng)
+      ) {
         onPickCoordinatesRef.current(e.latlng.lat, e.latlng.lng);
       }
     });
 
     onMapReadyRef.current?.({
       flyTo: (lat, lng, zoom = 16) => {
-        mapInstance.current?.flyTo([lat, lng], zoom, { animate: true });
+        if (isWithinEstefaniaSearchArea(lat, lng)) {
+          mapInstance.current?.flyTo([lat, lng], zoom, { animate: true });
+        }
       },
     });
 
@@ -164,7 +185,13 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
           lng = purok.longitude;
         }
       }
-      if (lat === undefined || lng === undefined || lat === null || lng === null) continue;
+      if (
+        lat === undefined ||
+        lng === undefined ||
+        lat === null ||
+        lng === null ||
+        !isWithinEstefaniaSearchArea(lat, lng)
+      ) continue;
 
       const color = animal.vaccinated ? "#2f8065" : animal.status === "Overdue" ? "#c85f57" : "#c48732";
 

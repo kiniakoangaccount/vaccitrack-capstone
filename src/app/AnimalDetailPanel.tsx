@@ -22,6 +22,7 @@ export interface AnimalDetail {
   impoundArea: string;
   vaccinated: boolean;
   status: string;
+  vaccineDate?: string | null;
   nextDueDate: string | null;
   nextDue: string;
   vaccineType?: string;
@@ -61,6 +62,10 @@ export default function AnimalDetailPanel({
   onDeleted,
   onUpdated,
 }: AnimalDetailPanelProps) {
+  const lastVaccinated = history[0]?.vaccine_date ?? animal.vaccineDate;
+  const formattedLastVaccinated = lastVaccinated
+    ? new Date(`${lastVaccinated}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+    : "Not vaccinated";
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [editFields, setEditFields] = useState<AnimalEditFields>({
@@ -167,6 +172,23 @@ export default function AnimalDetailPanel({
           </div>
         </div>
 
+        {!showEditForm && (
+          <dl className="animal-vaccination-status">
+            <div>
+              <dt>Vaccination status</dt>
+              <dd><span className={`status ${animal.vaccinated ? "status-good" : animal.status === "Overdue" ? "status-danger" : "status-warn"}`}><i />{animal.status}</span></dd>
+            </div>
+            <div>
+              <dt>Last vaccinated</dt>
+              <dd>{formattedLastVaccinated}</dd>
+            </div>
+            <div>
+              <dt>Next vaccination</dt>
+              <dd>{animal.nextDue}</dd>
+            </div>
+          </dl>
+        )}
+
         <div className="animal-detail-grid">
           <div className="animal-detail-info">
             <div className="animal-detail-avatar">
@@ -216,7 +238,7 @@ export default function AnimalDetailPanel({
                   <div><dt>Classification</dt><dd>{animal.classification ?? "Pet"}</dd></div>
                   <div><dt>Breed</dt><dd>{animal.breed ?? "—"}</dd></div>
                   <div><dt>Sex</dt><dd>{animal.sex ?? "—"}</dd></div>
-                  <div><dt>Age</dt><dd>{animal.age !== undefined ? `${animal.age} yr${animal.age === 1 ? "" : "s"}` : "—"}</dd></div>
+                  <div><dt>Age</dt><dd>{animal.age !== undefined ? `${animal.age} month${animal.age === 1 ? "" : "s"}` : "—"}</dd></div>
                   <div><dt>Color / markings</dt><dd>{animal.color ?? "—"}</dd></div>
                   <div><dt>Owner</dt><dd>{animal.owner}</dd></div>
                   <div><dt>Contact</dt><dd>{animal.contact || "—"}</dd></div>
@@ -224,8 +246,6 @@ export default function AnimalDetailPanel({
                   <div><dt>Impound area</dt><dd>{animal.impoundArea || "—"}</dd></div>
                   <div><dt>GPS</dt><dd>{animal.latitude && animal.longitude ? `${Number(animal.latitude).toFixed(5)}, ${Number(animal.longitude).toFixed(5)}` : "—"}</dd></div>
                   <div><dt>Vaccine type</dt><dd>{animal.vaccineType ?? "—"}</dd></div>
-                  <div><dt>Status</dt><dd><span className={`status ${animal.vaccinated ? "status-good" : animal.status === "Overdue" ? "status-danger" : "status-warn"}`}><i />{animal.status}</span></dd></div>
-                  <div><dt>Next due</dt><dd>{animal.nextDue}</dd></div>
                 </div>
                 {animal.notes && <p className="animal-detail-notes"><strong>Notes:</strong> {animal.notes}</p>}
               </>

@@ -1,5 +1,25 @@
 export type AnimalStatus = "Vaccinated" | "Due soon" | "Overdue" | "Not scheduled";
 
+// Nominatim's bounded search uses a rectangular viewbox. This padded box
+// covers the known Estefania purok centers and nearby addresses.
+export const ESTEFANIA_SEARCH_VIEWBOX = {
+  west: 122.978,
+  north: 10.701,
+  east: 123.018,
+  south: 10.649,
+} as const;
+
+export function isWithinEstefaniaSearchArea(latitude: number, longitude: number): boolean {
+  return (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    latitude >= ESTEFANIA_SEARCH_VIEWBOX.south &&
+    latitude <= ESTEFANIA_SEARCH_VIEWBOX.north &&
+    longitude >= ESTEFANIA_SEARCH_VIEWBOX.west &&
+    longitude <= ESTEFANIA_SEARCH_VIEWBOX.east
+  );
+}
+
 // The real 55 puroks/subdivisions of Barangay Estefania, Bacolod City, per
 // the barangay's own socio-economic profile (bacolodcity.gov.ph). 26 of the
 // 55 have a matching place in OpenStreetMap and use its real coordinates;

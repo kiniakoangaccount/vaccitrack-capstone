@@ -14,6 +14,10 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3000",
     viewport: { width: 1600, height: 900 },
+    permissions: ["camera"],
+    launchOptions: {
+      args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+    },
   },
   webServer: {
     command: "npm run dev",
