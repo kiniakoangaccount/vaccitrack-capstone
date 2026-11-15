@@ -43,13 +43,13 @@ export async function sendSmsBatch(recipients: string[], message: string): Promi
     normalizedRecipients.push(normalized);
   }
 
-  const apiKey = process.env.SEMAPHORE_API_KEY;
-  const senderName = process.env.SEMAPHORE_SENDER_NAME;
+  const apiKey = process.env.SEMAPHORE_API_KEY?.trim();
+  const senderName = process.env.SEMAPHORE_SENDER_NAME?.trim();
   if (!apiKey) return { results: [], error: "Semaphore SMS configuration is incomplete." };
 
   const body = new URLSearchParams({
     apikey: apiKey,
-    number: normalizedRecipients.map((recipient) => recipient.replace(/^\+/, "")).join(","),
+    number: normalizedRecipients.map((recipient) => recipient.replace(/^\+63/, "0")).join(","),
     message,
   });
   if (senderName) body.set("sendername", senderName);
@@ -96,8 +96,9 @@ export async function sendSmsBatch(recipients: string[], message: string): Promi
     const entry = entries[index];
     if (!entry || typeof entry !== "object") return { error: "Semaphore returned no result for this recipient." };
 
+    let status: string | undefined;
     if ("status" in entry && typeof entry.status === "string") {
-      const status = entry.status.toLowerCase();
+      status = entry.status.toLowerCase();
       if (status === "failed" || status === "refunded") {
         return { error: `Semaphore did not send the SMS (status: ${entry.status}).` };
       }
@@ -106,7 +107,14 @@ export async function sendSmsBatch(recipients: string[], message: string): Promi
     if ("message_id" in entry && (typeof entry.message_id === "string" || typeof entry.message_id === "number")) {
       return { messageId: String(entry.message_id) };
     }
-    return { error: "Semaphore response did not include a message ID." };
+    if (status === "pending" || status === "queued") return {};
+
+    return {
+      error: "Semaphore response did not include a message ID.",
+      providerDetail: sanitizeProviderDetail(
+        `status=${status ?? "unknown"}; fields=${Object.keys(entry).join(",")}`,
+      ),
+    };
   });
 
   return { results };
