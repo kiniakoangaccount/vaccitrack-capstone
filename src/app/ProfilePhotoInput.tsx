@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { Camera, ImagePlus, X } from "lucide-react";
 
 const MAX_SOURCE_PHOTO_BYTES = 20 * 1024 * 1024;
@@ -197,7 +198,7 @@ export default function ProfilePhotoInput({
       <p className="photo-field-help" id="profile-photo-help">Add a clear photo of yourself. You can upload one or take a photo with your camera.</p>
       {previewUrl && (
         <div className="photo-preview">
-          <img src={previewUrl} alt="Preview of your registration photo" />
+          <Image src={previewUrl} alt="Preview of your registration photo" width={72} height={72} unoptimized />
           <div>
             <strong>Photo ready</strong>
             <span>{value?.name || "Camera photo"}</span>

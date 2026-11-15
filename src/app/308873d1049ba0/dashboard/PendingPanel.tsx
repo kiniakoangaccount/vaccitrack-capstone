@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useTransition } from "react";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { approveUser, rejectUser } from "./crud-actions";
@@ -83,7 +84,14 @@ export default function PendingPanel({ profiles }: { profiles: Profile[] }) {
 
           {p.idDocumentUrl ? (
             <a href={p.idDocumentUrl} target="_blank" rel="noopener noreferrer" className="admin-id-photo-link">
-              <img src={p.idDocumentUrl} alt={`Registration photo submitted by ${p.full_name}`} className="admin-id-photo" />
+              <Image
+                src={p.idDocumentUrl}
+                alt={`Registration photo submitted by ${p.full_name}`}
+                width={640}
+                height={360}
+                unoptimized
+                className="admin-id-photo"
+              />
               <span>View full size →</span>
             </a>
           ) : (

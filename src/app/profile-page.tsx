@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { updateProfile, getAccountChannels, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp } from "./profile-actions";
-import { ShieldCheck, Bell, Eye, EyeOff, User, Key, CheckCircle2, AlertCircle, Menu, X, ArrowLeft } from "lucide-react";
+import { ShieldCheck, Bell, EyeOff, User, Key, CheckCircle2, AlertCircle, Menu, X, ArrowLeft } from "lucide-react";
 
 type Channel = "email" | "sms";
 

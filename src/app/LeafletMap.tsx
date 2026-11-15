@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
+import "leaflet.markercluster";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
 import { ESTEFANIA_SEARCH_VIEWBOX, isWithinEstefaniaSearchArea } from "@/lib/map-data";
+import { escapeHtml, normalizeName, resolvePosition, type PlacedAnimal } from "@/lib/map-position";
 
 export interface MapAnimal {
   id: number | string;
@@ -47,15 +50,24 @@ function speciesMarkerSvg(species: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 }
 
+function markerHtml(color: string, species: string, approximate: boolean): string {
+  const ring = approximate ? "border:2px dashed #fff;opacity:.8;" : "";
+  return `<span style="background:${color};border-radius:50%;display:grid;place-items:center;width:26px;height:26px;box-sizing:border-box;${ring}">${speciesMarkerSvg(species)}</span>`;
+}
+
+function clusterHtml(count: number): string {
+  return `<span style="background:#2f8065;color:#fff;border:3px solid #fff;border-radius:50%;display:grid;place-items:center;width:36px;height:36px;box-sizing:border-box;font-weight:700;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.35);">${count}</span>`;
+}
+
 export interface LeafletMapHandle {
-  /** Smoothly pan/zoom the map to a coordinate, e.g. after a geolocation fix. */
-  flyTo: (lat: number, lng: number, zoom?: number) => void;
+  flyTo: (lat: number, lng: number, zoom?: number) => boolean;
 }
 
 interface LeafletMapProps {
   animals: MapAnimal[];
   puroks: MapPurok[];
   onPickCoordinates?: (lat: number, lng: number) => void;
+  onPickOutsideArea?: () => void;
   pickMode?: boolean;
   // A plain callback instead of a forwarded ref: this component is loaded via
   // next/dynamic, whose wrapper is a plain function component and silently
@@ -63,16 +75,23 @@ interface LeafletMapProps {
   onMapReady?: (handle: LeafletMapHandle) => void;
 }
 
-export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMode = false, onMapReady }: LeafletMapProps) {
+export default function LeafletMap({
+  animals,
+  puroks,
+  onPickCoordinates,
+  onPickOutsideArea,
+  pickMode = false,
+  onMapReady,
+}: LeafletMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
-  const markersLayer = useRef<L.LayerGroup | null>(null);
+  const markersLayer = useRef<L.MarkerClusterGroup | null>(null);
   const heatLayer = useRef<L.LayerGroup | null>(null);
   const purokLayer = useRef<L.LayerGroup | null>(null);
   const [showHeat, setShowHeat] = useState(true);
   const [showPuroks, setShowPuroks] = useState(true);
   const [mapSearch, setMapSearch] = useState("");
-  const [selectedAnimal, setSelectedAnimal] = useState<MapAnimal | null>(null);
+  const [selectedId, setSelectedId] = useState<MapAnimal["id"] | null>(null);
 
   // Read the latest pickMode/onPickCoordinates from the click handler via refs
   // instead of the effect below, so the map is created once per mount and
@@ -81,70 +100,120 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
   // re-render — recreating the map on every click broke picking a 2nd pin).
   const pickModeRef = useRef(pickMode);
   const onPickCoordinatesRef = useRef(onPickCoordinates);
+  const onPickOutsideAreaRef = useRef(onPickOutsideArea);
   const onMapReadyRef = useRef(onMapReady);
   useEffect(() => {
     pickModeRef.current = pickMode;
     onPickCoordinatesRef.current = onPickCoordinates;
+    onPickOutsideAreaRef.current = onPickOutsideArea;
     onMapReadyRef.current = onMapReady;
-  }, [pickMode, onPickCoordinates, onMapReady]);
+  }, [pickMode, onPickCoordinates, onPickOutsideArea, onMapReady]);
+
+  const purokByName = useMemo(() => new Map(puroks.map((p) => [normalizeName(p.name), p] as const)), [puroks]);
+  const placed = useMemo<PlacedAnimal<MapAnimal>[]>(
+    () =>
+      animals.flatMap((animal) => {
+        const result = resolvePosition(animal, purokByName);
+        return result ? [result] : [];
+      }),
+    [animals, purokByName],
+  );
+  const unplacedCount = animals.length - placed.length;
+  const approximateCount = placed.filter((p) => p.approximate).length;
 
   useEffect(() => {
-    if (!mapRef.current || mapInstance.current) return;
+    const el = mapRef.current;
+    if (!el || mapInstance.current) return;
 
     const bounds = L.latLngBounds(
       [ESTEFANIA_SEARCH_VIEWBOX.south, ESTEFANIA_SEARCH_VIEWBOX.west],
       [ESTEFANIA_SEARCH_VIEWBOX.north, ESTEFANIA_SEARCH_VIEWBOX.east]
     );
-    const map = L.map(mapRef.current, {
-      center: [10.6695, 122.987],
+    const map = L.map(el, {
       zoomControl: false,
       maxBounds: bounds,
       maxBoundsViscosity: 1,
       scrollWheelZoom: true,
     });
-    map.fitBounds(bounds, { padding: [8, 8] });
-    map.setMinZoom(map.getZoom());
+    map.setView([10.6695, 122.987], 14);
     L.control.zoom({
       position: "topright",
       zoomInTitle: "Zoom in",
       zoomOutTitle: "Zoom out to the Estefania area limit",
     }).addTo(map);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
 
-    markersLayer.current = L.layerGroup().addTo(map);
     heatLayer.current = L.layerGroup().addTo(map);
     purokLayer.current = L.layerGroup().addTo(map);
+    markersLayer.current = L.markerClusterGroup({
+      showCoverageOnHover: false,
+      maxClusterRadius: 28,
+      spiderfyOnMaxZoom: true,
+      iconCreateFunction: (cluster) =>
+        L.divIcon({
+          className: "animal-cluster",
+          html: clusterHtml(cluster.getChildCount()),
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+        }),
+    }).addTo(map);
 
     mapInstance.current = map;
 
+    let fitted = false;
+    const fitToArea = () => {
+      map.invalidateSize({ animate: false });
+      const size = map.getSize();
+      if (size.x === 0 || size.y === 0) return;
+      const minZoom = map.getBoundsZoom(bounds, false, L.point(16, 16));
+      map.setMinZoom(minZoom);
+      if (!fitted) {
+        map.fitBounds(bounds, { padding: [8, 8] });
+        fitted = true;
+      } else if (map.getZoom() < minZoom) {
+        map.setZoom(minZoom);
+      }
+    };
+    const observer = new ResizeObserver(fitToArea);
+    observer.observe(el);
+    fitToArea();
+
     map.on("click", (e: L.LeafletMouseEvent) => {
-      if (
-        pickModeRef.current &&
-        onPickCoordinatesRef.current &&
-        e.latlng &&
-        isWithinEstefaniaSearchArea(e.latlng.lat, e.latlng.lng)
-      ) {
+      if (!pickModeRef.current || !onPickCoordinatesRef.current) return;
+      if (isWithinEstefaniaSearchArea(e.latlng.lat, e.latlng.lng)) {
         onPickCoordinatesRef.current(e.latlng.lat, e.latlng.lng);
+      } else {
+        onPickOutsideAreaRef.current?.();
       }
     });
 
     onMapReadyRef.current?.({
       flyTo: (lat, lng, zoom = 16) => {
-        if (isWithinEstefaniaSearchArea(lat, lng)) {
-          mapInstance.current?.flyTo([lat, lng], zoom, { animate: true });
-        }
+        const currentMap = mapInstance.current;
+        if (!currentMap || !isWithinEstefaniaSearchArea(lat, lng)) return false;
+        currentMap.flyTo([lat, lng], zoom, { animate: true });
+        return true;
       },
     });
 
     return () => {
+      observer.disconnect();
       map.remove();
       mapInstance.current = null;
+      markersLayer.current = null;
+      heatLayer.current = null;
+      purokLayer.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (map) map.getContainer().style.cursor = pickMode ? "crosshair" : "";
+  }, [pickMode]);
 
   // Purok zone circles
   useEffect(() => {
@@ -155,78 +224,62 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
     for (const p of puroks) {
       L.circle([p.latitude, p.longitude], { radius: 180, color: "#2f8065", weight: 2, fillColor: "#2f806520", fillOpacity: 0.15 })
         .addTo(purokLayer.current)
-        .bindTooltip(`<strong>${p.name}</strong>`);
+        .bindTooltip(`<strong>${escapeHtml(p.name)}</strong>`);
     }
   }, [puroks, showPuroks]);
 
   // Animal markers + heatmap
   useEffect(() => {
-    if (!mapInstance.current || !markersLayer.current || !heatLayer.current) return;
+    const cluster = markersLayer.current;
+    const heat = heatLayer.current;
+    if (!mapInstance.current || !cluster || !heat) return;
 
-    markersLayer.current.clearLayers();
-    heatLayer.current.clearLayers();
+    cluster.clearLayers();
+    heat.clearLayers();
 
-    const normalized = mapSearch.trim().toLowerCase();
-    const visible = normalized
-      ? animals.filter((a) => [a.name, a.owner, a.purok, a.species].some((v) => v.toLowerCase().includes(normalized)))
-      : animals;
+    const term = mapSearch.trim().toLowerCase();
+    const visible = term
+      ? placed.filter(({ animal: a }) =>
+          [a.name, a.owner, a.purok, a.species].some((v) => String(v ?? "").toLowerCase().includes(term)),
+        )
+      : placed;
 
-    const heatPoints: [number, number, number][] = [];
-
-    for (const animal of visible) {
-      let lat = animal.latitude;
-      let lng = animal.longitude;
-
-      // Fallback to purok center
-      if ((lat === undefined || lat === null) && (lng === undefined || lng === null)) {
-        const purok = puroks.find((p) => p.name === animal.purok);
-        if (purok) {
-          lat = purok.latitude;
-          lng = purok.longitude;
-        }
-      }
-      if (
-        lat === undefined ||
-        lng === undefined ||
-        lat === null ||
-        lng === null ||
-        !isWithinEstefaniaSearchArea(lat, lng)
-      ) continue;
-
+    const markers: L.Marker[] = [];
+    for (const { animal, lat, lng, approximate } of visible) {
       const color = animal.vaccinated ? "#2f8065" : animal.status === "Overdue" ? "#c85f57" : "#c48732";
+
+      const tooltip =
+        `<strong>${escapeHtml(animal.name)}</strong><br/>${escapeHtml(animal.species)} · ${escapeHtml(animal.purok)}` +
+        `<br/>${escapeHtml(animal.owner)}<br/><em>${escapeHtml(animal.status)}</em>` +
+        (approximate ? "<br/><small>Approximate position (purok center)</small>" : "");
 
       const marker = L.marker([lat, lng], {
         icon: L.divIcon({
           className: "animal-marker",
-          html: `<span style="background:${color};border-radius:50%;display:grid;place-items:center;width:26px;height:26px;">${speciesMarkerSvg(animal.species)}</span>`,
+          html: markerHtml(color, animal.species, approximate),
           iconSize: [26, 26],
           iconAnchor: [13, 13],
         }),
-      })
-        .addTo(markersLayer.current)
-        .bindTooltip(
-          `<strong>${animal.name}</strong><br/>${animal.species} · ${animal.purok}<br/>${animal.owner}<br/><em>${animal.status}</em>`,
-          { direction: "top" }
-        );
+      }).bindTooltip(tooltip, { direction: "top" });
 
-      marker.on("click", () => setSelectedAnimal(animal));
+      marker.on("click", () => setSelectedId(animal.id));
+      markers.push(marker);
 
-      heatPoints.push([lat, lng, animal.vaccinated ? 1 : 0.5]);
-    }
-
-    // Simple density heat layer using semi-transparent circles
-    if (showHeat) {
-      for (const [lat, lng, weight] of heatPoints) {
+      if (showHeat) {
         L.circle([lat, lng], {
           radius: 90,
           color: "transparent",
           weight: 0,
           fillColor: "#2f8065",
-          fillOpacity: 0.12 * weight,
-        }).addTo(heatLayer.current);
+          fillOpacity: 0.12 * (animal.vaccinated ? 1 : 0.5),
+        }).addTo(heat);
       }
     }
-  }, [animals, puroks, showHeat, mapSearch]);
+    cluster.addLayers(markers);
+  }, [placed, showHeat, mapSearch]);
+
+  const selectedPlaced = selectedId === null ? null : (placed.find((p) => p.animal.id === selectedId) ?? null);
+  const selectedAnimal = selectedPlaced?.animal ?? null;
 
   return (
     <div className="leaflet-map-wrap">
@@ -256,13 +309,22 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
           </button>
         </div>
       </div>
+      {(unplacedCount > 0 || approximateCount > 0) && (
+        <div className="leaflet-map-note" role="status" style={{ padding: "6px 10px", fontSize: "0.85rem" }}>
+          {approximateCount > 0 &&
+            `${approximateCount} ${approximateCount === 1 ? "animal is" : "animals are"} shown at the purok center (dashed pin). `}
+          {unplacedCount > 0 &&
+            `${unplacedCount} ${unplacedCount === 1 ? "animal is" : "animals are"} not on the map because no valid location or purok was found.`}
+        </div>
+      )}
       <div ref={mapRef} className="leaflet-map-canvas" />
       {selectedAnimal && (
         <div className="leaflet-popup">
-          <button className="leaflet-popup-close" onClick={() => setSelectedAnimal(null)}>×</button>
+          <button className="leaflet-popup-close" onClick={() => setSelectedId(null)}>×</button>
           <strong>{selectedAnimal.name}</strong>
           <span>{selectedAnimal.species} · {selectedAnimal.purok}</span>
           <span>{selectedAnimal.owner}</span>
+          {selectedPlaced?.approximate && <span>Approximate position (purok center)</span>}
           <em className={`status ${selectedAnimal.vaccinated ? "status-good" : selectedAnimal.status === "Overdue" ? "status-danger" : "status-warn"}`}>
             <i />{selectedAnimal.status}
           </em>

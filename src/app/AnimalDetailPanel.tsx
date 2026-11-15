@@ -245,7 +245,7 @@ export default function AnimalDetailPanel({
                   <div><dt>Purok</dt><dd><MapPin size={12} /> {animal.purok}</dd></div>
                   <div><dt>Impound area</dt><dd>{animal.impoundArea || "—"}</dd></div>
                   <div><dt>GPS</dt><dd>{animal.latitude && animal.longitude ? `${Number(animal.latitude).toFixed(5)}, ${Number(animal.longitude).toFixed(5)}` : "—"}</dd></div>
-                  <div><dt>Vaccine type</dt><dd>{animal.vaccineType ?? "—"}</dd></div>
+                  <div><dt>Vaccine type</dt><dd>{animal.vaccinated ? animal.vaccineType || "—" : "N/A"}</dd></div>
                 </div>
                 {animal.notes && <p className="animal-detail-notes"><strong>Notes:</strong> {animal.notes}</p>}
               </>
