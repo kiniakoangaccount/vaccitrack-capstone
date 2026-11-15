@@ -304,8 +304,9 @@ export async function sendSuperAdminTestSms(
   }
 
   const delivery = await sendSms(recipient, message);
+  const providerDetail = delivery.providerDetail ? ` Provider response: ${delivery.providerDetail}` : "";
   const notes = delivery.error
-    ? `Super-admin test SMS failed to number ending ${recipient.slice(-4)}. Error: ${delivery.error.slice(0, 120)}`
+    ? `Super-admin test SMS failed to number ending ${recipient.slice(-4)}. Error: ${delivery.error.slice(0, 120)}${providerDetail}`
     : `Super-admin test SMS sent to number ending ${recipient.slice(-4)}. Message: ${message.slice(0, 80)}`;
   const { error: auditUpdateError } = await access.db
     .from("audit_log")

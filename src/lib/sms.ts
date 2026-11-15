@@ -5,11 +5,12 @@ export function normalizePhilippineNumber(value: string): string | null {
   return null;
 }
 
-export type SmsDelivery = { messageId?: string; error?: string };
+export type SmsDelivery = { messageId?: string; error?: string; providerDetail?: string };
 
 export type SmsBatchDelivery = {
   results: SmsDelivery[];
   error?: string;
+  providerDetail?: string;
 };
 
 function getProviderMessage(value: unknown): string | undefined {
@@ -18,6 +19,17 @@ function getProviderMessage(value: unknown): string | undefined {
   if ("error" in entry && typeof entry.error === "string") return entry.error;
   if ("message" in entry && typeof entry.message === "string") return entry.message;
   return undefined;
+}
+
+function sanitizeProviderDetail(value: string): string | undefined {
+  const detail = value
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/(?:\+?63|0)9[\d\s()-]{8,}/g, "[redacted phone]")
+    .replace(/\b[a-f\d]{32}\b/gi, "[redacted token]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
+  return detail || undefined;
 }
 
 export async function sendSmsBatch(recipients: string[], message: string): Promise<SmsBatchDelivery> {
@@ -54,14 +66,29 @@ export async function sendSmsBatch(recipients: string[], message: string): Promi
     return { results: [], error: error instanceof Error ? error.message : "Semaphore request failed." };
   }
 
-  let result: unknown;
+  let responseText: string;
   try {
-    result = await response.json();
+    responseText = await response.text();
   } catch {
     return { results: [], error: `Semaphore returned an invalid response (HTTP ${response.status}).` };
   }
+  let result: unknown;
+  try {
+    result = JSON.parse(responseText);
+  } catch {
+    return {
+      results: [],
+      error: `Semaphore returned an invalid response (HTTP ${response.status}).`,
+      providerDetail: sanitizeProviderDetail(responseText),
+    };
+  }
   if (!response.ok) {
-    return { results: [], error: getProviderMessage(result) ?? `Semaphore returned HTTP ${response.status}.` };
+    const providerMessage = getProviderMessage(result);
+    return {
+      results: [],
+      error: providerMessage ?? `Semaphore returned HTTP ${response.status}.`,
+      providerDetail: providerMessage ? undefined : sanitizeProviderDetail(responseText),
+    };
   }
 
   const entries = Array.isArray(result) ? result : [result];
@@ -87,6 +114,6 @@ export async function sendSmsBatch(recipients: string[], message: string): Promi
 
 export async function sendSms(recipient: string, message: string): Promise<SmsDelivery> {
   const result = await sendSmsBatch([recipient], message);
-  if (result.error) return { error: result.error };
+  if (result.error) return { error: result.error, providerDetail: result.providerDetail };
   return result.results[0] ?? { error: "Semaphore returned no result for the recipient." };
 }
