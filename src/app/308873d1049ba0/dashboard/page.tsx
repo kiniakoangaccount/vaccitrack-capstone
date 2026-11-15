@@ -8,17 +8,18 @@ import FeedbackPanel from "./FeedbackPanel";
 import AuditPanel from "./AuditPanel";
 import InvitesPanel from "./InvitesPanel";
 import { listStaffInvites, type StaffInvite } from "./crud-actions";
+import SmsTestForm from "./SmsTestForm";
 import {
   ShieldCheck, Users, PawPrint, Activity, Bell,
   LogOut, MessageSquare, Clock, XCircle,
-  CheckCircle2, UserPlus, MapPin, Menu,
+  UserPlus, MapPin, Menu,
 } from "lucide-react";
-import { SmsSimForm } from "./SmsSimForm";
+import { SmsComposer } from "@/app/SmsComposer";
 import AdminMapPanel from "./AdminMapPanel";
 import { purokOptions, getAnimalStatus } from "@/lib/map-data";
 import type { MapAnimal } from "../../LeafletMap";
 
-type Tab = "overview" | "users" | "pending" | "feedback" | "audit" | "invites" | "map";
+type Tab = "overview" | "users" | "pending" | "feedback" | "audit" | "invites" | "map" | "sms";
 
 interface Profile {
   id: string;
@@ -136,6 +137,7 @@ export default async function AdminDashboardPage({
     { key: "pending",   label: "Pending verification", icon: <Clock size={16} />,          badge: stats.pending > 0 ? stats.pending : undefined },
     { key: "invites",   label: "Invite staff",         icon: <UserPlus size={16} /> },
     { key: "feedback",  label: "Feedback",             icon: <MessageSquare size={16} />,  badge: stats.feedback > 0 ? stats.feedback : undefined },
+    { key: "sms",       label: "SMS messaging",        icon: <MessageSquare size={16} /> },
     { key: "map",       label: "Coverage map",         icon: <MapPin size={16} /> },
     { key: "audit",     label: "Audit log",            icon: <ShieldCheck size={16} /> },
   ];
@@ -271,9 +273,9 @@ export default async function AdminDashboardPage({
                   <Link href="/308873d1049ba0/dashboard?tab=audit" className="admin-link">View audit log <span>→</span></Link>
                 </div>
                 <div className="admin-info-card">
-                  <div className="admin-info-head"><CheckCircle2 size={16} /><span>SMS simulation</span></div>
-                  <p className="admin-muted">Send a test SMS-style alert to preview how notification messages will appear to animal owners.</p>
-                  {supaCfg ? <SmsSimForm /> : <p className="admin-muted">Enable Supabase to use SMS simulation.</p>}
+                  <div className="admin-info-head"><MessageSquare size={16} /><span>SMS messaging</span></div>
+                  <p className="admin-muted">Send a custom message to one active client or clients with vaccinations due in 7 days.</p>
+                  <Link href="/308873d1049ba0/dashboard?tab=sms" className="admin-link">Open SMS messaging <span>→</span></Link>
                 </div>
               </div>
               <div className="admin-info-panel">
@@ -343,6 +345,18 @@ export default async function AdminDashboardPage({
                 <p className="heading-sub">Every registered animal across every purok, for field planning.</p>
               </div>
               {!supaCfg ? <NotConfigured /> : <AdminMapPanel animals={mapAnimals} puroks={purokOptions} />}
+            </>
+          )}
+
+          {/* ── SMS MESSAGING ── */}
+          {tab === "sms" && (
+            <>
+              <div className="admin-page-heading">
+                <p className="eyebrow">CLIENT COMMUNICATION</p>
+                <h1>SMS messaging</h1>
+                <p className="heading-sub">Send a custom Semaphore SMS to one active client or an upcoming vaccination group.</p>
+              </div>
+              {!supaCfg ? <NotConfigured /> : <><SmsComposer /><SmsTestForm /></>}
             </>
           )}
 

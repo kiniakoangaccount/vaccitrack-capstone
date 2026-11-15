@@ -35,36 +35,6 @@ function getPurokName(puroks: unknown): string {
   return "";
 }
 
-export async function simulateSmsAlert(
-  recipient: string,
-  message: string
-): Promise<{ error?: string }> {
-  const access = await requireAuditAccess();
-  if (!access.ok) return { error: access.error };
-
-  const recipientTrimmed = recipient.trim();
-  const messageTrimmed = message.trim();
-  if (!recipientTrimmed || recipientTrimmed.length > 32) return { error: "Enter a valid recipient." };
-  if (!messageTrimmed || messageTrimmed.length > 320) return { error: "Enter a message up to 320 characters." };
-
-  const db = createAdminClient();
-  if (!db) return { error: "Service unavailable." };
-
-  const { error } = await db.from("audit_log").insert({
-    user_id: access.actor.kind === "admin" ? access.actor.userId : null,
-    action: "SMS_SENT",
-    table_name: "animals",
-    notes: access.actor.kind === "hidden-admin"
-      ? `Simulated SMS to ${recipientTrimmed} (by admin "${access.actor.username}"): ${messageTrimmed.slice(0, 80)}`
-      : `Simulated SMS to ${recipientTrimmed}: ${messageTrimmed.slice(0, 80)}`,
-  });
-  if (error) {
-    console.error("simulateSmsAlert failed:", error.message);
-    return { error: "Could not record the simulation." };
-  }
-  return {};
-}
-
 export async function exportAnimalsCsv(
   params: { query?: string; purok?: string } = {}
 ): Promise<{ csv: string; filename: string } | { error?: string }> {

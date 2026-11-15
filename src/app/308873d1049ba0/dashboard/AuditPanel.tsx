@@ -59,6 +59,7 @@ export function AuditFilters({ filters, onChange }: { filters: AuditFilterState;
             <option value="breeds">breeds</option>
             <option value="vaccines">vaccines</option>
             <option value="feedback">feedback</option>
+            <option value="sms">sms</option>
           </select>
         </label>
       </div>

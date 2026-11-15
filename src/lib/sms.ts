@@ -5,35 +5,88 @@ export function normalizePhilippineNumber(value: string): string | null {
   return null;
 }
 
-export async function sendSms(recipient: string, message: string): Promise<{ messageId?: string; error?: string }> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-  const fromNumber = process.env.TWILIO_FROM_NUMBER;
-  if (!accountSid || !authToken || (!messagingServiceSid && !fromNumber)) {
-    return { error: "Twilio SMS configuration is incomplete." };
+export type SmsDelivery = { messageId?: string; error?: string };
+
+export type SmsBatchDelivery = {
+  results: SmsDelivery[];
+  error?: string;
+};
+
+function getProviderMessage(value: unknown): string | undefined {
+  const entry = Array.isArray(value) ? value[0] : value;
+  if (!entry || typeof entry !== "object") return undefined;
+  if ("error" in entry && typeof entry.error === "string") return entry.error;
+  if ("message" in entry && typeof entry.message === "string") return entry.message;
+  return undefined;
+}
+
+export async function sendSmsBatch(recipients: string[], message: string): Promise<SmsBatchDelivery> {
+  if (recipients.length === 0) return { results: [], error: "No SMS recipients were provided." };
+  if (recipients.length > 1000) return { results: [], error: "Semaphore allows up to 1,000 recipients per batch." };
+
+  const normalizedRecipients: string[] = [];
+  for (const recipient of recipients) {
+    const normalized = normalizePhilippineNumber(recipient);
+    if (!normalized) return { results: [], error: "One or more recipient numbers are invalid." };
+    normalizedRecipients.push(normalized);
   }
 
-  const body = new URLSearchParams({ To: recipient, Body: message });
-  if (messagingServiceSid) body.set("MessagingServiceSid", messagingServiceSid);
-  else body.set("From", fromNumber as string);
+  const apiKey = process.env.SEMAPHORE_API_KEY;
+  const senderName = process.env.SEMAPHORE_SENDER_NAME;
+  if (!apiKey) return { results: [], error: "Semaphore SMS configuration is incomplete." };
+
+  const body = new URLSearchParams({
+    apikey: apiKey,
+    number: normalizedRecipients.map((recipient) => recipient.replace(/^\+/, "")).join(","),
+    message,
+  });
+  if (senderName) body.set("sendername", senderName);
 
   let response: Response;
   try {
-    response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+    response = await fetch("https://api.semaphore.co/api/v4/messages", {
       method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
       signal: AbortSignal.timeout(15000),
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Twilio request failed." };
+    return { results: [], error: error instanceof Error ? error.message : "Semaphore request failed." };
   }
 
-  const result = await response.json().catch(() => ({})) as { sid?: string; message?: string; code?: number };
-  if (!response.ok) return { error: result.message ?? `Twilio returned HTTP ${response.status}.` };
-  return { messageId: result.sid };
+  let result: unknown;
+  try {
+    result = await response.json();
+  } catch {
+    return { results: [], error: `Semaphore returned an invalid response (HTTP ${response.status}).` };
+  }
+  if (!response.ok) {
+    return { results: [], error: getProviderMessage(result) ?? `Semaphore returned HTTP ${response.status}.` };
+  }
+
+  const entries = Array.isArray(result) ? result : [result];
+  const results = normalizedRecipients.map((_, index): SmsDelivery => {
+    const entry = entries[index];
+    if (!entry || typeof entry !== "object") return { error: "Semaphore returned no result for this recipient." };
+
+    if ("status" in entry && typeof entry.status === "string") {
+      const status = entry.status.toLowerCase();
+      if (status === "failed" || status === "refunded") {
+        return { error: `Semaphore did not send the SMS (status: ${entry.status}).` };
+      }
+    }
+
+    if ("message_id" in entry && (typeof entry.message_id === "string" || typeof entry.message_id === "number")) {
+      return { messageId: String(entry.message_id) };
+    }
+    return { error: "Semaphore response did not include a message ID." };
+  });
+
+  return { results };
+}
+
+export async function sendSms(recipient: string, message: string): Promise<SmsDelivery> {
+  const result = await sendSmsBatch([recipient], message);
+  if (result.error) return { error: result.error };
+  return result.results[0] ?? { error: "Semaphore returned no result for the recipient." };
 }

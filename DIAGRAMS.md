@@ -44,7 +44,7 @@ flowchart TB
     STORAGE["Storage<br/>(id-documents bucket)"]
   end
 
-  TWILIO["Twilio<br/>SMS API"]
+  SEMAPHORE["Semaphore<br/>SMS API"]
   NOMINATIM["Nominatim<br/>(OpenStreetMap geocoding)"]
 
   UI -- "sign in (anon key)" --> AUTH
@@ -53,11 +53,11 @@ flowchart TB
   UI -- "admin session cookie" --> MW --> RSC
   SA -- "service-role key<br/>(bypasses RLS)" --> DB
   SA --> STORAGE
-  SA -- "OTP verification code<br/>(username/password change)" --> TWILIO
+  SA -- "OTP verification code<br/>(username/password change)" --> SEMAPHORE
   SA -- "place search" --> NOMINATIM
   RSC -- "service-role key" --> DB
   CRON -- "read overdue + log alert<br/>(service-role key)" --> DB
-  CRON -- "send reminder" --> TWILIO
+  CRON -- "send reminder" --> SEMAPHORE
   linkStyle default stroke-width:2px;
 ```
 
@@ -102,7 +102,7 @@ flowchart LR
 
   DB[("Supabase Postgres<br/>+ Auth + RLS")]
   STORE["Supabase Storage<br/>(ID documents)"]
-  SMS["Twilio SMS"]
+  SMS["Semaphore SMS"]
   GEO["Nominatim<br/>(place search)"]
 
   ACCT --> DB
@@ -243,7 +243,7 @@ flowchart LR
   CIV["Civilian /<br/>Pet Owner"]
   STAFF["Barangay Health Worker /<br/>Administrator"]
   SUPER["Super Admin"]
-  SMS["SMS Gateway<br/>(Twilio)"]
+  SMS["SMS Gateway<br/>(Semaphore)"]
 
   SYS(("0<br/>VacciTrack<br/>System"))
 

@@ -378,16 +378,29 @@ button { cursor: pointer; }
 .admin-page-controls { display: flex; align-items: center; gap: 8px; }
 .admin-page-number { font-size: 17px; color: var(--muted); padding: 0 8px; }
 
-/* ── SMS simulation ───────────────────────────────────────────────────── */
-.sms-sim-form { display: grid; gap: 10px; margin-top: 14px; }
-.sms-sim-rows { display: grid; gap: 8px; }
-.sms-sim-row { display: flex; gap: 8px; align-items: center; }
-.sms-sim-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); font-size: 17px; color: var(--ink); }
-.sms-sim-row input[type="checkbox"] { width: auto; cursor: pointer; }
-.sms-sim-actions { display: flex; gap: 8px; align-items: center; }
-.sms-sim-status { font-size: 17px; margin-top: 8px; min-height: 18px; }
-.sms-sim-status.success { color: var(--green); }
-.sms-sim-status.error { color: var(--red); }
+/* ── Live SMS composer ─────────────────────────────────────────────────── */
+.sms-composer { display: grid; gap: 18px; max-width: 760px; }
+.sms-composer-fields { display: grid; gap: 14px; }
+.sms-composer-fields label { display: grid; gap: 7px; color: var(--ink); font-size: 15px; font-weight: 600; }
+.sms-composer-fields select, .sms-composer-fields textarea { width: 100%; }
+.sms-composer-fields textarea { resize: vertical; min-height: 120px; }
+.sms-character-count { justify-self: end; color: var(--muted); font-size: 13px; font-weight: 400; }
+.sms-audience-note { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font-size: 14px; line-height: 1.5; background: var(--paper); }
+.sms-audience-note svg { flex: 0 0 auto; margin-top: 2px; color: var(--green); }
+.sms-inline-status, .sms-result { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+.sms-review { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: #f7faf7; }
+.sms-review > p { margin: 0; color: var(--muted); line-height: 1.5; }
+.sms-recipient-sample { font-size: 14px; }
+.sms-review blockquote { margin: 0; padding: 12px; border-left: 3px solid var(--green); background: white; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sms-composer-actions { display: flex; justify-content: flex-end; gap: 9px; flex-wrap: wrap; }
+.sms-result { margin: 0; padding: 10px 12px; border-radius: 8px; line-height: 1.45; }
+.sms-result.success { color: var(--green-dark); background: #eaf5ed; }
+.sms-result.error { color: var(--red); background: #fff0ef; }
+.sms-review-button { justify-self: start; }
+.sms-test-panel { display: grid; gap: 18px; max-width: 760px; margin-top: 28px; padding: 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.sms-test-panel h2 { margin: 0 0 6px; font-size: 20px; }
+.sms-test-panel p { margin: 0; color: var(--muted); line-height: 1.5; }
+.sms-test-panel .eyebrow { margin-bottom: 6px; color: var(--green); font-size: 12px; font-weight: 700; }
 
 /* ── Coordinates + map toolbar helpers ─────────────────────────────────── */
 .coordinate-field { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }

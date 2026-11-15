@@ -28,18 +28,22 @@ Open http://localhost:3000.
 
 ## Automatic SMS vaccination reminders
 
-The Vercel cron job at `/api/cron/vaccination-alerts` runs daily and sends a Twilio SMS to the registered user's phone number exactly 7 days before an animal's `next_due_date`. It also creates an in-app notification and stores a deduplication record in `vaccination_alerts`, so retries do not send the same reminder twice.
+The Vercel cron job at `/api/cron/vaccination-alerts` runs daily and sends a Semaphore SMS to the registered user's phone number exactly 7 days before an animal's `next_due_date`. It also creates an in-app notification and stores a deduplication record in `vaccination_alerts`, so retries do not send the same reminder twice.
 
 Run the current `supabase/schema.sql`, then configure these server-side environment variables in Vercel:
 
 ```text
 CRON_SECRET=long-random-secret
-TWILIO_ACCOUNT_SID=your-account-sid
-TWILIO_AUTH_TOKEN=your-auth-token
-TWILIO_MESSAGING_SERVICE_SID=your-messaging-service-sid
+SEMAPHORE_API_KEY=your-semaphore-api-key
+# Optional — must be a sender name registered with Semaphore.
+SEMAPHORE_SENDER_NAME=your-registered-sender-name
 ```
 
-Use `TWILIO_FROM_NUMBER` instead of `TWILIO_MESSAGING_SERVICE_SID` when sending from a verified Twilio number. The scheduled job runs at 16:00 UTC, which is midnight in the Philippines. Never use the Twilio credentials in `NEXT_PUBLIC_*` variables.
+Set the optional sender name only if it is registered with Semaphore; otherwise, Semaphore uses the account default. Keep these values server-side and never use `NEXT_PUBLIC_*` variables for SMS credentials. The scheduled job runs at 16:00 UTC, which is midnight in the Philippines.
+
+Admins and BHWs can also use **SMS messaging** in the workspace, and the super-admin dashboard has the same feature. It sends a custom message to one active client or to active clients with vaccinated animals due in exactly 7 days. The recipient preview must be confirmed before sending. This manual message is separate from the scheduled reminder.
+
+The super-admin SMS page also has a separate **Test SMS** form for entering a phone number and custom test message. Review and confirm before sending; use a number you control.
 
 ## Publish With Supabase and Vercel
 

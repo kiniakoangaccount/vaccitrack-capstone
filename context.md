@@ -24,7 +24,7 @@ This document tracks parity between the original PHP/MySQL system (`robotograhv2
 | User management | `users.php` | `UsersPanel.tsx` |
 | Registration approval workflow | `register.php` + pending | `PendingPanel.tsx` |
 | RBAC (5 roles) | ✅ | ✅ |
-| SMS simulation (admin) | `dashboard.php` `simulate_sms` | `SmsSimForm.tsx` (verify wiring) |
+| SMS messaging (staff and super-admin) | — | `SmsComposer.tsx` + `sms-actions.ts` (Semaphore; individual or 7-day vaccination batch); `SmsTestForm.tsx` for super-admin test sends |
 | **CSV export button** | `animals.php?action=export_csv` | **`handleExportCsv()` + Export CSV button in Registry tab** ✅ (Task 7) |
 | Program checklist dead code | `planning.php` `$checks` | Removed |
 
@@ -68,10 +68,11 @@ This document tracks parity between the original PHP/MySQL system (`robotograhv2
 
 | File | Purpose |
 |---|---|
-| `src/app/page.tsx` | Main workspace: auth, tabs (Overview, Registry, Planning, Reports, Risk, Map, Feedback, Team, Audit), CSV export |
+| `src/app/page.tsx` | Main workspace: auth, tabs (Overview, Registry, Planning, Reports, Risk, Map, Feedback, Team, SMS, Audit), CSV export |
 | `src/app/AnimalDetailPanel.tsx` | Animal profile + vaccination history timeline |
 | `src/app/LeafletMap.tsx` | Coverage map + heat layer |
-| `src/app/audit-actions.ts` | Audit log writes, SMS simulation, `exportAnimalsCsv`, `fetchAuditLogPage` |
+| `src/app/audit-actions.ts` | Audit log access, `exportAnimalsCsv`, `fetchAuditLogPage` |
+| `src/app/sms-actions.ts` | SMS authorization, target preview, Semaphore send, and audit updates |
 | `src/app/notification-actions.ts` | Notification read/create actions (⚠️ not yet wired to UI) |
 | `src/app/vaccination-actions.ts` | Vaccination records |
 | `src/app/settings-actions.ts` | Purok/breed/vaccine CRUD |

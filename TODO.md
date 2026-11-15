@@ -23,7 +23,7 @@ Audited the existing code first. Two of the six items were already done; the res
 
 ## 4. Account self-management: change password / change username via OTP
 - [x] New `account_otps` table (`schema.sql`) — hashed 6-digit code, purpose, channel, expiry, single-use. **Also part of the schema.sql the user needs to run.**
-- [x] SMS channel: reuses the existing real Twilio integration (extracted into `src/lib/sms.ts` from the cron route, no behavior change there).
+- [x] SMS channel: reuses the existing real Semaphore integration (extracted into `src/lib/sms.ts` from the cron route, no behavior change there).
 - [x] Email channel: uses Supabase Auth's own built-in email OTP (`signInWithOtp` / `verifyOtp`) — no third-party email provider needed, since none exists in this project. **Caveat left for the user:** this only shows a 6-digit code to the user if the Supabase project's "Magic Link" email template renders `{{ .Token }}`; Supabase's default template does. Worth a quick check in the Supabase dashboard after deploying.
 - [x] Accounts with a placeholder (no real) email only get the SMS option — email OTP is hidden for them.
 - [x] Profile page: added a "Change username" section, and reworked "Change password" to request an OTP (pick email or SMS) instead of re-entering the current password — this also incidentally gives locked-out-but-signed-in users a saner recovery path than "type the password you're trying to replace."
