@@ -276,7 +276,7 @@ export async function sendCustomSms(
 export async function sendSuperAdminTestSms(
   recipientInput: unknown,
   messageInput: unknown,
-): Promise<{ messageId?: string; error?: string; warning?: string }> {
+): Promise<{ messageId?: string; error?: string; providerDetail?: string; warning?: string }> {
   const access = await requireSuperAdminSmsAccess();
   if ("error" in access) return { error: access.error };
   if (typeof recipientInput !== "string") return { error: "Enter a valid Philippine mobile number." };
@@ -322,6 +322,7 @@ export async function sendSuperAdminTestSms(
   return {
     messageId: delivery.messageId,
     error: delivery.error,
+    providerDetail: delivery.providerDetail,
     warning: auditUpdateError ? "The SMS result could not be saved to the audit log." : undefined,
   };
 }

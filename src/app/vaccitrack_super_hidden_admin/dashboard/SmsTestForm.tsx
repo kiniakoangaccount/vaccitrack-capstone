@@ -38,7 +38,11 @@ export default function SmsTestForm() {
       if (response.error) {
         setResult({
           kind: "error",
-          text: [response.error, response.warning].filter(Boolean).join(" "),
+          text: [
+            response.error,
+            response.providerDetail ? `Provider response: ${response.providerDetail}` : undefined,
+            response.warning,
+          ].filter(Boolean).join(" "),
         });
       } else {
         setResult({
