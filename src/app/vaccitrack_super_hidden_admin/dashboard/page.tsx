@@ -51,7 +51,7 @@ export default async function AdminDashboardPage({
   searchParams: Promise<Record<string, string>>;
 }) {
   const session = await getAdminSession();
-  if (!session) redirect("/308873d1049ba0");
+  if (!session) redirect("/vaccitrack_super_hidden_admin");
 
   const params = await searchParams;
   const tab = (params.tab ?? "overview") as Tab;
@@ -156,7 +156,7 @@ export default async function AdminDashboardPage({
           {navItems.map((item) => (
             <a
               key={item.key}
-              href={`/308873d1049ba0/dashboard?tab=${item.key}`}
+              href={`/vaccitrack_super_hidden_admin/dashboard?tab=${item.key}`}
               className={`admin-nav-item admin-nav-link${tab === item.key ? " admin-nav-item-active" : ""}`}
             >
               {item.icon}
@@ -217,7 +217,7 @@ export default async function AdminDashboardPage({
               )}
 
               <div className="admin-stat-grid">
-                <Link href="/308873d1049ba0/dashboard?tab=users" className="admin-stat-card admin-stat-hoverable admin-stat-link">
+                <Link href="/vaccitrack_super_hidden_admin/dashboard?tab=users" className="admin-stat-card admin-stat-hoverable admin-stat-link">
                   <span className="admin-stat-icon blue"><Users size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.users : "—"}</p>
                   <p className="admin-stat-label">Registered users</p>
@@ -227,12 +227,12 @@ export default async function AdminDashboardPage({
                   <p className="admin-stat-number">{supaCfg ? stats.animals : "—"}</p>
                   <p className="admin-stat-label">Animal records</p>
                 </Link>
-                <Link href="/308873d1049ba0/dashboard?tab=pending" className="admin-stat-card admin-stat-hoverable admin-stat-link">
+                <Link href="/vaccitrack_super_hidden_admin/dashboard?tab=pending" className="admin-stat-card admin-stat-hoverable admin-stat-link">
                   <span className="admin-stat-icon amber"><Clock size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.pending : "—"}</p>
                   <p className="admin-stat-label">Pending verifications</p>
                 </Link>
-                <Link href="/308873d1049ba0/dashboard?tab=feedback" className="admin-stat-card admin-stat-hoverable admin-stat-link">
+                <Link href="/vaccitrack_super_hidden_admin/dashboard?tab=feedback" className="admin-stat-card admin-stat-hoverable admin-stat-link">
                   <span className="admin-stat-icon red"><MessageSquare size={17} /></span>
                   <p className="admin-stat-number">{supaCfg ? stats.feedback : "—"}</p>
                   <p className="admin-stat-label">New feedback items</p>
@@ -240,7 +240,7 @@ export default async function AdminDashboardPage({
               </div>
 
               <div className="admin-quick-grid">
-                <Link href="/308873d1049ba0/dashboard?tab=pending" className="admin-quick-card admin-quick-warn">
+                <Link href="/vaccitrack_super_hidden_admin/dashboard?tab=pending" className="admin-quick-card admin-quick-warn">
                   <Clock size={20} />
                   <div>
                     <strong>Pending verifications</strong>
@@ -248,7 +248,7 @@ export default async function AdminDashboardPage({
                   </div>
                   <span>Review →</span>
                 </Link>
-                <Link href="/308873d1049ba0/dashboard?tab=feedback" className="admin-quick-card admin-quick-blue">
+                <Link href="/vaccitrack_super_hidden_admin/dashboard?tab=feedback" className="admin-quick-card admin-quick-blue">
                   <MessageSquare size={20} />
                   <div>
                     <strong>Unread feedback</strong>
@@ -256,7 +256,7 @@ export default async function AdminDashboardPage({
                   </div>
                   <span>View →</span>
                 </Link>
-                <Link href="/308873d1049ba0/dashboard?tab=audit" className="admin-quick-card admin-quick-green">
+                <Link href="/vaccitrack_super_hidden_admin/dashboard?tab=audit" className="admin-quick-card admin-quick-green">
                   <ShieldCheck size={20} />
                   <div>
                     <strong>Audit log</strong>
@@ -270,12 +270,12 @@ export default async function AdminDashboardPage({
                 <div className="admin-info-card">
                   <div className="admin-info-head"><ShieldCheck size={16} /><span>Recent activity</span></div>
                   <p className="admin-muted">The audit log shows every create, update, delete, and SMS operation across the system.</p>
-                  <Link href="/308873d1049ba0/dashboard?tab=audit" className="admin-link">View audit log <span>→</span></Link>
+                  <Link href="/vaccitrack_super_hidden_admin/dashboard?tab=audit" className="admin-link">View audit log <span>→</span></Link>
                 </div>
                 <div className="admin-info-card">
                   <div className="admin-info-head"><MessageSquare size={16} /><span>SMS messaging</span></div>
                   <p className="admin-muted">Send a custom message to one active client or clients with vaccinations due in 7 days.</p>
-                  <Link href="/308873d1049ba0/dashboard?tab=sms" className="admin-link">Open SMS messaging <span>→</span></Link>
+                  <Link href="/vaccitrack_super_hidden_admin/dashboard?tab=sms" className="admin-link">Open SMS messaging <span>→</span></Link>
                 </div>
               </div>
               <div className="admin-info-panel">

@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // .env.local. It is deliberately read-only / non-mutating with one
 // exception: the admin-lockout test writes rows to `login_attempts`, which
 // is the intended, by-design side effect of the feature under test (see
-// src/app/308873d1049ba0/actions.ts). Nothing here registers, edits, or
+// the super-admin login action). Nothing here registers, edits, or
 // deletes animal or account data — that requires a disposable test
 // account/cleanup and is intentionally left out of this committed suite.
 
@@ -42,7 +42,7 @@ test("/settings redirects to sign-in when signed out", async ({ page }) => {
 });
 
 test("hidden admin login locks out after repeated failed attempts", async ({ page }) => {
-  await page.goto("/308873d1049ba0");
+  await page.goto("/vaccitrack_super_hidden_admin");
   let lastErrorText = "";
   for (let attempt = 0; attempt < 6; attempt++) {
     await page.getByLabel("Username").fill("not-the-real-admin");

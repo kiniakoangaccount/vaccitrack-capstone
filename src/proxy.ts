@@ -5,11 +5,11 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Protect the hidden admin dashboard
-  if (pathname.startsWith("/308873d1049ba0/dashboard")) {
+  if (pathname.startsWith("/vaccitrack_super_hidden_admin/dashboard")) {
     const session = request.cookies.get("admin_session");
     if (!session?.value) {
       const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/308873d1049ba0";
+      loginUrl.pathname = "/vaccitrack_super_hidden_admin";
       loginUrl.search = "";
       return NextResponse.redirect(loginUrl);
     }
@@ -24,5 +24,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/308873d1049ba0/dashboard/:path*", "/admin/:path*", "/admin"],
+  matcher: ["/vaccitrack_super_hidden_admin/dashboard/:path*", "/admin/:path*", "/admin"],
 };

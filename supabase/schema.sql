@@ -562,7 +562,7 @@ create policy "Staff can manage feedback"
 
 -- Rows with user_id is null were written by the hidden super-admin
 -- dashboard (a separate, non-Supabase-auth account — see
--- src/app/308873d1049ba0/dashboard/crud-actions.ts), which a regular admin
+-- the super-admin dashboard CRUD actions), which a regular admin
 -- role should never see. The app's own Audit tab already filters this via
 -- fetchAuditLogPage() in src/app/audit-actions.ts; this policy is the same
 -- rule enforced at the database level in case anything ever reads this

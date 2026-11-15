@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAdminSession } from "../actions";
 
-const DASH = "/308873d1049ba0/dashboard";
+const DASH = "/vaccitrack_super_hidden_admin/dashboard";
 
 async function requireAdmin() {
   const session = await getAdminSession();

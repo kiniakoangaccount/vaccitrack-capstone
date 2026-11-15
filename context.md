@@ -76,7 +76,7 @@ This document tracks parity between the original PHP/MySQL system (`robotograhv2
 | `src/app/notification-actions.ts` | Notification read/create actions (⚠️ not yet wired to UI) |
 | `src/app/vaccination-actions.ts` | Vaccination records |
 | `src/app/settings-actions.ts` | Purok/breed/vaccine CRUD |
-| `src/app/<hidden-admin-path>/dashboard/*` | Admin panels (Users, Pending, Invites, Feedback, Audit, SMS). Path intentionally not written here — see `src/middleware.ts`, ask an existing admin. |
+| `src/app/<hidden-admin-path>/dashboard/*` | Admin panels (Users, Pending, Invites, Feedback, Audit, SMS). Path intentionally not written here — see `src/proxy.ts`, ask an existing admin. |
 | `supabase/schema.sql` | DB schema (animals, puroks, vaccination_history, notifications, audit_log, feedback, users) |
 
 ---

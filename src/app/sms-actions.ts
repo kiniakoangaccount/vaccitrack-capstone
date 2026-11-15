@@ -5,7 +5,7 @@ import { getManilaDateIso } from "@/lib/dates";
 import { normalizePhilippineNumber, sendSms, sendSmsBatch } from "@/lib/sms";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
-import { getAdminSession } from "./308873d1049ba0/actions";
+import { getAdminSession } from "./vaccitrack_super_hidden_admin/actions";
 
 const RECIPIENT_PAGE_SIZE = 500;
 const MAX_BATCH_RECIPIENTS = 1000;

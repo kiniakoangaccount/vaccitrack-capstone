@@ -65,17 +65,17 @@ export async function adminLogin(formData: FormData): Promise<{ error: string } 
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/308873d1049ba0",
+    path: "/vaccitrack_super_hidden_admin",
     maxAge: SESSION_MAX_AGE,
   });
 
-  redirect("/308873d1049ba0/dashboard");
+  redirect("/vaccitrack_super_hidden_admin/dashboard");
 }
 
 export async function adminLogout(): Promise<never> {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE);
-  redirect("/308873d1049ba0");
+  redirect("/vaccitrack_super_hidden_admin");
 }
 
 export async function getAdminSession(): Promise<{ username: string } | null> {

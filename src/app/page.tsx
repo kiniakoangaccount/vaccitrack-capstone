@@ -53,7 +53,7 @@ import type { VaccinationHistoryRow } from "./AnimalDetailPanel";
 import ConfirmDialog from "./ConfirmDialog";
 
 const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
-const AuditPanel = dynamic(() => import("./308873d1049ba0/dashboard/AuditPanel"), {
+const AuditPanel = dynamic(() => import("./vaccitrack_super_hidden_admin/dashboard/AuditPanel"), {
   loading: () => <div className="deferred-panel-status" role="status">Loading audit log...</div>,
 });
 const AnimalDetailPanel = dynamic(() => import("./AnimalDetailPanel"), {
