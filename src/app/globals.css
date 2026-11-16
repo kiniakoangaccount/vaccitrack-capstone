@@ -381,6 +381,18 @@ button { cursor: pointer; }
 .admin-page-number { font-size: 17px; color: var(--muted); padding: 0 8px; }
 
 /* ── Live SMS composer ─────────────────────────────────────────────────── */
+.admin-communication-groups { display: grid; gap: 24px; max-width: 900px; }
+.admin-communication-group { display: grid; gap: 22px; padding: 24px; background: var(--white); border: 1px solid var(--line); border-radius: 10px; }
+.admin-communication-heading { padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.admin-communication-heading .eyebrow { margin-bottom: 5px; color: var(--green); font-size: 12px; font-weight: 700; }
+.admin-communication-heading h2 { margin: 0; font-size: 23px; }
+.admin-communication-heading p:last-child { margin: 5px 0 0; color: var(--muted); line-height: 1.5; }
+.admin-communication-channels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.admin-communication-card { display: grid; gap: 16px; min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
+.admin-communication-card h3 { margin: 0; font-size: 19px; }
+.admin-communication-card .sms-composer { max-width: none; }
+.admin-communication-group .sms-test-panel { margin-top: 0; }
+.admin-communication-channels .sms-test-panel { max-width: none; height: 100%; align-content: start; }
 .sms-composer { display: grid; gap: 18px; max-width: 760px; }
 .sms-composer-fields { display: grid; gap: 14px; }
 .sms-composer-fields label { display: grid; gap: 7px; color: var(--ink); font-size: 15px; font-weight: 600; }
@@ -403,6 +415,9 @@ button { cursor: pointer; }
 .sms-test-panel h2 { margin: 0 0 6px; font-size: 20px; }
 .sms-test-panel p { margin: 0; color: var(--muted); line-height: 1.5; }
 .sms-test-panel .eyebrow { margin-bottom: 6px; color: var(--green); font-size: 12px; font-weight: 700; }
+@media (max-width: 760px) {
+  .admin-communication-channels { grid-template-columns: 1fr; }
+}
 
 /* ── Coordinates + map toolbar helpers ─────────────────────────────────── */
 .coordinate-field { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }

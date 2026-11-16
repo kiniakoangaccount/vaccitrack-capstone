@@ -16,6 +16,7 @@ import {
   UserPlus, MapPin, Menu,
 } from "lucide-react";
 import { SmsComposer } from "@/app/SmsComposer";
+import { EmailComposer } from "@/app/EmailComposer";
 import AdminMapPanel from "./AdminMapPanel";
 import { purokOptions, getAnimalStatus } from "@/lib/map-data";
 import type { MapAnimal } from "../../LeafletMap";
@@ -141,7 +142,7 @@ export default async function AdminDashboardPage({
     { key: "pending",   label: "Pending verification", icon: <Clock size={16} />,          badge: stats.pending > 0 ? stats.pending : undefined },
     { key: "invites",   label: "Invite staff",         icon: <UserPlus size={16} /> },
     { key: "feedback",  label: "Feedback",             icon: <MessageSquare size={16} />,  badge: stats.feedback > 0 ? stats.feedback : undefined },
-    { key: "sms",       label: "SMS messaging",        icon: <MessageSquare size={16} /> },
+    { key: "sms",       label: "SMS & email",          icon: <MessageSquare size={16} /> },
     { key: "map",       label: "Coverage map",         icon: <MapPin size={16} /> },
     { key: "audit",     label: "Audit log",            icon: <ShieldCheck size={16} /> },
   ];
@@ -352,15 +353,46 @@ export default async function AdminDashboardPage({
             </>
           )}
 
-          {/* ── SMS MESSAGING ── */}
+          {/* ── SMS & EMAIL MESSAGING ── */}
           {tab === "sms" && (
             <>
               <div className="admin-page-heading">
                 <p className="eyebrow">CLIENT COMMUNICATION</p>
-                <h1>SMS messaging</h1>
-                <p className="heading-sub">Send a custom Semaphore SMS to one active client or an upcoming vaccination group.</p>
+                <h1>SMS &amp; email messaging</h1>
+                <p className="heading-sub">Send a custom SMS or email to an active client or an upcoming vaccination group. Test messages go in their matching section.</p>
               </div>
-              {!supaCfg ? <NotConfigured /> : <><SmsComposer /><SmsTestForm /><EmailTestForm /></>}
+              {!supaCfg ? <NotConfigured /> : (
+                <div className="admin-communication-groups">
+                  <section className="admin-communication-group">
+                    <div className="admin-communication-heading">
+                      <p className="eyebrow">OWNER MESSAGING</p>
+                      <h2>Send messages</h2>
+                      <p>Send a custom message to one active client or clients with vaccinations due in 7 days.</p>
+                    </div>
+                    <div className="admin-communication-channels">
+                      <section className="admin-communication-card">
+                        <h3>SMS</h3>
+                        <SmsComposer />
+                      </section>
+                      <section className="admin-communication-card">
+                        <h3>Email</h3>
+                        <EmailComposer />
+                      </section>
+                    </div>
+                  </section>
+                  <section className="admin-communication-group">
+                    <div className="admin-communication-heading">
+                      <p className="eyebrow">SUPER-ADMIN ONLY</p>
+                      <h2>Test messages</h2>
+                      <p>Send test messages only to phone numbers and email addresses you control.</p>
+                    </div>
+                    <div className="admin-communication-channels">
+                      <SmsTestForm />
+                      <EmailTestForm />
+                    </div>
+                  </section>
+                </div>
+              )}
             </>
           )}
 
