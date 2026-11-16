@@ -3,18 +3,21 @@
 import { useState } from "react";
 import { AlertTriangle, CheckCircle2, Send } from "lucide-react";
 import { sendSuperAdminTestSms } from "../../sms-actions";
+import AdminConfirmDialog from "./AdminConfirmDialog";
 
-type TestPreview = { recipient: string; message: string };
+const DEFAULT_TEST_MESSAGE = "This is a test email. If you read this, that means it succeed.";
+
+type PendingTest = { recipient: string; message: string };
 type ResultMessage = { kind: "success" | "error"; text: string };
 
 export default function SmsTestForm() {
   const [recipient, setRecipient] = useState("");
-  const [message, setMessage] = useState("");
-  const [preview, setPreview] = useState<TestPreview | null>(null);
+  const [message, setMessage] = useState(DEFAULT_TEST_MESSAGE);
+  const [pendingTest, setPendingTest] = useState<PendingTest | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ResultMessage | null>(null);
 
-  function reviewTest() {
+  function confirmTest() {
     const compact = recipient.trim().replace(/[\s()-]/g, "");
     if (!/^09\d{9}$/.test(compact) && !/^\+639\d{9}$/.test(compact)) {
       setResult({ kind: "error", text: "Enter a Philippine mobile number (09XXXXXXXXX or +639XXXXXXXXX)." });
@@ -25,16 +28,16 @@ export default function SmsTestForm() {
       return;
     }
     setResult(null);
-    setPreview({ recipient: compact, message: message.trim() });
+    setPendingTest({ recipient: compact, message: message.trim() });
   }
 
   async function sendTest() {
-    if (!preview) return;
+    if (!pendingTest) return;
     setBusy(true);
     setResult(null);
     try {
-      const response = await sendSuperAdminTestSms(preview.recipient, preview.message);
-      setPreview(null);
+      const response = await sendSuperAdminTestSms(pendingTest.recipient, pendingTest.message);
+      setPendingTest(null);
       if (response.error) {
         setResult({
           kind: "error",
@@ -51,7 +54,7 @@ export default function SmsTestForm() {
         });
       }
     } catch {
-      setPreview(null);
+      setPendingTest(null);
       setResult({ kind: "error", text: "Could not send the test SMS. Check your connection and try again." });
     } finally {
       setBusy(false);
@@ -78,7 +81,7 @@ export default function SmsTestForm() {
             value={recipient}
             onChange={(event) => {
               setRecipient(event.target.value);
-              setPreview(null);
+              setPendingTest(null);
               setResult(null);
             }}
             disabled={busy}
@@ -93,7 +96,7 @@ export default function SmsTestForm() {
             value={message}
             onChange={(event) => {
               setMessage(event.target.value);
-              setPreview(null);
+              setPendingTest(null);
               setResult(null);
             }}
             disabled={busy}
@@ -102,28 +105,24 @@ export default function SmsTestForm() {
         </label>
       </div>
 
-      {preview ? (
-        <div className="sms-review" aria-live="polite">
-          <strong>Confirm test SMS</strong>
-          <p>Send this test to <strong>{preview.recipient}</strong>?</p>
-          <blockquote>{preview.message}</blockquote>
-          <div className="sms-composer-actions">
-            <button className="secondary-button" type="button" onClick={() => setPreview(null)} disabled={busy}>Edit</button>
-            <button className="primary-button" type="button" onClick={() => void sendTest()} disabled={busy}>
-              <Send size={15} /> {busy ? "Sending..." : "Send test SMS"}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          className="secondary-button sms-review-button"
-          type="button"
-          onClick={reviewTest}
-          disabled={busy || !recipient.trim() || !message.trim()}
-        >
-          <Send size={15} /> Review test SMS
-        </button>
-      )}
+      <button
+        className="primary-button sms-review-button"
+        type="button"
+        onClick={confirmTest}
+        disabled={busy || !recipient.trim() || !message.trim()}
+      >
+        <Send size={15} /> Send test SMS
+      </button>
+
+      <AdminConfirmDialog
+        open={Boolean(pendingTest)}
+        title="Send test SMS?"
+        message={pendingTest ? `Send a real test SMS to ${pendingTest.recipient}? This may use Semaphore account credit.` : ""}
+        confirmLabel="Send SMS"
+        busy={busy}
+        onConfirm={() => void sendTest()}
+        onCancel={() => setPendingTest(null)}
+      />
 
       {result && (
         <p className={`sms-result ${result.kind}`} role="status">

@@ -29,6 +29,9 @@ interface Profile {
   role: string;
   status: string;
   contact_number: string | null;
+  preferred_language: "en" | "tl" | "hil";
+  notify_sms: boolean;
+  notify_email: boolean;
   id_document_reference: string | null;
   created_at: string;
 }
@@ -88,7 +91,7 @@ export default async function AdminDashboardPage({
 
   if (supaCfg && tab === "users") {
     const { data } = await db!.from("profiles")
-      .select("id, full_name, username, role, status, contact_number, id_document_reference, created_at")
+      .select("id, full_name, username, role, status, contact_number, preferred_language, notify_sms, notify_email, id_document_reference, created_at")
       .order("created_at", { ascending: false }).limit(100);
     profiles = (data as Profile[]) ?? [];
   }

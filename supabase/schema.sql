@@ -33,6 +33,9 @@ create table if not exists public.profiles (
   contact_number text,
   id_document_reference text,
   status public.account_status not null default 'active',
+  preferred_language text not null default 'en',
+  notify_sms boolean not null default true,
+  notify_email boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -40,7 +43,27 @@ alter table public.profiles add column if not exists username text;
 alter table public.profiles add column if not exists contact_number text;
 alter table public.profiles add column if not exists id_document_reference text;
 alter table public.profiles add column if not exists status public.account_status not null default 'active';
+alter table public.profiles add column if not exists preferred_language text not null default 'en';
+alter table public.profiles add column if not exists notify_sms boolean not null default true;
+alter table public.profiles add column if not exists notify_email boolean not null default true;
+update public.profiles
+set preferred_language = coalesce(preferred_language, 'en'),
+    notify_sms = coalesce(notify_sms, true),
+    notify_email = coalesce(notify_email, true)
+where preferred_language is null
+   or notify_sms is null
+   or notify_email is null;
+alter table public.profiles alter column preferred_language set default 'en';
+alter table public.profiles alter column preferred_language set not null;
+alter table public.profiles alter column notify_sms set default true;
+alter table public.profiles alter column notify_sms set not null;
+alter table public.profiles alter column notify_email set default true;
+alter table public.profiles alter column notify_email set not null;
 create unique index if not exists profiles_username_unique on public.profiles (username) where username is not null;
+
+alter table public.profiles drop constraint if exists profiles_preferred_language_check;
+alter table public.profiles add constraint profiles_preferred_language_check
+  check (preferred_language in ('en', 'tl', 'hil'));
 
 -- The veterinarian role has been retired; reassign any existing accounts to bhw.
 update public.profiles set role = 'bhw' where role::text = 'veterinarian';
@@ -275,17 +298,128 @@ create table if not exists public.vaccination_alerts (
   user_id uuid not null references auth.users(id) on delete cascade,
   due_date date not null,
   channel text not null default 'sms',
+  reminder_type text not null default 'D7',
   status text not null default 'pending',
+  recipient text,
+  message text,
+  attempts integer not null default 1,
   provider_message_id text,
   error_message text,
+  last_attempt_at timestamptz not null default now(),
   sent_at timestamptz,
   created_at timestamptz not null default now(),
-  unique (animal_id, due_date, channel),
-  check (channel in ('sms')),
+  constraint vaccination_alerts_deduplication_key unique (animal_id, due_date, channel, reminder_type),
+  check (channel in ('sms', 'email')),
+  check (reminder_type in ('D7', 'D1', 'OVERDUE')),
   check (status in ('pending', 'sent', 'failed'))
 );
 
+alter table public.vaccination_alerts add column if not exists reminder_type text not null default 'D7';
+alter table public.vaccination_alerts add column if not exists recipient text;
+alter table public.vaccination_alerts add column if not exists message text;
+alter table public.vaccination_alerts add column if not exists attempts integer not null default 1;
+alter table public.vaccination_alerts add column if not exists last_attempt_at timestamptz not null default now();
+
+-- Existing sent rows distinguish old overdue sends from upcoming sends by when they were sent.
+update public.vaccination_alerts
+set reminder_type = 'OVERDUE'
+where reminder_type = 'D7'
+  and (
+    (sent_at is not null and (sent_at at time zone 'Asia/Manila')::date >= due_date)
+    or (sent_at is null and due_date < (now() at time zone 'Asia/Manila')::date)
+  );
+
+alter table public.vaccination_alerts drop constraint if exists vaccination_alerts_animal_id_due_date_channel_key;
+alter table public.vaccination_alerts drop constraint if exists vaccination_alerts_deduplication_key;
+alter table public.vaccination_alerts add constraint vaccination_alerts_deduplication_key
+  unique (animal_id, due_date, channel, reminder_type);
+alter table public.vaccination_alerts drop constraint if exists vaccination_alerts_channel_check;
+alter table public.vaccination_alerts add constraint vaccination_alerts_channel_check
+  check (channel in ('sms', 'email'));
+alter table public.vaccination_alerts drop constraint if exists vaccination_alerts_reminder_type_check;
+alter table public.vaccination_alerts add constraint vaccination_alerts_reminder_type_check
+  check (reminder_type in ('D7', 'D1', 'OVERDUE'));
+alter table public.vaccination_alerts drop constraint if exists vaccination_alerts_status_check;
+alter table public.vaccination_alerts add constraint vaccination_alerts_status_check
+  check (status in ('pending', 'sent', 'failed'));
+
 create index if not exists vaccination_alerts_due_date_idx on public.vaccination_alerts (due_date, status);
+create index if not exists vaccination_alerts_retry_idx on public.vaccination_alerts (status, last_attempt_at);
+
+create or replace function public.enqueue_vaccination_alerts(p_alerts jsonb)
+returns integer
+language plpgsql
+security definer set search_path = pg_catalog
+as $$
+declare
+  inserted_count integer;
+begin
+  insert into public.vaccination_alerts (
+    animal_id, user_id, due_date, channel, reminder_type, status, recipient, message, attempts, last_attempt_at
+  )
+  select
+    queued.animal_id, queued.user_id, queued.due_date, queued.channel, queued.reminder_type,
+    'pending', queued.recipient, queued.message, 0, now() - interval '11 minutes'
+  from jsonb_to_recordset(p_alerts) as queued(
+    animal_id bigint,
+    user_id uuid,
+    due_date date,
+    channel text,
+    reminder_type text,
+    recipient text,
+    message text
+  )
+  on conflict on constraint vaccination_alerts_deduplication_key do nothing;
+
+  get diagnostics inserted_count = row_count;
+  return inserted_count;
+end;
+$$;
+
+revoke all on function public.enqueue_vaccination_alerts(jsonb) from public, anon, authenticated;
+grant execute on function public.enqueue_vaccination_alerts(jsonb) to service_role;
+
+create or replace function public.claim_vaccination_alert(
+  p_animal_id bigint,
+  p_user_id uuid,
+  p_due_date date,
+  p_channel text,
+  p_reminder_type text,
+  p_recipient text,
+  p_message text
+)
+returns bigint
+language plpgsql
+security definer set search_path = pg_catalog
+as $$
+declare
+  claimed_id bigint;
+begin
+  insert into public.vaccination_alerts as current_alert (
+    animal_id, user_id, due_date, channel, reminder_type, status, recipient, message, attempts, last_attempt_at
+  )
+  values (
+    p_animal_id, p_user_id, p_due_date, p_channel, p_reminder_type, 'pending', p_recipient, p_message, 1, now()
+  )
+  on conflict on constraint vaccination_alerts_deduplication_key
+  do update set
+    status = 'pending',
+    recipient = excluded.recipient,
+    message = excluded.message,
+    attempts = current_alert.attempts + 1,
+    provider_message_id = null,
+    error_message = null,
+    last_attempt_at = now()
+  where current_alert.status = 'failed'
+     or (current_alert.status = 'pending' and current_alert.last_attempt_at < now() - interval '10 minutes')
+  returning id into claimed_id;
+
+  return claimed_id;
+end;
+$$;
+
+revoke all on function public.claim_vaccination_alert(bigint, uuid, date, text, text, text, text) from public, anon, authenticated;
+grant execute on function public.claim_vaccination_alert(bigint, uuid, date, text, text, text, text) to service_role;
 
 -- Login attempt tracking for brute-force protection
 create table if not exists public.login_attempts (

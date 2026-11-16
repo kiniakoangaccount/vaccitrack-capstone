@@ -46,6 +46,8 @@ export async function sendSmsBatch(recipients: string[], message: string): Promi
   const apiKey = process.env.SEMAPHORE_API_KEY?.trim();
   const senderName = process.env.SEMAPHORE_SENDER_NAME?.trim();
   if (!apiKey) return { results: [], error: "Semaphore SMS configuration is incomplete." };
+  const apiUrl = process.env.SMS_API_URL?.trim() || "https://api.semaphore.co/api/v4/messages";
+  if (!apiUrl.startsWith("https://")) return { results: [], error: "SMS_API_URL must use HTTPS." };
 
   const body = new URLSearchParams({
     apikey: apiKey,
@@ -56,7 +58,7 @@ export async function sendSmsBatch(recipients: string[], message: string): Promi
 
   let response: Response;
   try {
-    response = await fetch("https://api.semaphore.co/api/v4/messages", {
+    response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,

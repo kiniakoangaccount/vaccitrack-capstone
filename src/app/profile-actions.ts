@@ -8,6 +8,7 @@ import { hasRealEmail } from "@/lib/account";
 
 type OtpPurpose = "username_change" | "password_change";
 type OtpChannel = "email" | "sms";
+export type ReminderLanguage = "en" | "tl" | "hil";
 
 export async function updateProfile(
   payload: { fullName?: string; email?: string; contact?: string }
@@ -31,6 +32,32 @@ export async function updateProfile(
   if (Object.keys(updates).length === 0) return {};
 
   const { error } = await db.from("profiles").update(updates).eq("id", user.id);
+  if (error) return { error: error.message };
+  return {};
+}
+
+export async function updateNotificationPreferences(payload: {
+  preferredLanguage: ReminderLanguage;
+  notifySms: boolean;
+  notifyEmail: boolean;
+}): Promise<{ error?: string }> {
+  const db = createAdminClient();
+  if (!db) return { error: "Service unavailable." };
+  const { user, error: authError } = await getAuthenticatedUser();
+  if (!user) return { error: authError ?? "You must be signed in." };
+
+  if (!payload
+    || !["en", "tl", "hil"].includes(payload.preferredLanguage)
+    || typeof payload.notifySms !== "boolean"
+    || typeof payload.notifyEmail !== "boolean") {
+    return { error: "Invalid reminder preferences." };
+  }
+
+  const { error } = await db.from("profiles").update({
+    preferred_language: payload.preferredLanguage,
+    notify_sms: payload.notifySms,
+    notify_email: payload.notifyEmail,
+  }).eq("id", user.id);
   if (error) return { error: error.message };
   return {};
 }

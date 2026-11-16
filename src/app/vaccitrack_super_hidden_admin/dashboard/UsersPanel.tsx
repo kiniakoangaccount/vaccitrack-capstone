@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Pencil, Trash2, X, Check, Loader2, KeyRound, Copy } from "lucide-react";
-import { updateUserRole, updateUserStatus, deleteUser, resetUserPassword, setUserPassword } from "./crud-actions";
+import { updateUserRole, updateUserStatus, updateUserReminderPreferences, deleteUser, resetUserPassword, setUserPassword } from "./crud-actions";
 import AdminConfirmDialog from "./AdminConfirmDialog";
 
 interface Profile {
@@ -12,6 +12,9 @@ interface Profile {
   role: string;
   status: string;
   contact_number: string | null;
+  preferred_language: "en" | "tl" | "hil";
+  notify_sms: boolean;
+  notify_email: boolean;
   created_at: string;
 }
 
@@ -41,6 +44,9 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [editRole, setEditRole] = useState("");
   const [editStatus, setEditStatus] = useState("");
+  const [editLanguage, setEditLanguage] = useState<"en" | "tl" | "hil">("en");
+  const [editNotifySms, setEditNotifySms] = useState(true);
+  const [editNotifyEmail, setEditNotifyEmail] = useState(true);
   const [confirmSaveEdit, setConfirmSaveEdit] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -90,6 +96,9 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
     setEditTarget(p);
     setEditRole(p.role);
     setEditStatus(p.status);
+    setEditLanguage(p.preferred_language ?? "en");
+    setEditNotifySms(p.notify_sms ?? true);
+    setEditNotifyEmail(p.notify_email ?? true);
     setErrorMsg("");
   }
 
@@ -109,12 +118,23 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
     setConfirmSaveEdit(false);
     setErrorMsg("");
     startTransition(async () => {
-      const [r1, r2] = await Promise.all([
-        editRole !== editTarget.role ? updateUserRole(editTarget.id, editRole) : Promise.resolve({}),
-        editStatus !== editTarget.status ? updateUserStatus(editTarget.id, editStatus) : Promise.resolve({}),
-      ]);
-      const err = (r1 as { error?: string }).error ?? (r2 as { error?: string }).error;
-      if (err) { setErrorMsg(err); return; }
+      const updates: Array<() => Promise<{ error?: string }>> = [
+        () => editRole !== editTarget.role ? updateUserRole(editTarget.id, editRole) : Promise.resolve({}),
+        () => editStatus !== editTarget.status ? updateUserStatus(editTarget.id, editStatus) : Promise.resolve({}),
+        () => editLanguage !== editTarget.preferred_language
+          || editNotifySms !== editTarget.notify_sms
+          || editNotifyEmail !== editTarget.notify_email
+          ? updateUserReminderPreferences(editTarget.id, {
+            preferredLanguage: editLanguage,
+            notifySms: editNotifySms,
+            notifyEmail: editNotifyEmail,
+          })
+          : Promise.resolve({}),
+      ];
+      for (const update of updates) {
+        const { error } = await update();
+        if (error) { setErrorMsg(error); return; }
+      }
       closeEdit();
     });
   }
@@ -159,7 +179,7 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
                 </td>
                 <td>
                   <div className="admin-row-actions">
-                    <button className="admin-action-btn admin-action-edit" onClick={() => openEdit(p)} title="Edit role / status">
+                    <button className="admin-action-btn admin-action-edit" onClick={() => openEdit(p)} title="Edit account and reminder preferences">
                       <Pencil size={13} />
                     </button>
                     <button className="admin-action-btn admin-action-edit" onClick={() => openReset(p)} title="Change password">
@@ -201,6 +221,22 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
                   {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </label>
+              <label className="admin-form-label">
+                Reminder language
+                <select className="admin-form-select" value={editLanguage} onChange={(e) => setEditLanguage(e.target.value as "en" | "tl" | "hil")}>
+                  <option value="en">English</option>
+                  <option value="tl">Tagalog</option>
+                  <option value="hil">Hiligaynon</option>
+                </select>
+              </label>
+              <label className="admin-form-label admin-check-label">
+                Automatic SMS reminders
+                <input type="checkbox" checked={editNotifySms} onChange={(e) => setEditNotifySms(e.target.checked)} />
+              </label>
+              <label className="admin-form-label admin-check-label">
+                Automatic email reminders
+                <input type="checkbox" checked={editNotifyEmail} onChange={(e) => setEditNotifyEmail(e.target.checked)} />
+              </label>
               {errorMsg && <p className="admin-form-error">{errorMsg}</p>}
             </div>
 
@@ -218,7 +254,7 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
       <AdminConfirmDialog
         open={confirmSaveEdit && editTarget !== null}
         title="Save account changes"
-        message={editTarget ? `Save changes to ${editTarget.full_name}'s account? Role: ${editRole}, status: ${editStatus}.` : ""}
+        message={editTarget ? `Save changes to ${editTarget.full_name}'s account, including reminder preferences? Role: ${editRole}, status: ${editStatus}.` : ""}
         confirmLabel="Save changes"
         busy={isPending}
         onConfirm={performSaveEdit}

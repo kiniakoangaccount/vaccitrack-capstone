@@ -329,6 +329,8 @@ button { cursor: pointer; }
 
 /* ── Form elements inside modals ─────────────────────────────────────── */
 .admin-form-label { display: grid; gap: 7px; color: #607168; font-size: 15px; font-weight: 700; }
+.admin-check-label { display: flex; align-items: center; justify-content: space-between; }
+.admin-check-label input { width: 18px; height: 18px; accent-color: var(--blue); }
 .admin-form-select { width: 100%; padding: 10px 12px; color: var(--ink); background: #fbfdfb; border: 1px solid #dce6df; border-radius: 6px; outline: 0; font-size: 18px; transition: border-color .14s ease, box-shadow .14s ease; }
 .admin-form-select:focus { border-color: #76a98d; box-shadow: 0 0 0 3px #76a98d1f; }
 .admin-form-error { margin: 0; padding: 9px 12px; color: #b96057; background: #fdf2f1; border: 1px solid #f0ccc9; border-radius: 6px; font-size: 15px; }
@@ -477,6 +479,8 @@ button { cursor: pointer; }
 .account-input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); font-size: 18px; color: var(--ink); }
 .account-input::placeholder { color: var(--muted); }
 .account-form { display: grid; gap: 14px; margin-top: 16px; }
+.account-check-row { display: flex; align-items: center; gap: 10px; font-size: 17px; }
+.account-check-row input { width: 18px; height: 18px; accent-color: var(--blue); }
 .account-actions { display: flex; gap: 8px; margin-top: 10px; }
 .account-help { font-size: 15px; color: var(--muted); margin-top: 4px; }
 .role-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 17px; font-weight: 700; background: var(--landing-soft); color: var(--ink); }

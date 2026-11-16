@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
-import { updateProfile, getAccountChannels, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp } from "./profile-actions";
+import { updateProfile, updateNotificationPreferences, getAccountChannels, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp, type ReminderLanguage } from "./profile-actions";
 import { ShieldCheck, Bell, EyeOff, User, Key, CheckCircle2, AlertCircle, Menu, X, ArrowLeft } from "lucide-react";
 
 type Channel = "email" | "sms";
@@ -24,6 +24,12 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState("");
   const [profile, setProfile] = useState({ fullName: "", email: "", contact: "", username: "" });
   const [channels, setChannels] = useState({ hasEmail: false, hasSms: false });
+  const [reminderPreferences, setReminderPreferences] = useState({
+    preferredLanguage: "en" as ReminderLanguage,
+    notifySms: true,
+    notifyEmail: true,
+  });
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
 
   const [usernameChannel, setUsernameChannel] = useState<Channel>("sms");
   const [usernameCodeSent, setUsernameCodeSent] = useState(false);
@@ -43,9 +49,18 @@ export default function ProfilePage() {
     void supabase.auth.getUser().then(async (result: { data: { user: SupabaseUser | null } }) => {
       const user = result.data.user;
       if (!user) { router.replace("/signin"); return; }
-      setCheckingAuth(false);
-      const { data } = await supabase.from("profiles").select("full_name, contact_number, username").eq("id", user.id).maybeSingle();
+      const { data, error: profileError } = await supabase.from("profiles")
+        .select("full_name, contact_number, username, preferred_language, notify_sms, notify_email")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profileError) setError(`Could not load your profile: ${profileError.message}`);
       setProfile({ fullName: data?.full_name ?? "", email: user.email ?? "", contact: data?.contact_number ?? "", username: data?.username ?? "" });
+      setReminderPreferences({
+        preferredLanguage: data?.preferred_language === "tl" || data?.preferred_language === "hil" ? data.preferred_language : "en",
+        notifySms: data?.notify_sms ?? true,
+        notifyEmail: data?.notify_email ?? true,
+      });
+      setCheckingAuth(false);
     });
     void getAccountChannels().then((result) => {
       setChannels({ hasEmail: result.hasEmail, hasSms: result.hasSms });
@@ -129,6 +144,57 @@ export default function ProfilePage() {
                 <div className="account-actions">
                   <button className="primary-button" type="submit" disabled={saving}><User size={15} /> Save changes</button>
                   <button className="secondary-button" type="reset" disabled={saving}>Cancel</button>
+                </div>
+              </form>
+            </section>
+
+            <section className="account-section">
+              <p className="eyebrow">AUTOMATIC REMINDERS</p>
+              <h2>Reminder preferences</h2>
+              <p className="heading-sub">Choose which automatic vaccination reminders you receive and their language. These settings do not affect messages sent directly by staff.</p>
+
+              <form className="account-form" onSubmit={async (e) => {
+                e.preventDefault();
+                setError("");
+                setSuccess("");
+                setPreferencesSaving(true);
+                const result = await updateNotificationPreferences(reminderPreferences);
+                setPreferencesSaving(false);
+                if (result.error) { setError(result.error); return; }
+                setSuccess("Your reminder preferences were updated.");
+              }}>
+                <label>Reminder language
+                  <select
+                    className="account-input"
+                    value={reminderPreferences.preferredLanguage}
+                    onChange={(e) => setReminderPreferences((current) => ({ ...current, preferredLanguage: e.target.value as ReminderLanguage }))}
+                  >
+                    <option value="en">English</option>
+                    <option value="tl">Tagalog</option>
+                    <option value="hil">Hiligaynon</option>
+                  </select>
+                </label>
+                <label className="account-check-row">
+                  <input
+                    type="checkbox"
+                    checked={reminderPreferences.notifySms}
+                    onChange={(e) => setReminderPreferences((current) => ({ ...current, notifySms: e.target.checked }))}
+                  />
+                  <span>Receive automatic SMS reminders</span>
+                </label>
+                <label className="account-check-row">
+                  <input
+                    type="checkbox"
+                    checked={reminderPreferences.notifyEmail}
+                    onChange={(e) => setReminderPreferences((current) => ({ ...current, notifyEmail: e.target.checked }))}
+                  />
+                  <span>Receive automatic email reminders</span>
+                </label>
+                <p className="account-help">Email reminders require a valid email address on your account. SMS reminders require a valid mobile number.</p>
+                <div className="account-actions">
+                  <button className="primary-button" type="submit" disabled={preferencesSaving}>
+                    <Bell size={15} /> Save reminder preferences
+                  </button>
                 </div>
               </form>
             </section>
