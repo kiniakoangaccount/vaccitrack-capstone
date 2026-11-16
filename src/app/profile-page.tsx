@@ -7,6 +7,7 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { updateProfile, updateNotificationPreferences, getAccountChannels, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp, type ReminderLanguage } from "./profile-actions";
 import { ShieldCheck, Bell, EyeOff, User, Key, CheckCircle2, AlertCircle, Menu, X, ArrowLeft } from "lucide-react";
+import WorkspaceLoadingScreen from "./WorkspaceLoadingScreen";
 
 type Channel = "email" | "sms";
 
@@ -80,7 +81,7 @@ export default function ProfilePage() {
   }
 
   if (checkingAuth) {
-    return <main className="auth-shell"><section className="auth-card auth-loading"><div className="brand"><ShieldCheck size={20} /><span>VacciTrack</span></div><p className="heading-sub">Checking your session...</p></section></main>;
+    return <WorkspaceLoadingScreen title="Checking your session" description="Loading your profile and security settings." />;
   }
 
   return (

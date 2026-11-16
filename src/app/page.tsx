@@ -53,6 +53,7 @@ import dynamic from "next/dynamic";
 import type { LeafletMapHandle } from "./LeafletMap";
 import type { VaccinationHistoryRow } from "./AnimalDetailPanel";
 import ConfirmDialog from "./ConfirmDialog";
+import WorkspaceLoadingScreen from "./WorkspaceLoadingScreen";
 
 const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
 const AuditPanel = dynamic(() => import("./vaccitrack_super_hidden_admin/dashboard/AuditPanel"), {
@@ -911,7 +912,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   }
 
   if (supabaseConfigured && !authChecked) {
-    return <main className="auth-shell"><section className="auth-card auth-loading"><div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>VacciTrack</span></div><p className="heading-sub">Connecting to Supabase...</p></section></main>;
+    return <WorkspaceLoadingScreen />;
   }
 
   if (supabaseConfigured && authChecked && !authUser) {

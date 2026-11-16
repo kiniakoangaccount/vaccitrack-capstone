@@ -7,6 +7,7 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Edit2, MapPin, Save, Menu, X, ArrowLeft } from "lucide-react";
 import ConfirmDialog from "./ConfirmDialog";
+import WorkspaceLoadingScreen from "./WorkspaceLoadingScreen";
 
 function initials(fullName: string) {
   return fullName.trim().split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "VT";
@@ -31,7 +32,7 @@ export default function SettingsPage() {
   }, [supabase, router]);
 
   if (checkingAuth) {
-    return <main className="auth-shell"><section className="auth-card auth-loading"><div className="brand"><ShieldCheck size={20} /><span>VacciTrack</span></div><p className="heading-sub">Checking your session...</p></section></main>;
+    return <WorkspaceLoadingScreen title="Checking your session" description="Loading workspace settings." />;
   }
 
   return (
