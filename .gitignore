@@ -7,3 +7,5 @@ out/
 supabase/.temp/
 test-results/
 playwright-report/
+*.tsbuildinfo
+.deep-copilot/logs/
