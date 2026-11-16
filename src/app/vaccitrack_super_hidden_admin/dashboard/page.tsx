@@ -6,13 +6,14 @@ import UsersPanel from "./UsersPanel";
 import PendingPanel from "./PendingPanel";
 import FeedbackPanel from "./FeedbackPanel";
 import AuditPanel from "./AuditPanel";
+import MessageHistoryPanel from "./MessageHistoryPanel";
 import InvitesPanel from "./InvitesPanel";
 import { listStaffInvites, type StaffInvite } from "./crud-actions";
 import SmsTestForm from "./SmsTestForm";
 import EmailTestForm from "./EmailTestForm";
 import {
   ShieldCheck, Users, PawPrint, Activity, Bell,
-  LogOut, MessageSquare, Clock, XCircle,
+  LogOut, MessageSquare, Clock, XCircle, Mail,
   UserPlus, MapPin, Menu,
 } from "lucide-react";
 import { SmsComposer } from "@/app/SmsComposer";
@@ -21,7 +22,7 @@ import AdminMapPanel from "./AdminMapPanel";
 import { purokOptions, getAnimalStatus } from "@/lib/map-data";
 import type { MapAnimal } from "../../LeafletMap";
 
-type Tab = "overview" | "users" | "pending" | "feedback" | "audit" | "invites" | "map" | "sms";
+type Tab = "overview" | "users" | "pending" | "feedback" | "audit" | "invites" | "map" | "sms" | "messages";
 
 interface Profile {
   id: string;
@@ -143,6 +144,7 @@ export default async function AdminDashboardPage({
     { key: "invites",   label: "Invite staff",         icon: <UserPlus size={16} /> },
     { key: "feedback",  label: "Feedback",             icon: <MessageSquare size={16} />,  badge: stats.feedback > 0 ? stats.feedback : undefined },
     { key: "sms",       label: "SMS & email",          icon: <MessageSquare size={16} /> },
+    { key: "messages",  label: "Sent messages",         icon: <Mail size={16} /> },
     { key: "map",       label: "Coverage map",         icon: <MapPin size={16} /> },
     { key: "audit",     label: "Audit log",            icon: <ShieldCheck size={16} /> },
   ];
@@ -393,6 +395,18 @@ export default async function AdminDashboardPage({
                   </section>
                 </div>
               )}
+            </>
+          )}
+
+          {/* ── SENT MESSAGE HISTORY ── */}
+          {tab === "messages" && (
+            <>
+              <div className="admin-page-heading">
+                <p className="eyebrow">MESSAGE HISTORY</p>
+                <h1>Sent messages</h1>
+                <p className="heading-sub">Track recipients, subjects, delivery status, timestamps, and senders. Message content is not retained.</p>
+              </div>
+              {!supaCfg ? <NotConfigured /> : <MessageHistoryPanel />}
             </>
           )}
 

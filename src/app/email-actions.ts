@@ -6,6 +6,7 @@ import { getManilaDateIso } from "@/lib/dates";
 import { sendEmailBatch, type EmailTarget } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
+import { completeMessageHistory, startMessageHistory } from "./message-history";
 import { getAdminSession } from "./vaccitrack_super_hidden_admin/actions";
 
 const RECIPIENT_PAGE_SIZE = 500;
@@ -25,7 +26,7 @@ type EmailProfile = {
   status: string;
 };
 
-type EmailAccess = { db: NonNullable<ReturnType<typeof createAdminClient>>; userId: string | null };
+type EmailAccess = { db: NonNullable<ReturnType<typeof createAdminClient>>; userId: string | null; sender: string };
 type EmailAccessResult = EmailAccess | { error: string };
 type EmailTargetsResult = { targets: EmailTarget[]; dueDate?: string } | { error: string };
 type ProfilesEmailsResult = { emailsById: Map<string, string> } | { error: string };
@@ -34,14 +35,15 @@ async function requireEmailAccess(): Promise<EmailAccessResult> {
   const db = createAdminClient();
   if (!db) return { error: "Service unavailable." };
 
-  if (await getAdminSession()) return { db, userId: null };
+  const adminSession = await getAdminSession();
+  if (adminSession) return { db, userId: null, sender: adminSession.username };
 
   const { user, error: authError } = await getAuthenticatedUser();
   if (!user) return { error: authError ?? "You must be signed in." };
 
   const { data: profile, error } = await db
     .from("profiles")
-    .select("role, status")
+    .select("role, status, full_name, username")
     .eq("id", user.id)
     .maybeSingle();
   if (error) return { error: error.message };
@@ -49,7 +51,11 @@ async function requireEmailAccess(): Promise<EmailAccessResult> {
     return { error: "Only active admin and BHW accounts can send email." };
   }
 
-  return { db, userId: user.id };
+  return {
+    db,
+    userId: user.id,
+    sender: profile.full_name.trim() || profile.username?.trim() || user.id,
+  };
 }
 
 function parseAudience(value: unknown): EmailAudience | null {
@@ -279,18 +285,33 @@ export async function sendCustomEmail(
     return { sent: 0, failed: 0, error: "Could not record the email attempt; nothing was sent." };
   }
 
+  const history = await startMessageHistory(access.db, targets.map((target) => ({
+    channel: "email",
+    message_type: "custom",
+    recipient_name: target.name,
+    recipient_address: target.email,
+    subject,
+    sent_by: access.sender,
+  })));
+  if ("error" in history) return { sent: 0, failed: 0, error: history.error };
+
   const delivery = await sendEmailBatch(targets, subject, message);
-  const sent = delivery.results.filter((result) => !result.error).length;
+  const delivered = targets.map((_, index) => !delivery.error && !delivery.results[index]?.error);
+  const sent = delivered.filter(Boolean).length;
   const failed = targets.length - sent;
   const providerError = delivery.error ?? delivery.results.find((result) => result.error)?.error;
+  const historySaved = await completeMessageHistory(access.db, history.ids, delivered);
   const notes = `Custom email: ${sent} sent, ${failed} failed out of ${targets.length}. Subject: ${subject.slice(0, 80)}${providerError ? ` Error: ${providerError.slice(0, 120)}` : ""}`;
   const { error: auditUpdateError } = await access.db
     .from("audit_log")
     .update({ action: sent > 0 ? "EMAIL_SENT" : "EMAIL_ATTEMPT", notes })
     .eq("id", auditEntry.id);
+  const warnings = [
+    auditUpdateError ? "Email results were returned, but the audit record could not be updated." : undefined,
+    !historySaved ? "Email results were returned, but sent-message history could not be updated." : undefined,
+  ].filter(Boolean);
   if (auditUpdateError) {
     console.error("Could not update email audit result:", auditUpdateError.message);
-    return { sent, failed, warning: "Email results were returned, but the audit record could not be updated." };
   }
 
   return {
@@ -298,6 +319,7 @@ export async function sendCustomEmail(
     failed,
     error: sent === 0 ? providerError ?? "Google SMTP did not accept the email." : undefined,
     detail: sent > 0 && failed > 0 ? providerError : undefined,
+    warning: warnings.length > 0 ? warnings.join(" ") : undefined,
   };
 }
 
@@ -335,8 +357,19 @@ export async function sendSuperAdminTestEmail(
     return { error: "Could not record the email attempt; nothing was sent." };
   }
 
+  const history = await startMessageHistory(db, [{
+    channel: "email",
+    message_type: "test",
+    recipient_name: null,
+    recipient_address: recipient,
+    subject,
+    sent_by: session.username,
+  }]);
+  if ("error" in history) return { error: history.error };
+
   const delivery = await sendEmailBatch([{ name: "", email: recipient }], subject, message);
   const providerError = delivery.results[0]?.error ?? delivery.error;
+  const historySaved = await completeMessageHistory(db, history.ids, [!providerError]);
   const notes = providerError
     ? `Super-admin test email failed to ${maskedRecipient}. Error: ${providerError.slice(0, 120)}`
     : `Super-admin test email sent to ${maskedRecipient}.`;
@@ -353,6 +386,9 @@ export async function sendSuperAdminTestEmail(
 
   return {
     error: providerError,
-    warning: auditUpdateError ? "The email result could not be saved to the audit log." : undefined,
+    warning: [
+      auditUpdateError ? "The email result could not be saved to the audit log." : undefined,
+      !historySaved ? "The email result could not be saved to sent-message history." : undefined,
+    ].filter(Boolean).join(" ") || undefined,
   };
 }

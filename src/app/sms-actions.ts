@@ -5,6 +5,7 @@ import { getManilaDateIso } from "@/lib/dates";
 import { normalizePhilippineNumber, sendSms, sendSmsBatch } from "@/lib/sms";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
+import { completeMessageHistory, startMessageHistory } from "./message-history";
 import { getAdminSession } from "./vaccitrack_super_hidden_admin/actions";
 
 const RECIPIENT_PAGE_SIZE = 500;
@@ -26,7 +27,7 @@ type SmsProfile = {
 };
 
 type SmsTarget = { name: string; phone: string };
-type SmsAccess = { db: AdminDb; userId: string | null };
+type SmsAccess = { db: AdminDb; userId: string | null; sender: string };
 type SmsAccessResult = SmsAccess | { error: string };
 type SmsTargetsResult =
   | { targets: SmsTarget[]; dueDate?: string }
@@ -38,14 +39,15 @@ async function requireSmsAccess(): Promise<SmsAccessResult> {
   const db = createAdminClient();
   if (!db) return { error: "Service unavailable." };
 
-  if (await getAdminSession()) return { db, userId: null };
+  const adminSession = await getAdminSession();
+  if (adminSession) return { db, userId: null, sender: adminSession.username };
 
   const { user, error: authError } = await getAuthenticatedUser();
   if (!user) return { error: authError ?? "You must be signed in." };
 
   const { data: profile, error } = await db
     .from("profiles")
-    .select("role, status")
+    .select("role, status, full_name, username")
     .eq("id", user.id)
     .maybeSingle();
   if (error) return { error: error.message };
@@ -53,7 +55,11 @@ async function requireSmsAccess(): Promise<SmsAccessResult> {
     return { error: "Only active admin and BHW accounts can send SMS." };
   }
 
-  return { db, userId: user.id };
+  return {
+    db,
+    userId: user.id,
+    sender: profile.full_name.trim() || profile.username?.trim() || user.id,
+  };
 }
 
 async function requireSuperAdminSmsAccess(): Promise<SuperAdminSmsAccessResult> {
@@ -232,7 +238,7 @@ export async function sendCustomSms(
   const audienceLabel = audience.mode === "individual"
     ? `client ${targets[0].name}`
     : `clients with vaccinations due on ${targetResult.dueDate}`;
-  const notes = `Custom SMS attempt to ${targets.length} ${audienceLabel}. Message: ${message.slice(0, 80)}`;
+  const notes = `Custom SMS attempt to ${targets.length} ${audienceLabel}.`;
   const { data: auditEntry, error: auditInsertError } = await access.db
     .from("audit_log")
     .insert({
@@ -248,11 +254,23 @@ export async function sendCustomSms(
     return { sent: 0, failed: 0, error: "Could not record the SMS attempt; nothing was sent." };
   }
 
+  const history = await startMessageHistory(access.db, targets.map((target) => ({
+    channel: "sms",
+    message_type: "custom",
+    recipient_name: target.name,
+    recipient_address: target.phone,
+    subject: null,
+    sent_by: access.sender,
+  })));
+  if ("error" in history) return { sent: 0, failed: 0, error: history.error };
+
   const delivery = await sendSmsBatch(targets.map((target) => target.phone), message);
-  const sent = delivery.results.filter((result) => !result.error).length;
+  const delivered = targets.map((_, index) => !delivery.error && !delivery.results[index]?.error);
+  const sent = delivered.filter(Boolean).length;
   const failed = targets.length - sent;
   const providerError = delivery.error ?? delivery.results.find((result) => result.error)?.error;
-  const outcome = `Custom SMS: ${sent} sent, ${failed} failed out of ${targets.length}. Message: ${message.slice(0, 80)}${providerError ? ` Error: ${providerError.slice(0, 120)}` : ""}`;
+  const historySaved = await completeMessageHistory(access.db, history.ids, delivered);
+  const outcome = `Custom SMS: ${sent} sent, ${failed} failed out of ${targets.length}.${providerError ? ` Error: ${providerError.slice(0, 120)}` : ""}`;
   const { error: auditUpdateError } = await access.db
     .from("audit_log")
     .update({
@@ -260,9 +278,12 @@ export async function sendCustomSms(
       notes: outcome,
     })
     .eq("id", auditEntry.id);
+  const warnings = [
+    auditUpdateError ? "SMS results were returned, but the audit record could not be updated." : undefined,
+    !historySaved ? "SMS results were returned, but sent-message history could not be updated." : undefined,
+  ].filter(Boolean);
   if (auditUpdateError) {
     console.error("Could not update SMS audit result:", auditUpdateError.message);
-    return { sent, failed, warning: "SMS results were returned, but the audit record could not be updated." };
   }
 
   return {
@@ -270,6 +291,7 @@ export async function sendCustomSms(
     failed,
     error: sent === 0 ? providerError ?? "Semaphore did not accept the SMS." : undefined,
     detail: sent > 0 && failed > 0 ? providerError : undefined,
+    warning: warnings.length > 0 ? warnings.join(" ") : undefined,
   };
 }
 
@@ -287,7 +309,7 @@ export async function sendSuperAdminTestSms(
   const message = messageInput.trim();
   if (!message || message.length > 320) return { error: "Enter a message up to 320 characters." };
 
-  const attemptNotes = `Super-admin test SMS to number ending ${recipient.slice(-4)} by "${access.username}". Message: ${message.slice(0, 80)}`;
+  const attemptNotes = `Super-admin test SMS to number ending ${recipient.slice(-4)} by "${access.username}".`;
   const { data: auditEntry, error: auditInsertError } = await access.db
     .from("audit_log")
     .insert({
@@ -303,11 +325,22 @@ export async function sendSuperAdminTestSms(
     return { error: "Could not record the SMS attempt; nothing was sent." };
   }
 
+  const history = await startMessageHistory(access.db, [{
+    channel: "sms",
+    message_type: "test",
+    recipient_name: null,
+    recipient_address: recipient,
+    subject: null,
+    sent_by: access.username,
+  }]);
+  if ("error" in history) return { error: history.error };
+
   const delivery = await sendSms(recipient, message);
   const providerDetail = delivery.providerDetail ? ` Provider response: ${delivery.providerDetail}` : "";
+  const historySaved = await completeMessageHistory(access.db, history.ids, [!delivery.error]);
   const notes = delivery.error
     ? `Super-admin test SMS failed to number ending ${recipient.slice(-4)}. Error: ${delivery.error.slice(0, 120)}${providerDetail}`
-    : `Super-admin test SMS sent to number ending ${recipient.slice(-4)}. Message: ${message.slice(0, 80)}`;
+    : `Super-admin test SMS sent to number ending ${recipient.slice(-4)}.`;
   const { error: auditUpdateError } = await access.db
     .from("audit_log")
     .update({
@@ -323,6 +356,9 @@ export async function sendSuperAdminTestSms(
     messageId: delivery.messageId,
     error: delivery.error,
     providerDetail: delivery.providerDetail,
-    warning: auditUpdateError ? "The SMS result could not be saved to the audit log." : undefined,
+    warning: [
+      auditUpdateError ? "The SMS result could not be saved to the audit log." : undefined,
+      !historySaved ? "The SMS result could not be saved to sent-message history." : undefined,
+    ].filter(Boolean).join(" ") || undefined,
   };
 }

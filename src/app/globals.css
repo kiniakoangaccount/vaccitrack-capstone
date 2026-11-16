@@ -249,6 +249,12 @@ button { cursor: pointer; }
 .admin-table tbody tr:hover td { background: #f9fcf9; }
 .admin-table-empty { text-align: center; color: var(--muted); padding: 32px !important; }
 .admin-muted { color: #91a098 !important; }.admin-nowrap { white-space: nowrap; }.admin-code { background: #f0f4f0; padding: 2px 6px; border-radius: 4px; font-size: 15px; font-family: monospace; color: #3d5948; }.admin-audit-notes { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.message-history-panel .admin-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.message-history-table { min-width: 900px; }
+.message-history-channel { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.message-history-recipient { min-width: 190px; }
+.message-history-recipient strong, .message-history-recipient span { display: block; }
+.message-history-recipient span { overflow-wrap: anywhere; }
 
 /* ── Badges ──────────────────────────────────────────────────────────── */
 .admin-badge { display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 13px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; }
@@ -760,4 +766,113 @@ form input[type="radio"] { accent-color: var(--green); }
   .workspace-loading-card { padding: 28px 24px 25px; }
   .workspace-loading-message { margin-top: 34px; }
   .workspace-loading-message h1 { font-size: 24px; }
+}
+
+.app-shell,
+.admin-shell,
+.auth-shell,
+.admin-login-shell { min-height: 100dvh; }
+.content-area,
+.admin-content,
+.page-content,
+.admin-page-content { min-width: 0; }
+.page-content,
+.admin-page-content { width: 100%; }
+.auth-card,
+.admin-login-card,
+.stat-card,
+.panel,
+.workspace-panel,
+.admin-stat-card,
+.admin-quick-card,
+.admin-pending-card,
+.admin-feedback-card,
+.settings-card { border-radius: 10px; }
+
+@media (min-width: 681px) and (max-width: 1000px) {
+  .auth-shell {
+    align-items: center;
+    padding: 24px;
+  }
+  .auth-card h1 { font-size: clamp(34px, 4.6vw, 39px); }
+}
+
+@media (max-width: 680px) {
+  .landing-hero { padding: 28px clamp(18px, 5vw, 24px) 36px; }
+  .landing-kicker {
+    font-size: clamp(11px, 3vw, 13px);
+    letter-spacing: .12em;
+    line-height: 1.5;
+  }
+  .landing-hero h1 {
+    font-size: clamp(44px, 14vw, 62px);
+    line-height: 1.06;
+    letter-spacing: -.03em;
+  }
+  .landing-hero p { font-size: clamp(16px, 4.6vw, 19px); line-height: 1.6; }
+  .landing-hero-image { opacity: .42; }
+  .landing-hero-overlay {
+    background: linear-gradient(180deg, #f7f3eaf2 0%, #f7f3eae0 42%, #f7f3ea99 100%);
+  }
+
+  .topbar { gap: 8px; padding-right: 12px; padding-left: 12px; }
+  .topbar-left { flex: 1; min-width: 0; gap: 4px; }
+  .topbar > .crumb,
+  .topbar-left .crumb {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .top-actions { flex: 0 0 auto; gap: 4px; }
+  .profile-button { gap: 4px; padding-right: 4px; padding-left: 4px; }
+  .notification-panel { right: 12px; }
+
+  .sidebar {
+    width: min(88vw, 300px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  .page-content { padding: 24px clamp(14px, 4vw, 18px) 48px; }
+  .page-heading { gap: 8px; margin-bottom: 22px; }
+  .page-heading h1,
+  .admin-page-heading h1 { font-size: clamp(28px, 7vw, 36px); line-height: 1.15; }
+  .page-heading .primary-button { margin-top: 0; }
+  .module-content { padding: 18px; }
+  .module-intro { display: grid; gap: 12px; }
+  .module-intro h2 { font-size: clamp(22px, 6vw, 28px); }
+  .module-intro .module-chip { margin-top: 0; }
+  .module-actions { width: 100%; justify-content: flex-start; }
+  .module-actions .primary-button,
+  .module-actions .secondary-button { min-width: 0; }
+
+  .admin-topbar { gap: 8px; padding-right: 14px; padding-left: 14px; }
+  .admin-crumb {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .admin-topbar-badge { flex: 0 0 auto; white-space: nowrap; }
+  .admin-sidebar {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  .admin-page-content { padding: 24px clamp(14px, 4vw, 20px); }
+  .admin-pending-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 380px) {
+  .landing-hero h1 { font-size: clamp(42px, 13.2vw, 50px); }
+  .landing-hero-actions { gap: 16px; }
+  .topbar { gap: 5px; }
+  .top-actions { gap: 0; }
+}
+
+@media (min-width: 841px) {
+  .landing-hero h1 { font-size: clamp(48px, min(9.8vw, 11.2svh, 72px), 72px); }
 }
