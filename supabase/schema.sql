@@ -306,10 +306,6 @@ begin
     alter table public.feedback add constraint feedback_status_check
       check (status in ('New', 'Reviewed', 'Resolved'));
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'audit_action_check') then
-    alter table public.audit_log add constraint audit_action_check
-      check (action in ('INSERT', 'UPDATE', 'DELETE', 'SMS_SENT', 'SMS_ATTEMPT'));
-  end if;
   if not exists (select 1 from pg_constraint where conname = 'notifications_type_check') then
     alter table public.notifications add constraint notifications_type_check
       check (type in ('info', 'warning', 'danger', 'success'));
@@ -319,6 +315,10 @@ begin
       check (status in ('Scheduled', 'Completed', 'Cancelled', 'Missed'));
   end if;
 end $$;
+
+alter table public.audit_log drop constraint if exists audit_action_check;
+alter table public.audit_log add constraint audit_action_check
+  check (action in ('INSERT', 'UPDATE', 'DELETE', 'SMS_SENT', 'SMS_ATTEMPT', 'EMAIL_SENT', 'EMAIL_ATTEMPT'));
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -486,6 +486,7 @@ create policy "Staff can update animals"
   using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')));
 
 drop policy if exists "Clients can update own animals" on public.animals;
+drop policy if exists "Clients can update animals" on public.animals;
 create policy "Clients can update own animals"
   on public.animals for update to authenticated
   using (user_id = auth.uid())

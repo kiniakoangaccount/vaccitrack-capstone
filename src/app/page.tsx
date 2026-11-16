@@ -18,6 +18,7 @@ import {
   FileText,
   Home as HomeIcon,
   Loader2,
+  Mail,
   MapPin,
   Menu,
   MessageSquare,
@@ -40,6 +41,7 @@ import { markAllNotificationsRead, markNotificationRead } from "./notification-a
 import { queueVaccinationReminders } from "./reminder-actions";
 import { updatePoundStatus, type PoundStatus } from "./pound-actions";
 import { SmsComposer } from "./SmsComposer";
+import { EmailComposer } from "./EmailComposer";
 import { getTeamMembers, type TeamMember } from "./team-actions";
 import { getFeedbackList, updateFeedbackStatus, type FeedbackItem } from "./feedback-actions";
 import { createAppointment, getAppointments, updateAppointmentStatus, type AppointmentItem, type AppointmentStatus } from "./appointment-actions";
@@ -112,7 +114,7 @@ type SupabaseAnimalRecord = {
   puroks: { name: string } | { name: string }[] | null;
 };
 
-type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Appointments" | "Reports" | "Risk" | "Map" | "Pound" | "Feedback" | "Team" | "SMS" | "Audit";
+type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Appointments" | "Reports" | "Risk" | "Map" | "Pound" | "Feedback" | "Team" | "SMS" | "Email" | "Audit";
 
 // signIn() reloads the page on success to re-run the auth-check effect fresh.
 // That reload resets authMode back to its "landing" default before the effect
@@ -1061,6 +1063,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
           {(isClient || isStaff) && <button className={`nav-item ${activeTab === "Feedback" ? "selected" : ""}`} onClick={() => selectTab("Feedback")}><MessageSquare size={17} /> Feedback</button>}
           {isStaff && <button className={`nav-item ${activeTab === "Team" ? "selected" : ""}`} onClick={() => selectTab("Team")}><UsersRound size={17} /> Team members</button>}
           {isStaff && <button className={`nav-item ${activeTab === "SMS" ? "selected" : ""}`} onClick={() => selectTab("SMS")}><Send size={17} /> SMS messaging</button>}
+          {isStaff && <button className={`nav-item ${activeTab === "Email" ? "selected" : ""}`} onClick={() => selectTab("Email")}><Mail size={17} /> Email messaging</button>}
           {isAdmin && <button className={`nav-item ${activeTab === "Audit" ? "selected" : ""}`} onClick={() => selectTab("Audit")}><ShieldCheck size={17} /> Audit log</button>}
         </nav>
       </aside>
@@ -1084,6 +1087,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
             {activeTab === "Feedback" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Client feedback</h2><p>Feedback submitted by clients, for admin and BHW review.</p></div></div>{feedbackListError && <p className="form-error">{feedbackListError}</p>}{feedbackItems.length === 0 ? <div className="empty-state">No feedback submitted yet.</div> : <div className="table-wrap module-table"><table><thead><tr><th>From</th><th>Category</th><th>Message</th><th>Received</th><th>Status</th></tr></thead><tbody>{feedbackItems.map((item) => <tr key={`feedback-${item.id}`}><td>{item.senderName}</td><td>{item.category}</td><td>{item.message}</td><td>{new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</td><td><select className="pound-status-select" value={item.status} onChange={(event) => void changeFeedbackStatus(item.id, event.target.value as "New" | "Reviewed" | "Resolved")}><option>New</option><option>Reviewed</option><option>Resolved</option></select></td></tr>)}</tbody></table></div>}</div> : isClient ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Feedback and suggestions</h2><p>Send notes to the barangay animal health team.</p></div></div>{feedbackSent ? <div className="feedback-success"><CheckCircle2 size={22} /><div><strong>Feedback submitted</strong><p>Thank you. Your message has been recorded for review.</p></div><button className="secondary-button" onClick={() => setFeedbackSent(false)}>Send another</button></div> : <form className="feedback-form" onSubmit={submitFeedback}><label>Category<select value={feedbackCategory} onChange={(event) => setFeedbackCategory(event.target.value)}><option>Suggestion</option><option>Complaint</option><option>Compliment</option></select></label><label>Message<textarea required rows={5} placeholder="Tell us how to improve our service." value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} /></label><button className="primary-button" type="submit"><MessageSquare size={16} /> Submit feedback</button></form>}</div> : <RoleBlocked role={userRole} message="Feedback is only available for client and staff accounts (admin, bhw)." />)}
             {activeTab === "Team" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">MANAGEMENT</p><h2>Team members</h2><p>Staff access for the Barangay Estefania health team.</p></div></div><div className="team-list">{teamMembers.length === 0 ? <div className="empty-state">No staff accounts found.</div> : teamMembers.map((member) => <div className="team-row" key={member.id}><span className={`avatar${member.id === authUser?.id ? "" : " team-muted"}`}>{member.fullName.slice(0, 2).toUpperCase()}</span><span><strong>{member.fullName}{member.id === authUser?.id ? " (you)" : ""}</strong><small>{member.username ? `@${member.username}` : member.status}</small></span><em>{member.role}</em></div>)}</div></div> : <RoleBlocked role={userRole} message="Team members view is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "SMS" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">CLIENT COMMUNICATION</p><h2>SMS messaging</h2><p>Send a custom Semaphore SMS to one active client or clients with vaccinations due in 7 days.</p></div></div><SmsComposer /></div> : <RoleBlocked role={userRole} message="SMS messaging is only available for staff accounts (admin, bhw)." />)}
+            {activeTab === "Email" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">CLIENT COMMUNICATION</p><h2>Email messaging</h2><p>Send a custom email through Google SMTP to one active client or clients with vaccinations due in 7 days.</p></div></div><EmailComposer /></div> : <RoleBlocked role={userRole} message="Email messaging is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Audit" && (isAdmin ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SECURITY</p><h2>Audit log</h2><p>Recent actions from this VacciTrack workspace.</p></div><span className="module-chip"><ShieldCheck size={14} /> Protected</span></div><AuditPanel /></div> : <RoleBlocked role={userRole} message="Audit log is only available for administrator accounts." />)}
           </section>}
 

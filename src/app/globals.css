@@ -382,7 +382,7 @@ button { cursor: pointer; }
 .sms-composer { display: grid; gap: 18px; max-width: 760px; }
 .sms-composer-fields { display: grid; gap: 14px; }
 .sms-composer-fields label { display: grid; gap: 7px; color: var(--ink); font-size: 15px; font-weight: 600; }
-.sms-composer-fields select, .sms-composer-fields textarea { width: 100%; }
+.sms-composer-fields select, .sms-composer-fields input[type="text"], .sms-composer-fields input[type="email"], .sms-composer-fields textarea { width: 100%; }
 .sms-composer-fields textarea { resize: vertical; min-height: 120px; }
 .sms-character-count { justify-self: end; color: var(--muted); font-size: 13px; font-weight: 400; }
 .sms-audience-note { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font-size: 14px; line-height: 1.5; background: var(--paper); }

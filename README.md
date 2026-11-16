@@ -43,7 +43,20 @@ Set the optional sender name only if it is registered with Semaphore; otherwise,
 
 Admins and BHWs can also use **SMS messaging** in the workspace, and the super-admin dashboard has the same feature. It sends a custom message to one active client or to active clients with vaccinated animals due in exactly 7 days. The recipient preview must be confirmed before sending. This manual message is separate from the scheduled reminder.
 
-The super-admin SMS page also has a separate **Test SMS** form for entering a phone number and custom test message. Review and confirm before sending; use a number you control.
+The super-admin SMS page also has separate **Test SMS** and **Test Email** forms for sending custom test messages to a phone number or email address you control. Review and confirm before sending. The email test message is prefilled with a sample and can be edited.
+
+## Staff email messaging
+
+Admins and BHWs can send a custom email from **Email messaging** to one active client or active clients with vaccinated animals due in exactly 7 days. A recipient preview must be confirmed before sending. Emails are sent individually through Gmail SMTP, and a batch is limited to 100 recipients.
+
+Run the current `supabase/schema.sql` and configure these server-side environment variables in Vercel or `.env.local`:
+
+```text
+GMAIL_USER=your-gmail-address@gmail.com
+GMAIL_APP_PASSWORD=your-google-app-password
+```
+
+Use a Google App Password (with 2-Step Verification enabled), not your normal Gmail password. Keep both values server-side and never use `NEXT_PUBLIC_*` variables for SMTP credentials. Only clients with a valid, non-placeholder email address on their account can receive messages.
 
 ## Publish With Supabase and Vercel
 

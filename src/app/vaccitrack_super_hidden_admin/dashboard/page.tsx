@@ -9,6 +9,7 @@ import AuditPanel from "./AuditPanel";
 import InvitesPanel from "./InvitesPanel";
 import { listStaffInvites, type StaffInvite } from "./crud-actions";
 import SmsTestForm from "./SmsTestForm";
+import EmailTestForm from "./EmailTestForm";
 import {
   ShieldCheck, Users, PawPrint, Activity, Bell,
   LogOut, MessageSquare, Clock, XCircle,
@@ -356,7 +357,7 @@ export default async function AdminDashboardPage({
                 <h1>SMS messaging</h1>
                 <p className="heading-sub">Send a custom Semaphore SMS to one active client or an upcoming vaccination group.</p>
               </div>
-              {!supaCfg ? <NotConfigured /> : <><SmsComposer /><SmsTestForm /></>}
+              {!supaCfg ? <NotConfigured /> : <><SmsComposer /><SmsTestForm /><EmailTestForm /></>}
             </>
           )}
 
