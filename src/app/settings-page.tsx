@@ -7,6 +7,7 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Edit2, MapPin, Save, Menu, X, ArrowLeft } from "lucide-react";
 import ConfirmDialog from "./ConfirmDialog";
+import SkeletonBlock from "./Skeleton";
 import WorkspaceLoadingScreen from "./WorkspaceLoadingScreen";
 
 function initials(fullName: string) {
@@ -88,6 +89,26 @@ export default function SettingsPage() {
   );
 }
 
+function SettingsListSkeleton({ type }: { type: "purok" | "vaccine" }) {
+  const label = type === "purok" ? "purok areas" : "vaccines";
+  return (
+    <ul className="settings-list settings-list-skeleton" role="status" aria-label={`Loading ${label}`} aria-busy="true">
+      {Array.from({ length: 3 }, (_, index) => (
+        <li key={index} className="settings-row settings-row-skeleton" aria-hidden="true">
+          <div className="settings-row-main">
+            <SkeletonBlock className="settings-skeleton-name" />
+            <SkeletonBlock className={type === "purok" ? "settings-skeleton-meta" : "settings-skeleton-tag"} />
+          </div>
+          <div className="settings-row-actions">
+            <SkeletonBlock className="settings-skeleton-action" />
+            <SkeletonBlock className="settings-skeleton-action" />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function PurokManager() {
   const supabase = createClient();
   const [puroks, setPuroks] = useState<{ id: number; name: string; latitude: string; longitude: string }[]>([]);
@@ -159,20 +180,22 @@ function PurokManager() {
         </div>
       </form>
       {error && <div className="notice danger"><Trash2 size={14} /><span>{error}</span></div>}
-      <ul className="settings-list">
-        {loading ? <li className="settings-empty-row">Loading…</li> : puroks.length === 0 ? <li className="settings-empty-row">No puroks yet.</li> : puroks.map((p) => (
-          <li key={p.id} className="settings-row">
-            <div className="settings-row-main">
-              <span className="settings-row-name">{p.name}</span>
-              {p.latitude || p.longitude ? <span className="settings-row-meta"><span className="settings-dot" />{p.latitude ? `${p.latitude}, ` : ""}{p.longitude || ""}</span> : null}
-            </div>
-            <div className="settings-row-actions">
-              <button className="icon-button" title="Edit" onClick={() => { setEditing(p.id); setForm({ name: p.name, latitude: p.latitude, longitude: p.longitude }); }}><Edit2 size={13} /></button>
-              <button className="icon-button" title="Remove" onClick={() => setRemoveTarget({ id: p.id, name: p.name })}><Trash2 size={13} /></button>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {loading ? <SettingsListSkeleton type="purok" /> : (
+        <ul className="settings-list">
+          {puroks.length === 0 ? <li className="settings-empty-row">No puroks yet.</li> : puroks.map((p) => (
+            <li key={p.id} className="settings-row">
+              <div className="settings-row-main">
+                <span className="settings-row-name">{p.name}</span>
+                {p.latitude || p.longitude ? <span className="settings-row-meta"><span className="settings-dot" />{p.latitude ? `${p.latitude}, ` : ""}{p.longitude || ""}</span> : null}
+              </div>
+              <div className="settings-row-actions">
+                <button className="icon-button" title="Edit" onClick={() => { setEditing(p.id); setForm({ name: p.name, latitude: p.latitude, longitude: p.longitude }); }}><Edit2 size={13} /></button>
+                <button className="icon-button" title="Remove" onClick={() => setRemoveTarget({ id: p.id, name: p.name })}><Trash2 size={13} /></button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
       <ConfirmDialog
         open={removeTarget !== null}
         title="Remove purok"
@@ -261,20 +284,22 @@ function VaccineManager() {
         </div>
       </form>
       {error && <div className="notice danger"><Trash2 size={14} /><span>{error}</span></div>}
-      <ul className="settings-list">
-        {loading ? <li className="settings-empty-row">Loading…</li> : vaccines.length === 0 ? <li className="settings-empty-row">No vaccines yet.</li> : vaccines.map((v) => (
-          <li key={v.id} className="settings-row">
-            <div className="settings-row-main">
-              <span className="settings-row-name">{v.name}</span>
-              <span className="settings-row-meta"><span className="settings-species-tag" data-species={v.species.toLowerCase()}>{v.species === "Both" ? "Dog & Cat" : v.species}</span></span>
-            </div>
-            <div className="settings-row-actions">
-              <button className="icon-button" title="Edit" onClick={() => { setEditing(v.id); setForm({ name: v.name, species: v.species }); }}><Edit2 size={13} /></button>
-              <button className="icon-button" title="Remove" onClick={() => setRemoveTarget({ id: v.id, name: v.name })}><Trash2 size={13} /></button>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {loading ? <SettingsListSkeleton type="vaccine" /> : (
+        <ul className="settings-list">
+          {vaccines.length === 0 ? <li className="settings-empty-row">No vaccines yet.</li> : vaccines.map((v) => (
+            <li key={v.id} className="settings-row">
+              <div className="settings-row-main">
+                <span className="settings-row-name">{v.name}</span>
+                <span className="settings-row-meta"><span className="settings-species-tag" data-species={v.species.toLowerCase()}>{v.species === "Both" ? "Dog & Cat" : v.species}</span></span>
+              </div>
+              <div className="settings-row-actions">
+                <button className="icon-button" title="Edit" onClick={() => { setEditing(v.id); setForm({ name: v.name, species: v.species }); }}><Edit2 size={13} /></button>
+                <button className="icon-button" title="Remove" onClick={() => setRemoveTarget({ id: v.id, name: v.name })}><Trash2 size={13} /></button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
       <ConfirmDialog
         open={removeTarget !== null}
         title="Remove vaccine"

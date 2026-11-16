@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, ChevronLeft, ChevronRight, Mail, MessageSquare, RefreshCw } from "lucide-react";
 import { fetchSentMessagePage, type SentMessageRow } from "../../message-history-actions";
+import SkeletonBlock from "../../Skeleton";
 
 const PAGE_SIZE = 20;
 
@@ -16,6 +17,42 @@ function messageStatusLabel(status: SentMessageRow["status"]): string {
   if (status === "sent") return "Accepted";
   if (status === "failed") return "Failed";
   return "Sending";
+}
+
+function MessageHistorySkeleton() {
+  return (
+    <div className="admin-table-wrap message-history-skeleton" role="status" aria-label="Loading message history">
+      <table className="admin-table message-history-table" aria-hidden="true">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Channel</th>
+            <th>Type</th>
+            <th>Recipient</th>
+            <th>Subject</th>
+            <th>Status</th>
+            <th>Sent by</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 6 }, (_, index) => (
+            <tr key={index}>
+              <td><SkeletonBlock className="message-skeleton-time" /></td>
+              <td><SkeletonBlock className="message-skeleton-channel" /></td>
+              <td><SkeletonBlock className="message-skeleton-type" /></td>
+              <td>
+                <SkeletonBlock className="message-skeleton-recipient" />
+                <SkeletonBlock className="message-skeleton-address" />
+              </td>
+              <td><SkeletonBlock className="message-skeleton-subject" /></td>
+              <td><SkeletonBlock className="message-skeleton-status" /></td>
+              <td><SkeletonBlock className="message-skeleton-sender" /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export default function MessageHistoryPanel() {
@@ -71,7 +108,7 @@ export default function MessageHistoryPanel() {
       </div>
 
       {loading ? (
-        <div className="admin-empty" role="status">Loading message history...</div>
+        <MessageHistorySkeleton />
       ) : error ? (
         <div className="admin-not-configured" role="alert">
           <AlertTriangle size={22} />

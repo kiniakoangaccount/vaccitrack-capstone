@@ -53,14 +53,70 @@ import dynamic from "next/dynamic";
 import type { LeafletMapHandle } from "./LeafletMap";
 import type { VaccinationHistoryRow } from "./AnimalDetailPanel";
 import ConfirmDialog from "./ConfirmDialog";
+import SkeletonBlock from "./Skeleton";
 import WorkspaceLoadingScreen from "./WorkspaceLoadingScreen";
 
-const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
+function MapLoadingSkeleton() {
+  return (
+    <div className="leaflet-map-wrap map-loading-skeleton" role="status" aria-label="Loading map">
+      <div className="leaflet-map-toolbar" aria-hidden="true">
+        <SkeletonBlock className="map-loading-search" />
+        <SkeletonBlock className="map-loading-toggle" />
+        <SkeletonBlock className="map-loading-toggle map-loading-toggle-short" />
+      </div>
+      <SkeletonBlock className="map-loading-canvas" />
+    </div>
+  );
+}
+
+function AnimalDetailLoadingSkeleton() {
+  return (
+    <div className="modal-backdrop animal-detail-loading" role="status" aria-label="Loading animal details">
+      <section className="modal animal-detail-modal animal-detail-loading-card" aria-hidden="true">
+        <div className="animal-detail-loading-heading">
+          <SkeletonBlock className="animal-loading-avatar" />
+          <div>
+            <SkeletonBlock className="animal-loading-title" />
+            <SkeletonBlock className="animal-loading-subtitle" />
+          </div>
+        </div>
+        <div className="animal-vaccination-status">
+          <SkeletonBlock className="animal-loading-value" />
+          <SkeletonBlock className="animal-loading-value" />
+          <SkeletonBlock className="animal-loading-value" />
+        </div>
+        <div className="animal-detail-grid">
+          <div className="animal-detail-fields">
+            {Array.from({ length: 6 }, (_, index) => (
+              <div key={index} className="animal-loading-field">
+                <SkeletonBlock className="animal-loading-label" />
+                <SkeletonBlock className="animal-loading-field-value" />
+              </div>
+            ))}
+          </div>
+          <div>
+            <SkeletonBlock className="animal-loading-history-title" />
+            <SkeletonBlock className="animal-loading-history-row" />
+            <SkeletonBlock className="animal-loading-history-row animal-loading-history-row-short" />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false, loading: MapLoadingSkeleton });
 const AuditPanel = dynamic(() => import("./vaccitrack_super_hidden_admin/dashboard/AuditPanel"), {
-  loading: () => <div className="deferred-panel-status" role="status">Loading audit log...</div>,
+  loading: () => (
+    <div className="deferred-panel-status audit-deferred-skeleton" role="status" aria-label="Loading audit log">
+      <SkeletonBlock className="audit-deferred-title" />
+      <SkeletonBlock className="audit-deferred-line" />
+      <SkeletonBlock className="audit-deferred-line audit-deferred-line-short" />
+    </div>
+  ),
 });
 const AnimalDetailPanel = dynamic(() => import("./AnimalDetailPanel"), {
-  loading: () => <div className="deferred-panel-status animal-detail-loading" role="status">Loading animal details...</div>,
+  loading: AnimalDetailLoadingSkeleton,
 });
 
 const POUND_STATUSES: PoundStatus[] = ["Under Observation", "Up for Adoption", "Reclaimed"];

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { fetchAuditLogPage } from "../../audit-actions";
 import { ChevronLeft, ChevronRight, Filter, ScanLine } from "lucide-react";
+import SkeletonBlock from "../../Skeleton";
 
 interface AuditRow {
   id: number;
@@ -106,6 +107,34 @@ export function AuditEmpty({ message }: { message?: string }) {
   );
 }
 
+function AuditTableSkeleton() {
+  return (
+    <div className="admin-table-wrap audit-table-skeleton" role="status" aria-label="Loading audit log">
+      <table className="admin-table" aria-hidden="true">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Action</th>
+            <th>Table</th>
+            <th>Record</th>
+            <th>User</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 6 }, (_, row) => (
+            <tr key={row}>
+              {Array.from({ length: 6 }, (_, column) => (
+                <td key={column}><SkeletonBlock className={`audit-skeleton-cell audit-skeleton-cell-${column}`} /></td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function AuditPanel() {
   const [page, setPage] = useState(1);
   const limit = 20;
@@ -145,7 +174,7 @@ export default function AuditPanel() {
       <AuditFilters filters={filters} onChange={setFilters} />
 
       {loading ? (
-        <div className="admin-empty"><div className="admin-spinner" /><span>Loading audit log…</span></div>
+        <AuditTableSkeleton />
       ) : rows.length === 0 ? (
         <AuditEmpty />
       ) : (

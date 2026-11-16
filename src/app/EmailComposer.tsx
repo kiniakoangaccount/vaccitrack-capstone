@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Mail, Send, Users } from "lucide-react";
 import { getEmailRecipientOptions, previewEmailRecipients, sendCustomEmail } from "./email-actions";
+import SkeletonBlock from "./Skeleton";
 
 type EmailAudience =
   | { mode: "individual"; recipientId: string }
@@ -142,20 +143,26 @@ export function EmailComposer() {
         {mode === "individual" ? (
           <label>
             Client
-            <select
-              value={recipientId}
-              onChange={(event) => {
-                setRecipientId(event.target.value);
-                setPreview(null);
-                setStatus(null);
-              }}
-              disabled={busy || loadingRecipients || recipients.length === 0}
-            >
-              {recipients.length === 0 && <option value="">No active clients with a valid email</option>}
-              {recipients.map((recipient) => (
-                <option key={recipient.id} value={recipient.id}>{recipient.label}</option>
-              ))}
-            </select>
+            {loadingRecipients ? (
+              <span className="sms-recipient-skeleton" role="status" aria-label="Loading email recipients">
+                <SkeletonBlock className="sms-recipient-skeleton-select" />
+              </span>
+            ) : (
+              <select
+                value={recipientId}
+                onChange={(event) => {
+                  setRecipientId(event.target.value);
+                  setPreview(null);
+                  setStatus(null);
+                }}
+                disabled={busy || recipients.length === 0}
+              >
+                {recipients.length === 0 && <option value="">No active clients with a valid email</option>}
+                {recipients.map((recipient) => (
+                  <option key={recipient.id} value={recipient.id}>{recipient.label}</option>
+                ))}
+              </select>
+            )}
           </label>
         ) : (
           <div className="sms-audience-note">
@@ -200,7 +207,6 @@ export function EmailComposer() {
       </div>
 
       {loadError && <p className="form-error">{loadError}</p>}
-      {loadingRecipients && <p className="sms-inline-status"><Loader2 size={15} className="admin-spin" /> Loading recipients...</p>}
 
       {preview && (
         <section className="sms-review" aria-live="polite">

@@ -1,6 +1,7 @@
 "use client";
 
 import { PawPrint } from "lucide-react";
+import SkeletonBlock from "./Skeleton";
 
 export default function WorkspaceLoadingScreen({
   title = "Preparing your workspace",
@@ -19,6 +20,25 @@ export default function WorkspaceLoadingScreen({
         <div className="workspace-loading-message" role="status" aria-live="polite">
           <h1 id="workspace-loading-title">{title}</h1>
           <p>{description}</p>
+        </div>
+        <div className="workspace-loading-skeleton" aria-hidden="true">
+          <div className="workspace-loading-skeleton-heading">
+            <SkeletonBlock className="workspace-loading-skeleton-title" />
+            <SkeletonBlock className="workspace-loading-skeleton-control" />
+          </div>
+          <div className="workspace-loading-skeleton-stats">
+            <SkeletonBlock className="workspace-loading-skeleton-stat" />
+            <SkeletonBlock className="workspace-loading-skeleton-stat" />
+            <SkeletonBlock className="workspace-loading-skeleton-stat" />
+          </div>
+          <div className="workspace-loading-skeleton-row">
+            <SkeletonBlock className="workspace-loading-skeleton-line" />
+            <SkeletonBlock className="workspace-loading-skeleton-line workspace-loading-skeleton-line-short" />
+          </div>
+          <div className="workspace-loading-skeleton-row">
+            <SkeletonBlock className="workspace-loading-skeleton-line" />
+            <SkeletonBlock className="workspace-loading-skeleton-line workspace-loading-skeleton-line-short" />
+          </div>
         </div>
         <div className="workspace-loading-track" aria-hidden="true"><span /></div>
       </section>
