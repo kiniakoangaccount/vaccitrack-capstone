@@ -6,6 +6,7 @@ import { Cat, CheckCircle2, Dog, Edit2, MapPin, Plus, Save, Syringe, Trash2, X }
 import { addVaccinationRecord } from "./vaccination-actions";
 import { deleteAnimalRecord, updateAnimalRecord, type AnimalEditFields } from "./animal-actions";
 import { todayLocalIso } from "@/lib/dates";
+import { capitalizeFirstLetter } from "@/lib/animal-names";
 import ConfirmDialog from "./ConfirmDialog";
 
 export interface AnimalDetail {
@@ -138,11 +139,12 @@ export default function AnimalDetailPanel({
     setEditError("");
     if (!editFields.name.trim()) { setEditError("Animal name is required."); return; }
     if (!editFields.ownerName.trim()) { setEditError("Civilian / owner name is required."); return; }
+    const updatedFields = { ...editFields, name: capitalizeFirstLetter(editFields.name.trim()) };
     setIsEditSaving(true);
-    const { error: err } = await updateAnimalRecord(Number(animal.id), editFields);
+    const { error: err } = await updateAnimalRecord(Number(animal.id), updatedFields);
     setIsEditSaving(false);
     if (err) { setEditError(err); return; }
-    onUpdated(editFields);
+    onUpdated(updatedFields);
     setShowEditForm(false);
   }
 
@@ -212,7 +214,7 @@ export default function AnimalDetailPanel({
             {showEditForm ? (
               <div className="booster-form">
                 <label>Animal name
-                  <input value={editFields.name} onChange={(e) => setEditFields({ ...editFields, name: e.target.value })} />
+                  <input value={editFields.name} onChange={(e) => setEditFields({ ...editFields, name: capitalizeFirstLetter(e.target.value) })} />
                 </label>
                 <label>Breed
                   <input value={editFields.breed} onChange={(e) => setEditFields({ ...editFields, breed: e.target.value })} />

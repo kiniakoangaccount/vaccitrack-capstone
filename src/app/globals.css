@@ -17,6 +17,7 @@ html { scroll-behavior: smooth; }
 .modal-heading-actions { display: flex; gap: 6px; align-items: start; }
 .modal.animal-detail-modal { width: min(100%, 760px); }
 .modal.confirm-modal { width: min(100%, 400px); text-align: center; }
+.modal-backdrop.confirm-backdrop { z-index: 100; align-items: center; }
 .confirm-modal h2 { margin: 0; font-family: var(--font-display), sans-serif; font-size: 23px; }
 .confirm-icon { display: grid; place-items: center; width: 44px; height: 44px; margin: 0 auto 14px; color: var(--red); background: #fcedeb; border-radius: 50%; }
 .confirm-message { margin: 10px 0 0; color: var(--muted); font-size: 16px; line-height: 1.6; }

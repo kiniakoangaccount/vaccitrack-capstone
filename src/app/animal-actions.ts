@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
+import { capitalizeFirstLetter } from "@/lib/animal-names";
 
 async function requireStaffDb() {
   const db = createAdminClient();
@@ -64,7 +65,7 @@ export async function updateAnimalRecord(
   const ctx = await requireStaffDb();
   if ("error" in ctx) return { error: ctx.error };
 
-  const name = fields.name.trim();
+  const name = capitalizeFirstLetter(fields.name.trim());
   const ownerName = fields.ownerName.trim();
   if (!name) return { error: "Animal name is required." };
   if (!ownerName) return { error: "Civilian / owner name is required." };
