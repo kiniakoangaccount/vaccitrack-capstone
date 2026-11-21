@@ -3,11 +3,10 @@ import { createAdminClient } from "@/lib/supabase-admin";
 type AdminDb = NonNullable<ReturnType<typeof createAdminClient>>;
 
 export type MessageHistoryDraft = {
-  channel: "email" | "sms";
+  channel: "sms";
   message_type: "custom" | "test";
   recipient_name: string | null;
   recipient_address: string;
-  subject: string | null;
   sent_by: string;
 };
 

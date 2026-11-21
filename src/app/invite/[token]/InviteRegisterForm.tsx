@@ -7,7 +7,7 @@ import ProfilePhotoInput from "../../ProfilePhotoInput";
 import { registerViaInvite } from "../../invite-register-action";
 
 export default function InviteRegisterForm({ token, role, roleLabel }: { token: string; role: string; roleLabel: string }) {
-  const [form, setForm] = useState({ username: "", fullName: "", email: "", contact: "", password: "" });
+  const [form, setForm] = useState({ username: "", fullName: "", contact: "", password: "" });
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -30,7 +30,6 @@ export default function InviteRegisterForm({ token, role, roleLabel }: { token: 
 
     const body = new FormData();
     body.set("token", token);
-    body.set("email", form.email);
     body.set("password", form.password);
     body.set("fullName", form.fullName);
     body.set("username", form.username);
@@ -79,9 +78,6 @@ export default function InviteRegisterForm({ token, role, roleLabel }: { token: 
           </label>
           <label>Full name
             <input required maxLength={120} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
-          </label>
-          <label>Email (optional)
-            <input type="email" autoComplete="email" placeholder="you@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </label>
           <label>Contact number
             <input required inputMode="numeric" pattern="09[0-9]{9}" placeholder="09171234567" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value.replace(/\D/g, "").slice(0, 11) })} />

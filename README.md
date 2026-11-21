@@ -28,9 +28,13 @@ Open http://localhost:3000.
 
 ## Automatic SMS vaccination reminders
 
-The Vercel cron job at `/api/cron/vaccination-alerts` runs daily and sends reminders for vaccinated animals due in 7 days, due tomorrow, and overdue. Users manage their language and channel preferences from **Profile and security**; the super-admin can also manage them from **User accounts**. English is the default language; SMS and email reminders are enabled by default. SMS is sent through Semaphore and email through Gmail SMTP when the account has a valid destination. Failed or stale in-progress deliveries are retried on later runs, and scheduled deliveries are queued before sending so unfinished work can resume.
+The Vercel cron job at `/api/cron/vaccination-alerts` runs daily and sends SMS reminders for vaccinated animals due in 7 days, due tomorrow, and overdue. Users manage their language and SMS preferences from **Profile and security**; the super-admin can also manage them from **User accounts**. English is the default language. Failed or stale in-progress deliveries are retried on later runs, and scheduled deliveries are queued before sending so unfinished work can resume.
 
-Run the current `supabase/schema.sql` before deploying these changes. It adds profile preferences and a reminder type to delivery records while preserving existing deduplication history. Each attempted delivery records its recipient, message, attempt count, status, and provider error/message ID in `vaccination_alerts`; keep database access restricted.
+Run the current `supabase/schema.sql` before deploying these changes. It adds profile preferences, animal photo storage, and a reminder type to delivery records while preserving existing deduplication history. Each attempted SMS records its recipient, message, attempt count, status, and provider error/message ID in `vaccination_alerts`; keep database access restricted. Pet photos are stored in the private `animal-images` bucket and shown in each animal's profile to help owners and BHW identify the pet.
+
+## Reports
+
+The staff Reports workspace separates animal registry, vaccination, map coverage, and stray/pound reports. Use **All reports** to review them together. In **Reports to export**, choose any combination of report types (or select all), then choose PDF, Word, or Excel-compatible format to export them together. PDF uses the browser print dialog; Word and Excel exports use `.doc` and `.xls` files.
 
 Configure these server-side environment variables in Vercel:
 
@@ -39,35 +43,20 @@ CRON_SECRET=long-random-secret
 SEMAPHORE_API_KEY=your-semaphore-api-key
 # Optional — must be a sender name registered with Semaphore.
 SEMAPHORE_SENDER_NAME=your-registered-sender-name
-GMAIL_USER=your-gmail-address@gmail.com
-GMAIL_APP_PASSWORD=your-google-app-password
-# Optional — defaults to both "sms,email"; use "none" to pause automatic sends.
-REMINDER_CHANNELS=sms,email
+# Optional — defaults to SMS; use "none" to pause automatic sends.
+REMINDER_CHANNELS=sms
 # Optional localization for the barangay and clinic name in reminder messages.
 BARANGAY_NAME=Barangay Estefania
 CLINIC_INFO=the barangay health station
 ```
 
-Set the optional sender name only if it is registered with Semaphore; otherwise, Semaphore uses the account default. `SMS_API_URL` may override the Semaphore endpoint and must use HTTPS. Use a Google App Password for Gmail SMTP. Keep these values server-side and never use `NEXT_PUBLIC_*` variables for SMS or email credentials. The scheduled job runs at 16:00 UTC, which is midnight in the Philippines. The endpoint processes a bounded number of deliveries concurrently and reports SMS encoding and segment counts.
+Set the optional sender name only if it is registered with Semaphore; otherwise, Semaphore uses the account default. `SMS_API_URL` may override the Semaphore endpoint and must use HTTPS. Keep these values server-side and never use `NEXT_PUBLIC_*` variables for SMS credentials. The scheduled job runs at 16:00 UTC, which is midnight in the Philippines. The endpoint processes a bounded number of deliveries concurrently and reports SMS encoding and segment counts.
 
-Test targeting and message generation without sending or writing delivery/notification records by calling `/api/cron/vaccination-alerts?dryRun=1` with the same `Authorization: Bearer <CRON_SECRET>` header used by the scheduled job. The response includes recipient previews, language, SMS encoding/segments, and per-channel summaries; protect the cron secret because the preview includes contact information.
+Test targeting and message generation without sending or writing delivery/notification records by calling `/api/cron/vaccination-alerts?dryRun=1` with the same `Authorization: Bearer <CRON_SECRET>` header used by the scheduled job. The response includes recipient previews, language, SMS encoding/segments, and an SMS summary; protect the cron secret because the preview includes contact information.
 
 Admins and BHWs can also use **SMS messaging** in the workspace, and the super-admin dashboard has the same feature. It sends a custom message to one active client or to active clients with vaccinated animals due in exactly 7 days. The recipient preview must be confirmed before sending. This manual message is separate from the scheduled reminder.
 
-The super-admin SMS page also has separate **Test SMS** and **Test Email** forms for sending test messages to a phone number or email address you control. The message is prefilled with a sample and can be edited; confirm before sending.
-
-## Staff email messaging
-
-Admins and BHWs can send a custom email from **Email messaging** to one active client or active clients with vaccinated animals due in exactly 7 days. A recipient preview must be confirmed before sending. Emails are sent individually through Gmail SMTP, and a batch is limited to 100 recipients.
-
-Run the current `supabase/schema.sql` and configure these server-side environment variables in Vercel or `.env.local`. The same Gmail credentials are used for automatic reminders and manual email messaging:
-
-```text
-GMAIL_USER=your-gmail-address@gmail.com
-GMAIL_APP_PASSWORD=your-google-app-password
-```
-
-Use a Google App Password (with 2-Step Verification enabled), not your normal Gmail password. Keep both values server-side and never use `NEXT_PUBLIC_*` variables for SMTP credentials. Only clients with a valid, non-placeholder email address on their account can receive messages.
+The super-admin SMS page also has a **Test SMS** form for sending a sample message to a phone number you control. The message can be edited; confirm before sending.
 
 ## Publish With Supabase and Vercel
 
@@ -79,10 +68,8 @@ Use a Google App Password (with 2-Step Verification enabled), not your normal Gm
 4. In **SQL Editor**, create the matching staff profile, replacing the values:
 
 ```sql
-insert into public.profiles (id, full_name, role)
-select id, 'Maria Cruz', 'admin'
-from auth.users
-where email = 'admin@example.com';
+insert into public.profiles (id, full_name, role, username)
+values ('<auth-user-uuid>', 'Maria Cruz', 'admin', 'maria.cruz');
 ```
 
 5. In **Authentication > URL Configuration**, add the local URL and the final Vercel URL to the allowed redirect URLs:

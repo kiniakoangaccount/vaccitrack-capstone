@@ -22,8 +22,6 @@ const actionLabels: Record<string, string> = {
   "DELETE": "Delete",
   "SMS_SENT": "SMS sent",
   "SMS_ATTEMPT": "SMS attempt",
-  "EMAIL_SENT": "Email sent",
-  "EMAIL_ATTEMPT": "Email attempt",
 };
 
 const actionStyles: Record<string, string> = {
@@ -32,8 +30,6 @@ const actionStyles: Record<string, string> = {
   "DELETE": "audit-delete",
   "SMS_SENT": "audit-sms",
   "SMS_ATTEMPT": "audit-sms",
-  "EMAIL_SENT": "audit-sms",
-  "EMAIL_ATTEMPT": "audit-sms",
 };
 
 type AuditFilterState = { action: string; tableName: string; userId: string; startDate: string; endDate: string };
@@ -50,8 +46,6 @@ export function AuditFilters({ filters, onChange }: { filters: AuditFilterState;
             <option value="DELETE">Delete</option>
             <option value="SMS_SENT">SMS sent</option>
             <option value="SMS_ATTEMPT">SMS attempt</option>
-            <option value="EMAIL_SENT">Email sent</option>
-            <option value="EMAIL_ATTEMPT">Email attempt</option>
           </select>
         </label>
       </div>
@@ -67,7 +61,6 @@ export function AuditFilters({ filters, onChange }: { filters: AuditFilterState;
             <option value="vaccines">vaccines</option>
             <option value="feedback">feedback</option>
             <option value="sms">sms</option>
-            <option value="email">email</option>
           </select>
         </label>
       </div>

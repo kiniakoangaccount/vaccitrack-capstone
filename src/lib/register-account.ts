@@ -11,7 +11,6 @@ export async function createAccountFromForm(
   const db = createAdminClient();
   if (!db) return { error: "Registration is not available yet — the system is not connected to Supabase." };
 
-  const email = (formData.get("email") as string | null)?.trim() ?? "";
   const password = (formData.get("password") as string | null) ?? "";
   const fullName = (formData.get("fullName") as string | null)?.trim() ?? "";
   const username = (formData.get("username") as string | null)?.trim() ?? "";
@@ -26,21 +25,17 @@ export async function createAccountFromForm(
   }
   if (!fullName) return { error: "Full name is required." };
   if (password.length < 8) return { error: "Password must be at least 8 characters long." };
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email address, or leave it blank." };
   if (!(profilePhoto instanceof File) || profilePhoto.size === 0) return { error: "Choose a photo of yourself or use your camera." };
   if (!profilePhoto.type.startsWith("image/")) return { error: "The uploaded photo must be an image file." };
   if (profilePhoto.size > MAX_PROFILE_PHOTO_BYTES) return { error: "The photo must be smaller than 5MB. Choose a smaller image and try again." };
 
-  // Usernames are also used to sign in, so they must be unique. The profiles
-  // table only enforces this via a unique index, not the auth.users insert's
-  // `on conflict (id)`, so an unchecked collision here surfaces later as a
-  // misleading "email already exists" error (the resulting Postgres
-  // unique-violation message also matches that check below).
+  // Usernames are also used to sign in, so check the profiles unique index
+  // before Auth reports a duplicate synthetic identity.
   const { data: existingUsername } = await db.from("profiles").select("id").eq("username", username).maybeSingle();
   if (existingUsername) return { error: "That username is already taken. Please choose another." };
 
   const { data, error } = await db.auth.admin.createUser({
-    email: email || placeholderEmailFor(username),
+    email: placeholderEmailFor(username),
     password,
     email_confirm: true,
     user_metadata: { full_name: fullName, username, contact_number: contact },
@@ -50,7 +45,7 @@ export async function createAccountFromForm(
     if (error.message.toLowerCase().includes("already registered") ||
         error.message.toLowerCase().includes("already been registered") ||
         error.message.toLowerCase().includes("unique")) {
-      return { error: "An account with that email already exists." };
+      return { error: "That username is already taken. Please choose another." };
     }
     return { error: error.message };
   }

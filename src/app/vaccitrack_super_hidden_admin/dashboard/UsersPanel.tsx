@@ -14,7 +14,6 @@ interface Profile {
   contact_number: string | null;
   preferred_language: "en" | "tl" | "hil";
   notify_sms: boolean;
-  notify_email: boolean;
   created_at: string;
 }
 
@@ -46,7 +45,6 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
   const [editStatus, setEditStatus] = useState("");
   const [editLanguage, setEditLanguage] = useState<"en" | "tl" | "hil">("en");
   const [editNotifySms, setEditNotifySms] = useState(true);
-  const [editNotifyEmail, setEditNotifyEmail] = useState(true);
   const [confirmSaveEdit, setConfirmSaveEdit] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -98,7 +96,6 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
     setEditStatus(p.status);
     setEditLanguage(p.preferred_language ?? "en");
     setEditNotifySms(p.notify_sms ?? true);
-    setEditNotifyEmail(p.notify_email ?? true);
     setErrorMsg("");
   }
 
@@ -123,11 +120,9 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
         () => editStatus !== editTarget.status ? updateUserStatus(editTarget.id, editStatus) : Promise.resolve({}),
         () => editLanguage !== editTarget.preferred_language
           || editNotifySms !== editTarget.notify_sms
-          || editNotifyEmail !== editTarget.notify_email
           ? updateUserReminderPreferences(editTarget.id, {
             preferredLanguage: editLanguage,
             notifySms: editNotifySms,
-            notifyEmail: editNotifyEmail,
           })
           : Promise.resolve({}),
       ];
@@ -232,10 +227,6 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
               <label className="admin-form-label admin-check-label">
                 Automatic SMS reminders
                 <input type="checkbox" checked={editNotifySms} onChange={(e) => setEditNotifySms(e.target.checked)} />
-              </label>
-              <label className="admin-form-label admin-check-label">
-                Automatic email reminders
-                <input type="checkbox" checked={editNotifyEmail} onChange={(e) => setEditNotifyEmail(e.target.checked)} />
               </label>
               {errorMsg && <p className="admin-form-error">{errorMsg}</p>}
             </div>

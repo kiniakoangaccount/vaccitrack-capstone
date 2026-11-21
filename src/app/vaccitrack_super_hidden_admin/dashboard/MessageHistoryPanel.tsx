@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, ChevronLeft, ChevronRight, Mail, MessageSquare, RefreshCw } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, MessageSquare, RefreshCw } from "lucide-react";
 import { fetchSentMessagePage, type SentMessageRow } from "../../message-history-actions";
 import SkeletonBlock from "../../Skeleton";
 
@@ -29,7 +29,6 @@ function MessageHistorySkeleton() {
             <th>Channel</th>
             <th>Type</th>
             <th>Recipient</th>
-            <th>Subject</th>
             <th>Status</th>
             <th>Sent by</th>
           </tr>
@@ -44,7 +43,6 @@ function MessageHistorySkeleton() {
                 <SkeletonBlock className="message-skeleton-recipient" />
                 <SkeletonBlock className="message-skeleton-address" />
               </td>
-              <td><SkeletonBlock className="message-skeleton-subject" /></td>
               <td><SkeletonBlock className="message-skeleton-status" /></td>
               <td><SkeletonBlock className="message-skeleton-sender" /></td>
             </tr>
@@ -117,7 +115,7 @@ export default function MessageHistoryPanel() {
         </div>
       ) : rows.length === 0 ? (
         <div className="admin-empty-state">
-          <Mail size={24} />
+          <MessageSquare size={24} />
           <strong>No sent messages yet</strong>
           <p>Custom sends and test messages will appear here.</p>
         </div>
@@ -131,7 +129,6 @@ export default function MessageHistoryPanel() {
                   <th>Channel</th>
                   <th>Type</th>
                   <th>Recipient</th>
-                  <th>Subject</th>
                   <th>Status</th>
                   <th>Sent by</th>
                 </tr>
@@ -148,8 +145,8 @@ export default function MessageHistoryPanel() {
                     })}</td>
                     <td>
                       <span className="message-history-channel">
-                        {row.channel === "email" ? <Mail size={14} /> : <MessageSquare size={14} />}
-                        {row.channel === "email" ? "Email" : "SMS"}
+                        <MessageSquare size={14} />
+                        SMS
                       </span>
                     </td>
                     <td>{row.message_type === "test" ? "Test" : "Custom"}</td>
@@ -157,7 +154,6 @@ export default function MessageHistoryPanel() {
                       {row.recipient_name && <strong>{row.recipient_name}</strong>}
                       <span>{row.recipient_address}</span>
                     </td>
-                    <td>{row.subject ?? "-"}</td>
                     <td><span className={messageStatusClass(row.status)}>{messageStatusLabel(row.status)}</span></td>
                     <td>{row.sent_by}</td>
                   </tr>

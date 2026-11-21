@@ -115,7 +115,7 @@ export async function updateUserStatus(userId: string, status: string): Promise<
 
 export async function updateUserReminderPreferences(
   userId: string,
-  preferences: { preferredLanguage: "en" | "tl" | "hil"; notifySms: boolean; notifyEmail: boolean }
+  preferences: { preferredLanguage: "en" | "tl" | "hil"; notifySms: boolean }
 ): Promise<{ error?: string }> {
   try {
     const db = await requireAdmin();
@@ -123,15 +123,13 @@ export async function updateUserReminderPreferences(
       return { error: "Invalid user account." };
     }
     if (!["en", "tl", "hil"].includes(preferences.preferredLanguage)
-      || typeof preferences.notifySms !== "boolean"
-      || typeof preferences.notifyEmail !== "boolean") {
+      || typeof preferences.notifySms !== "boolean") {
       return { error: "Invalid reminder preferences." };
     }
 
     const { error } = await db.from("profiles").update({
       preferred_language: preferences.preferredLanguage,
       notify_sms: preferences.notifySms,
-      notify_email: preferences.notifyEmail,
     }).eq("id", userId);
     if (error) return { error: error.message };
     revalidatePath(DASH);

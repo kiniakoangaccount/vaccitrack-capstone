@@ -8,11 +8,10 @@ const MAX_PAGE = 1_000_000;
 
 export type SentMessageRow = {
   id: number;
-  channel: "email" | "sms";
+  channel: "sms";
   message_type: "custom" | "test";
   recipient_name: string | null;
   recipient_address: string;
-  subject: string | null;
   status: "sending" | "sent" | "failed";
   sent_by: string;
   created_at: string;
@@ -36,7 +35,8 @@ export async function fetchSentMessagePage(pageInput: number): Promise<{
   const from = (page - 1) * PAGE_SIZE;
   const { data, count, error } = await db
     .from("message_history")
-    .select("id, channel, message_type, recipient_name, recipient_address, subject, status, sent_by, created_at, sent_at", { count: "exact" })
+    .select("id, channel, message_type, recipient_name, recipient_address, status, sent_by, created_at, sent_at", { count: "exact" })
+    .eq("channel", "sms")
     .order("created_at", { ascending: false })
     .range(from, from + PAGE_SIZE - 1);
 

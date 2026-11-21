@@ -51,7 +51,7 @@ export async function adminLogin(formData: FormData): Promise<{ error: string } 
     adminUsername && adminPassword && process.env.ADMIN_SESSION_SECRET &&
     username === adminUsername && password === adminPassword
   );
-  await db?.from("login_attempts").insert({ email: username, ip_address: ip, success: ok });
+  await db?.from("login_attempts").insert({ username, ip_address: ip, success: ok });
 
   if (!ok) {
     return { error: "Invalid username or password." };

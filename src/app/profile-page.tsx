@@ -5,11 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
-import { updateProfile, updateNotificationPreferences, getAccountChannels, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp, type ReminderLanguage } from "./profile-actions";
+import { updateProfile, updateNotificationPreferences, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp, type ReminderLanguage } from "./profile-actions";
 import { ShieldCheck, Bell, EyeOff, User, Key, CheckCircle2, AlertCircle, Menu, X, ArrowLeft } from "lucide-react";
 import WorkspaceLoadingScreen from "./WorkspaceLoadingScreen";
-
-type Channel = "email" | "sms";
 
 function initials(fullName: string) {
   return fullName.trim().split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "VT";
@@ -23,22 +21,18 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [profile, setProfile] = useState({ fullName: "", email: "", contact: "", username: "" });
-  const [channels, setChannels] = useState({ hasEmail: false, hasSms: false });
+  const [profile, setProfile] = useState({ fullName: "", contact: "", username: "" });
   const [reminderPreferences, setReminderPreferences] = useState({
     preferredLanguage: "en" as ReminderLanguage,
     notifySms: true,
-    notifyEmail: true,
   });
   const [preferencesSaving, setPreferencesSaving] = useState(false);
 
-  const [usernameChannel, setUsernameChannel] = useState<Channel>("sms");
   const [usernameCodeSent, setUsernameCodeSent] = useState(false);
   const [usernameCode, setUsernameCode] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [usernameBusy, setUsernameBusy] = useState(false);
 
-  const [passwordChannel, setPasswordChannel] = useState<Channel>("sms");
   const [passwordCodeSent, setPasswordCodeSent] = useState(false);
   const [passwordCode, setPasswordCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -51,32 +45,25 @@ export default function ProfilePage() {
       const user = result.data.user;
       if (!user) { router.replace("/signin"); return; }
       const { data, error: profileError } = await supabase.from("profiles")
-        .select("full_name, contact_number, username, preferred_language, notify_sms, notify_email")
+        .select("full_name, contact_number, username, preferred_language, notify_sms")
         .eq("id", user.id)
         .maybeSingle();
       if (profileError) setError(`Could not load your profile: ${profileError.message}`);
-      setProfile({ fullName: data?.full_name ?? "", email: user.email ?? "", contact: data?.contact_number ?? "", username: data?.username ?? "" });
+      setProfile({ fullName: data?.full_name ?? "", contact: data?.contact_number ?? "", username: data?.username ?? "" });
       setReminderPreferences({
         preferredLanguage: data?.preferred_language === "tl" || data?.preferred_language === "hil" ? data.preferred_language : "en",
         notifySms: data?.notify_sms ?? true,
-        notifyEmail: data?.notify_email ?? true,
       });
       setCheckingAuth(false);
     });
-    void getAccountChannels().then((result) => {
-      setChannels({ hasEmail: result.hasEmail, hasSms: result.hasSms });
-      const defaultChannel: Channel = result.hasSms ? "sms" : "email";
-      setUsernameChannel(defaultChannel);
-      setPasswordChannel(defaultChannel);
-    });
   }, [supabase, router]);
 
-  async function sendCode(purpose: "username_change" | "password_change", channel: Channel) {
+  async function sendCode(purpose: "username_change" | "password_change") {
     setError("");
     setSuccess("");
-    const result = await requestAccountOtp(purpose, channel);
+    const result = await requestAccountOtp(purpose);
     if (result.error) { setError(result.error); return false; }
-    setSuccess(`A verification code was sent via ${channel === "email" ? "email" : "SMS"}.`);
+    setSuccess("A verification code was sent via SMS.");
     return true;
   }
 
@@ -119,14 +106,13 @@ export default function ProfilePage() {
               <h2>Personal information</h2>
               <p className="heading-sub">This information is visible to barangay staff when they contact you about your animals.</p>
 
-              <form className="account-form" key={profile.email || "profile"} onSubmit={async (e) => {
+              <form className="account-form" onSubmit={async (e) => {
                 e.preventDefault();
                 setError("");
                 setSuccess("");
                 setSaving(true);
                 const result = await updateProfile({
                   fullName: (e.currentTarget as HTMLFormElement).fullName.value.trim(),
-                  email: (e.currentTarget as HTMLFormElement).email.value.trim(),
                   contact: (e.currentTarget as HTMLFormElement).contact.value.trim(),
                 });
                 setSaving(false);
@@ -135,9 +121,6 @@ export default function ProfilePage() {
               }}>
                 <label>Full name
                   <input className="account-input" name="fullName" defaultValue={profile.fullName} required />
-                </label>
-                <label>Email address {!channels.hasEmail && "(none on file)"}
-                  <input className="account-input" type="email" name="email" placeholder="you@example.com" defaultValue={channels.hasEmail ? profile.email : ""} />
                 </label>
                 <label>Contact number
                   <input className="account-input" name="contact" defaultValue={profile.contact} inputMode="numeric" pattern="[0-9+]{7,15}" required />
@@ -183,15 +166,7 @@ export default function ProfilePage() {
                   />
                   <span>Receive automatic SMS reminders</span>
                 </label>
-                <label className="account-check-row">
-                  <input
-                    type="checkbox"
-                    checked={reminderPreferences.notifyEmail}
-                    onChange={(e) => setReminderPreferences((current) => ({ ...current, notifyEmail: e.target.checked }))}
-                  />
-                  <span>Receive automatic email reminders</span>
-                </label>
-                <p className="account-help">Email reminders require a valid email address on your account. SMS reminders require a valid mobile number.</p>
+                <p className="account-help">SMS reminders require a valid mobile number.</p>
                 <div className="account-actions">
                   <button className="primary-button" type="submit" disabled={preferencesSaving}>
                     <Bell size={15} /> Save reminder preferences
@@ -203,7 +178,7 @@ export default function ProfilePage() {
             <section className="account-section">
               <p className="eyebrow">SECURITY</p>
               <h2>Change username</h2>
-              <p className="heading-sub">Current username: <strong>@{profile.username || "none set"}</strong>. Verify with a code sent to your email or phone.</p>
+              <p className="heading-sub">Current username: <strong>@{profile.username || "none set"}</strong>. Verify with a code sent to your phone.</p>
 
               <form className="account-form" onSubmit={async (e) => {
                 e.preventDefault();
@@ -211,7 +186,7 @@ export default function ProfilePage() {
                 setSuccess("");
                 if (!newUsername.trim()) { setError("Enter a new username."); return; }
                 setUsernameBusy(true);
-                const result = await changeUsernameWithOtp(newUsername.trim(), usernameChannel, usernameCode.trim());
+                const result = await changeUsernameWithOtp(newUsername.trim(), usernameCode.trim());
                 setUsernameBusy(false);
                 if (result.error) { setError(result.error); return; }
                 setSuccess("Your username was updated.");
@@ -223,14 +198,13 @@ export default function ProfilePage() {
                 <label>New username
                   <input className="account-input" minLength={3} maxLength={80} value={newUsername} onChange={(e) => setNewUsername(e.target.value)} required placeholder="new_username" />
                 </label>
-                <ChannelPicker channels={channels} value={usernameChannel} onChange={setUsernameChannel} disabled={usernameCodeSent} />
                 {!usernameCodeSent ? (
                   <div className="account-actions">
                     <button
                       className="secondary-button"
                       type="button"
-                      disabled={usernameBusy || (usernameChannel === "email" ? !channels.hasEmail : !channels.hasSms)}
-                      onClick={async () => { setUsernameBusy(true); const ok = await sendCode("username_change", usernameChannel); setUsernameBusy(false); if (ok) setUsernameCodeSent(true); }}
+                      disabled={usernameBusy}
+                      onClick={async () => { setUsernameBusy(true); const ok = await sendCode("username_change"); setUsernameBusy(false); if (ok) setUsernameCodeSent(true); }}
                     >
                       Send verification code
                     </button>
@@ -242,7 +216,7 @@ export default function ProfilePage() {
                     </label>
                     <div className="account-actions">
                       <button className="primary-button" type="submit" disabled={usernameBusy || usernameCode.length !== 6}><Key size={15} /> Confirm change</button>
-                      <button className="secondary-button" type="button" disabled={usernameBusy} onClick={() => sendCode("username_change", usernameChannel)}>Resend code</button>
+                      <button className="secondary-button" type="button" disabled={usernameBusy} onClick={() => sendCode("username_change")}>Resend code</button>
                     </div>
                   </>
                 )}
@@ -252,7 +226,7 @@ export default function ProfilePage() {
             <section className="account-section">
               <p className="eyebrow">SECURITY</p>
               <h2>Change password</h2>
-              <p className="heading-sub">Verify with a code sent to your email or phone — no need to remember your current password.</p>
+              <p className="heading-sub">Verify with a code sent to your phone — no need to remember your current password.</p>
 
               <form className="account-form" onSubmit={async (e) => {
                 e.preventDefault();
@@ -261,7 +235,7 @@ export default function ProfilePage() {
                 if (newPassword !== confirmPassword) { setError("The new password does not match the confirmation."); return; }
                 if (newPassword.length < 8) { setError("Your new password must be at least 8 characters long."); return; }
                 setPasswordBusy(true);
-                const result = await changePasswordWithOtp(newPassword, passwordChannel, passwordCode.trim());
+                const result = await changePasswordWithOtp(newPassword, passwordCode.trim());
                 setPasswordBusy(false);
                 if (result.error) { setError(result.error); return; }
                 setSuccess("Your password was changed.");
@@ -270,14 +244,13 @@ export default function ProfilePage() {
                 setNewPassword("");
                 setConfirmPassword("");
               }}>
-                <ChannelPicker channels={channels} value={passwordChannel} onChange={setPasswordChannel} disabled={passwordCodeSent} />
                 {!passwordCodeSent ? (
                   <div className="account-actions">
                     <button
                       className="secondary-button"
                       type="button"
-                      disabled={passwordBusy || (passwordChannel === "email" ? !channels.hasEmail : !channels.hasSms)}
-                      onClick={async () => { setPasswordBusy(true); const ok = await sendCode("password_change", passwordChannel); setPasswordBusy(false); if (ok) setPasswordCodeSent(true); }}
+                      disabled={passwordBusy}
+                      onClick={async () => { setPasswordBusy(true); const ok = await sendCode("password_change"); setPasswordBusy(false); if (ok) setPasswordCodeSent(true); }}
                     >
                       Send verification code
                     </button>
@@ -295,7 +268,7 @@ export default function ProfilePage() {
                     </label>
                     <div className="account-actions">
                       <button className="primary-button" type="submit" disabled={passwordBusy || passwordCode.length !== 6 || !newPassword || !confirmPassword}><Key size={15} /> Update password</button>
-                      <button className="secondary-button" type="button" disabled={passwordBusy} onClick={() => sendCode("password_change", passwordChannel)}>Resend code</button>
+                      <button className="secondary-button" type="button" disabled={passwordBusy} onClick={() => sendCode("password_change")}>Resend code</button>
                     </div>
                   </>
                 )}
@@ -305,17 +278,5 @@ export default function ProfilePage() {
         </div>
       </section>
     </main>
-  );
-}
-
-function ChannelPicker({ channels, value, onChange, disabled }: { channels: { hasEmail: boolean; hasSms: boolean }; value: Channel; onChange: (c: Channel) => void; disabled: boolean }) {
-  return (
-    <label>Send code via
-      <select className="account-input" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value as Channel)}>
-        {channels.hasSms && <option value="sms">SMS</option>}
-        {channels.hasEmail && <option value="email">Email</option>}
-        {!channels.hasSms && !channels.hasEmail && <option value="sms">No verified contact on file</option>}
-      </select>
-    </label>
   );
 }

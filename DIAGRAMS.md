@@ -124,8 +124,10 @@ Every foreign key below is drawn from the table it actually references in
 `profiles` (`profiles.id` is itself just a 1:1 extension of `auth.users`).
 `breeds`, `vaccines`, and `login_attempts` are included as standalone tables:
 `animals.breed`/`vaccine_type` are free-text (no FK to `breeds`/`vaccines`),
-and `login_attempts` is keyed by the attempted email, not a user id — so none
-of the three have a relationship to draw.
+and `login_attempts` is keyed by the attempted username, not a user id — so
+none of the three have a relationship to draw. Supabase Auth retains its
+required internal email identity, generated from the username; the app does
+not collect or use it for communication.
 
 ```mermaid
 %%{init: {'themeVariables': {'fontSize': '17px'}}}%%
@@ -145,7 +147,7 @@ erDiagram
 
   AUTH_USERS {
     uuid id PK
-    text email
+    text email "internal auth identity"
   }
   PROFILES {
     uuid id PK
@@ -227,7 +229,7 @@ erDiagram
   }
   LOGIN_ATTEMPTS {
     bigint id PK
-    text email
+    text username
     text ip_address
     boolean success
   }

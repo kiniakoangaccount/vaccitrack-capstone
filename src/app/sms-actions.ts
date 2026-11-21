@@ -259,7 +259,6 @@ export async function sendCustomSms(
     message_type: "custom",
     recipient_name: target.name,
     recipient_address: target.phone,
-    subject: null,
     sent_by: access.sender,
   })));
   if ("error" in history) return { sent: 0, failed: 0, error: history.error };
@@ -330,7 +329,6 @@ export async function sendSuperAdminTestSms(
     message_type: "test",
     recipient_name: null,
     recipient_address: recipient,
-    subject: null,
     sent_by: access.username,
   }]);
   if ("error" in history) return { error: history.error };

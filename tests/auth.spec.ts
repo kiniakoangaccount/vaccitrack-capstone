@@ -16,7 +16,7 @@ test("landing page loads and offers sign in", async ({ page }) => {
 test("sign-in rejects bad credentials without crashing", async ({ page }) => {
   await page.goto("/signin");
   await expect(page.getByRole("heading", { name: "Sign in to VacciTrack" })).toBeVisible();
-  await page.getByLabel("Email or username").fill("nonexistent-test-user@example.com");
+  await page.getByLabel("Username").fill("no-such-user-xyz");
   await page.getByLabel("Password").fill("wrong-password-123");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.locator(".form-error")).toBeVisible();
@@ -26,9 +26,9 @@ test("forgot-password rejects an unknown identifier with a generic error", async
   await page.goto("/signin");
   await page.getByRole("button", { name: "Forgot password?" }).click();
   await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
-  await page.getByLabel("Email or username").fill("no-such-account-xyz@example.com");
+  await page.getByLabel("Username").fill("no-such-account-xyz");
   await page.getByRole("button", { name: "Send reset code" }).click();
-  await expect(page.locator(".form-error")).toHaveText("No account found with that email or username.");
+  await expect(page.locator(".form-error")).toHaveText("No account found with that username.");
 });
 
 test("/profile redirects to sign-in when signed out", async ({ page }) => {

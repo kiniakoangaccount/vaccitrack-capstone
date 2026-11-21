@@ -7,7 +7,7 @@ import ProfilePhotoInput from "../ProfilePhotoInput";
 import { registerUser } from "../register-action";
 
 export default function RegistrationForm() {
-  const [form, setForm] = useState({ username: "", fullName: "", email: "", contact: "", password: "" });
+  const [form, setForm] = useState({ username: "", fullName: "", contact: "", password: "" });
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
@@ -29,7 +29,6 @@ export default function RegistrationForm() {
     }
 
     const body = new FormData();
-    body.set("email", form.email);
     body.set("password", form.password);
     body.set("fullName", form.fullName);
     body.set("username", form.username);
@@ -78,9 +77,6 @@ export default function RegistrationForm() {
           </label>
           <label>Full name
             <input required maxLength={120} autoComplete="name" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} />
-          </label>
-          <label>Email (optional)
-            <input type="email" autoComplete="email" placeholder="you@example.com" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
           </label>
           <label>Contact number
             <input required inputMode="numeric" pattern="09[0-9]{9}" autoComplete="tel" placeholder="09171234567" value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} />

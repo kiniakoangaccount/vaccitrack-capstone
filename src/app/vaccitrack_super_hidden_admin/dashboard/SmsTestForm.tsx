@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, Send } from "lucide-react";
 import { sendSuperAdminTestSms } from "../../sms-actions";
 import AdminConfirmDialog from "./AdminConfirmDialog";
 
-const DEFAULT_TEST_MESSAGE = "This is a test email. If you read this, that means it succeed.";
+const DEFAULT_TEST_MESSAGE = "This is a test SMS. If you received it, message delivery is working.";
 
 type PendingTest = { recipient: string; message: string };
 type ResultMessage = { kind: "success" | "error"; text: string };

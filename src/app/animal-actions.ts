@@ -18,14 +18,31 @@ async function requireStaffDb() {
   return { db, userId: user.id } as const;
 }
 
-export async function deleteAnimalRecord(animalId: number): Promise<{ error?: string }> {
+export async function deleteAnimalRecord(animalId: number): Promise<{ error?: string; warning?: string }> {
   const ctx = await requireStaffDb();
   if ("error" in ctx) return { error: ctx.error };
 
+  const { data: animal, error: animalError } = await ctx.db
+    .from("animals")
+    .select("image_references")
+    .eq("id", animalId)
+    .maybeSingle();
+  if (animalError) return { error: animalError.message };
+  if (!animal) return { error: "Animal record not found." };
+
   const { error } = await ctx.db.from("animals").delete().eq("id", animalId);
   if (error) return { error: error.message };
+  const imagePaths = (animal.image_references ?? []) as string[];
+  let warning: string | undefined;
+  if (imagePaths.length > 0) {
+    const { error: imageError } = await ctx.db.storage.from("animal-images").remove(imagePaths);
+    if (imageError) {
+      console.error("Could not remove deleted animal photos:", imageError.message);
+      warning = "The record was deleted, but its photos could not be removed from storage.";
+    }
+  }
   await logAudit(ctx.db, { userId: ctx.userId, action: "DELETE", tableName: "animals", recordId: animalId, notes: "Animal record deleted." });
-  return {};
+  return { warning };
 }
 
 export interface AnimalEditFields {

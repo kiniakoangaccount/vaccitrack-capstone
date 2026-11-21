@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Cat, CheckCircle2, Dog, Edit2, MapPin, Plus, Save, Syringe, Trash2, X } from "lucide-react";
 import { addVaccinationRecord } from "./vaccination-actions";
 import { deleteAnimalRecord, updateAnimalRecord, type AnimalEditFields } from "./animal-actions";
@@ -29,6 +30,8 @@ export interface AnimalDetail {
   latitude?: number | null;
   longitude?: number | null;
   notes?: string;
+  imageUrls?: string[];
+  imageLoadError?: string;
 }
 
 export interface VaccinationHistoryRow {
@@ -48,7 +51,7 @@ interface AnimalDetailPanelProps {
   canManage: boolean;
   onClose: () => void;
   onRecordAdded: () => void;
-  onDeleted: () => void;
+  onDeleted: (warning?: string) => void;
   onUpdated: (fields: AnimalEditFields) => void;
 }
 
@@ -146,11 +149,11 @@ export default function AnimalDetailPanel({
   async function confirmDelete() {
     setDeleteError("");
     setIsDeleting(true);
-    const { error: err } = await deleteAnimalRecord(Number(animal.id));
+    const { error: err, warning } = await deleteAnimalRecord(Number(animal.id));
     setIsDeleting(false);
     if (err) { setDeleteError(err); return; }
     setShowDeleteConfirm(false);
-    onDeleted();
+    onDeleted(warning);
   }
 
   return (
@@ -173,20 +176,32 @@ export default function AnimalDetailPanel({
         </div>
 
         {!showEditForm && (
-          <dl className="animal-vaccination-status">
-            <div>
-              <dt>Vaccination status</dt>
-              <dd><span className={`status ${animal.vaccinated ? "status-good" : animal.status === "Overdue" ? "status-danger" : "status-warn"}`}><i />{animal.status}</span></dd>
-            </div>
-            <div>
-              <dt>Last vaccinated</dt>
-              <dd>{formattedLastVaccinated}</dd>
-            </div>
-            <div>
-              <dt>Next vaccination</dt>
-              <dd>{animal.nextDue}</dd>
-            </div>
-          </dl>
+          <>
+            <dl className="animal-vaccination-status">
+              <div>
+                <dt>Vaccination status</dt>
+                <dd><span className={`status ${animal.vaccinated ? "status-good" : animal.status === "Overdue" ? "status-danger" : "status-warn"}`}><i />{animal.status}</span></dd>
+              </div>
+              <div>
+                <dt>Last vaccinated</dt>
+                <dd>{formattedLastVaccinated}</dd>
+              </div>
+              <div>
+                <dt>Next vaccination</dt>
+                <dd>{animal.nextDue}</dd>
+              </div>
+            </dl>
+            <section className="animal-identification-photos">
+              <h3>Pet photos for identification</h3>
+              <p>These photos help owners and BHW recognize this pet.</p>
+              {animal.imageUrls?.length ? (
+                <div className="animal-photo-gallery">
+                  {animal.imageUrls.map((url, index) => <a key={url} href={url} target="_blank" rel="noreferrer"><Image src={url} alt={`${animal.name} identification photo ${index + 1}`} width={110} height={110} unoptimized /></a>)}
+                </div>
+              ) : <p>{animal.imageLoadError ?? "No identification photos have been added."}</p>}
+              {animal.imageUrls?.length && animal.imageLoadError ? <p>{animal.imageLoadError}</p> : null}
+            </section>
+          </>
         )}
 
         <div className="animal-detail-grid">

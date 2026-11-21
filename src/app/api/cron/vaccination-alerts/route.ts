@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { hasRealEmail } from "@/lib/account";
-import { sendEmailBatch, type EmailTarget } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { sendSms, normalizePhilippineNumber } from "@/lib/sms";
 import { getManilaDateIso } from "@/lib/dates";
@@ -10,7 +8,7 @@ export const maxDuration = 60;
 
 type ReminderType = "D7" | "D1" | "OVERDUE";
 type Language = "en" | "tl" | "hil";
-type ChannelName = "sms" | "email";
+type ChannelName = "sms";
 
 type AnimalAlert = {
   id: number;
@@ -28,7 +26,6 @@ type AlertProfile = {
   username: string | null;
   preferred_language: string | null;
   notify_sms: boolean | null;
-  notify_email: boolean | null;
 };
 
 type AlertTarget = {
@@ -54,7 +51,6 @@ type ReminderJob = {
   channel: ChannelName;
   recipient: string;
   message: string;
-  subject: string;
 };
 
 type ChannelSummary = {
@@ -68,7 +64,6 @@ type ChannelSummary = {
 
 type AdminDb = NonNullable<ReturnType<typeof createAdminClient>>;
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PAGE_SIZE = 500;
 const CONCURRENCY = 5;
 const GSM_BASIC = new Set(Array.from("@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà"));
@@ -92,12 +87,6 @@ const REMINDER_TEXT: Record<Language, Record<ReminderType, string>> = {
   },
 };
 
-const REMINDER_SUBJECT: Record<Language, Record<ReminderType, string>> = {
-  en: { D7: "Vaccination due in 7 days", D1: "Vaccination due tomorrow", OVERDUE: "Overdue vaccination" },
-  tl: { D7: "Takda ang bakuna sa loob ng 7 araw", D1: "Takda ang bakuna bukas", OVERDUE: "Lumampas na sa takdang bakuna" },
-  hil: { D7: "Takna na sang bakuna sa sulod sang 7 ka adlaw", D1: "Takna na sang bakuna buwas", OVERDUE: "Nalabyan na ang takna sang bakuna" },
-};
-
 function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
@@ -114,12 +103,12 @@ function isAuthorized(request: Request): boolean {
 
 function enabledChannels(): { channels?: Set<ChannelName>; error?: string } {
   const configured = process.env.REMINDER_CHANNELS;
-  if (configured === undefined) return { channels: new Set(["sms", "email"]) };
+  if (configured === undefined) return { channels: new Set(["sms"]) };
   if (configured.trim().toLowerCase() === "none" || !configured.trim()) return { channels: new Set() };
 
   const names = configured.split(",").map((channel) => channel.trim().toLowerCase()).filter(Boolean);
-  if (names.some((channel) => channel !== "sms" && channel !== "email")) {
-    return { error: "REMINDER_CHANNELS must contain only sms and/or email." };
+  if (names.some((channel) => channel !== "sms")) {
+    return { error: "REMINDER_CHANNELS must contain only sms." };
   }
   return { channels: new Set(names as ChannelName[]) };
 }
@@ -146,7 +135,7 @@ function buildMessage(
   target: AlertTarget,
   profile: AlertProfile | undefined,
   language: Language,
-): { message: string; subject: string } {
+): string {
   const animal = cleanText(target.animal.name, "your animal");
   const owner = cleanText(profile?.full_name || profile?.username, "Client");
   const vaccine = cleanText(target.animal.vaccine_type, "rabies");
@@ -159,10 +148,7 @@ function buildMessage(
     .replace("{date}", formatDate(target.dueDate))
     .replace("{clinic}", clinic);
 
-  return {
-    message: `${barangay}: ${template}`,
-    subject: `${REMINDER_SUBJECT[language][target.reminderType]}: ${animal}`,
-  };
+  return `${barangay}: ${template}`;
 }
 
 function estimateSms(message: string): { encoding: "GSM-7" | "UCS-2"; characters: number; segments: number } {
@@ -249,6 +235,7 @@ async function loadFailedAlerts(db: AdminDb): Promise<{ alerts?: FailedAlert[]; 
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await db.from("vaccination_alerts")
       .select("id, animal_id, user_id, due_date, channel, reminder_type, status")
+      .eq("channel", "sms")
       .in("status", ["failed", "pending"])
       .lt("last_attempt_at", staleBefore)
       .order("id", { ascending: true })
@@ -279,30 +266,12 @@ async function loadProfiles(db: AdminDb, userIds: string[]): Promise<{ profiles?
   const profiles: AlertProfile[] = [];
   for (let offset = 0; offset < userIds.length; offset += 200) {
     const { data, error } = await db.from("profiles")
-      .select("id, contact_number, full_name, username, preferred_language, notify_sms, notify_email")
+      .select("id, contact_number, full_name, username, preferred_language, notify_sms")
       .in("id", userIds.slice(offset, offset + 200));
     if (error) return { error: error.message };
     profiles.push(...((data ?? []) as AlertProfile[]));
   }
   return { profiles };
-}
-
-async function loadAccountEmails(db: AdminDb, userIds: string[]): Promise<{ emails?: Map<string, string>; error?: string }> {
-  const pendingUserIds = new Set(userIds);
-  const emails = new Map<string, string>();
-  const authPageSize = 1000;
-  for (let page = 1; pendingUserIds.size > 0; page += 1) {
-    const { data, error } = await db.auth.admin.listUsers({ page, perPage: authPageSize });
-    if (error) return { error: error.message };
-    for (const user of data.users) {
-      if (!pendingUserIds.delete(user.id)) continue;
-      if (typeof user.email === "string" && hasRealEmail(user.email) && EMAIL_RE.test(user.email)) {
-        emails.set(user.id, user.email);
-      }
-    }
-    if (data.users.length < authPageSize) break;
-  }
-  return { emails };
 }
 
 function createSummary(): ChannelSummary {
@@ -356,16 +325,7 @@ export async function GET(request: Request) {
   if (profileError) return NextResponse.json({ error: profileError }, { status: 500 });
   const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
 
-  const emailUserIds = enabled.has("email")
-    ? userIds.filter((userId) => profileById.get(userId)?.notify_email !== false)
-    : [];
-  const emailLookup: { emails?: Map<string, string>; error?: string } = emailUserIds.length
-    ? await loadAccountEmails(db, emailUserIds)
-    : { emails: new Map<string, string>() };
-  const emailLookupError = emailLookup.error;
-  const emailsByUserId = emailLookup.emails ?? new Map<string, string>();
-
-  const summaries: Record<ChannelName, ChannelSummary> = { sms: createSummary(), email: createSummary() };
+  const summaries: Record<ChannelName, ChannelSummary> = { sms: createSummary() };
   const warnings: string[] = [];
   const failures: string[] = [];
   const jobs: ReminderJob[] = [];
@@ -375,18 +335,16 @@ export async function GET(request: Request) {
     channel: ChannelName;
     recipient: string;
     language: Language;
-    subject?: string;
     message: string;
     sms?: ReturnType<typeof estimateSms>;
   }> = [];
-  if (emailLookupError) failures.push(`Could not load account email addresses: ${emailLookupError}`);
 
   for (const target of targets) {
     const profile = profileById.get(target.animal.user_id);
     const language = profileLanguage(profile?.preferred_language);
-    const copy = buildMessage(target, profile, language);
+    const message = buildMessage(target, profile, language);
     const channelsForTarget: ChannelName[] = target.scheduled
-      ? ["sms", "email"]
+      ? ["sms"]
       : [...target.retryChannels];
 
     for (const channel of channelsForTarget) {
@@ -399,35 +357,21 @@ export async function GET(request: Request) {
         summary.skipped += 1;
         continue;
       }
-      if (channel === "email" && profile?.notify_email === false) {
-        summary.skipped += 1;
-        continue;
-      }
-
-      let recipient: string | undefined;
-      if (channel === "sms") {
-        recipient = normalizePhilippineNumber(profile?.contact_number ?? target.animal.contact_number ?? "") ?? undefined;
-      } else {
-        recipient = emailsByUserId.get(target.animal.user_id);
-      }
+      const recipient = normalizePhilippineNumber(profile?.contact_number ?? target.animal.contact_number ?? "") ?? undefined;
       if (!recipient) {
         summary.skipped += 1;
-        warnings.push(`${target.animal.name} (${channel}): no valid ${channel === "sms" ? "mobile number" : "account email address"}`);
+        warnings.push(`${target.animal.name} (${channel}): no valid mobile number`);
         continue;
       }
 
       summary.eligible += 1;
-      const job = { target, channel, recipient, message: copy.message, subject: copy.subject };
+      const job = { target, channel, recipient, message };
       jobs.push(job);
-      if (channel === "sms") {
-        const estimate = estimateSms(copy.message);
-        summary.smsSegments += estimate.segments;
-        if (estimate.encoding === "UCS-2") summary.unicodeMessages += 1;
-        if (dryRun) {
-          previews.push({ animalId: target.animal.id, reminderType: target.reminderType, channel, recipient, language, message: copy.message, sms: estimate });
-        }
-      } else if (dryRun) {
-        previews.push({ animalId: target.animal.id, reminderType: target.reminderType, channel, recipient, language, subject: copy.subject, message: copy.message });
+      const estimate = estimateSms(message);
+      summary.smsSegments += estimate.segments;
+      if (estimate.encoding === "UCS-2") summary.unicodeMessages += 1;
+      if (dryRun) {
+        previews.push({ animalId: target.animal.id, reminderType: target.reminderType, channel, recipient, language, message, sms: estimate });
       }
     }
   }
@@ -465,7 +409,7 @@ export async function GET(request: Request) {
       const batch = jobsToProcess.slice(offset, offset + CONCURRENCY);
       await Promise.all(batch.map(async (job) => {
         const summary = summaries[job.channel];
-        const { target, channel, recipient, message, subject } = job;
+        const { target, channel, recipient, message } = job;
         const { data: alertId, error: claimError } = await db.rpc("claim_vaccination_alert", {
           p_animal_id: target.animal.id,
           p_user_id: target.animal.user_id,
@@ -485,17 +429,9 @@ export async function GET(request: Request) {
           return;
         }
 
-        let sendError: string | undefined;
-        let providerMessageId: string | null = null;
-        if (channel === "sms") {
-          const result = await sendSms(recipient, message);
-          sendError = result.error;
-          providerMessageId = result.messageId ?? null;
-        } else {
-          const emailTarget: EmailTarget = { name: "", email: recipient };
-          const result = await sendEmailBatch([emailTarget], subject, message);
-          sendError = result.error ?? result.results.find((entry) => entry.error)?.error;
-        }
+        const result = await sendSms(recipient, message);
+        const sendError = result.error;
+        const providerMessageId = result.messageId ?? null;
 
         const { error: updateError } = await db.from("vaccination_alerts")
           .update(sendError
@@ -524,7 +460,7 @@ export async function GET(request: Request) {
     for (const target of targets.filter((entry) => entry.scheduled)) {
       const profile = profileById.get(target.animal.user_id);
       const language = profileLanguage(profile?.preferred_language);
-      const { message } = buildMessage(target, profile, language);
+      const message = buildMessage(target, profile, language);
       const { error } = await db.from("notifications").insert({
         user_id: target.animal.user_id,
         title: target.reminderType === "OVERDUE" ? "Overdue vaccination" : "Vaccination due soon",
@@ -544,8 +480,7 @@ export async function GET(request: Request) {
     retries: targets.filter((target) => !target.scheduled).length,
     sent,
     smsSent: summaries.sms.sent,
-    emailSent: summaries.email.sent,
-    skipped: summaries.sms.skipped + summaries.email.skipped,
+    skipped: summaries.sms.skipped,
     channels: summaries,
     warnings,
     failures,

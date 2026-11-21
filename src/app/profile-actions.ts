@@ -4,14 +4,12 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
 import { generateOtpCode, hashOtpCode, OTP_TTL_MINUTES } from "@/lib/otp";
 import { sendSms, normalizePhilippineNumber } from "@/lib/sms";
-import { hasRealEmail } from "@/lib/account";
 
 type OtpPurpose = "username_change" | "password_change";
-type OtpChannel = "email" | "sms";
 export type ReminderLanguage = "en" | "tl" | "hil";
 
 export async function updateProfile(
-  payload: { fullName?: string; email?: string; contact?: string }
+  payload: { fullName?: string; contact?: string }
 ): Promise<{ error?: string }> {
   const db = createAdminClient();
   if (!db) return { error: "Service unavailable." };
@@ -22,13 +20,6 @@ export async function updateProfile(
   if (payload.fullName !== undefined) updates.full_name = payload.fullName;
   if (payload.contact !== undefined) updates.contact_number = payload.contact;
 
-  // An empty email means "leave it as-is" — this lets placeholder-email
-  // accounts (registered with SMS only) skip the field without Supabase
-  // rejecting a blank email.
-  if (payload.email) {
-    const { error } = await db.auth.admin.updateUserById(user.id, { email: payload.email });
-    if (error) return { error: error.message };
-  }
   if (Object.keys(updates).length === 0) return {};
 
   const { error } = await db.from("profiles").update(updates).eq("id", user.id);
@@ -39,7 +30,6 @@ export async function updateProfile(
 export async function updateNotificationPreferences(payload: {
   preferredLanguage: ReminderLanguage;
   notifySms: boolean;
-  notifyEmail: boolean;
 }): Promise<{ error?: string }> {
   const db = createAdminClient();
   if (!db) return { error: "Service unavailable." };
@@ -48,45 +38,23 @@ export async function updateNotificationPreferences(payload: {
 
   if (!payload
     || !["en", "tl", "hil"].includes(payload.preferredLanguage)
-    || typeof payload.notifySms !== "boolean"
-    || typeof payload.notifyEmail !== "boolean") {
+    || typeof payload.notifySms !== "boolean") {
     return { error: "Invalid reminder preferences." };
   }
 
   const { error } = await db.from("profiles").update({
     preferred_language: payload.preferredLanguage,
     notify_sms: payload.notifySms,
-    notify_email: payload.notifyEmail,
   }).eq("id", user.id);
   if (error) return { error: error.message };
   return {};
 }
 
-export async function getAccountChannels(): Promise<{ hasEmail: boolean; hasSms: boolean; error?: string }> {
-  const db = createAdminClient();
-  if (!db) return { hasEmail: false, hasSms: false, error: "Service unavailable." };
-  const { user, error: authError } = await getAuthenticatedUser();
-  if (!user) return { hasEmail: false, hasSms: false, error: authError ?? "You must be signed in." };
-
-  const { data: profile } = await db.from("profiles").select("contact_number").eq("id", user.id).maybeSingle();
-  return {
-    hasEmail: hasRealEmail(user.email),
-    hasSms: Boolean(normalizePhilippineNumber(profile?.contact_number ?? "")),
-  };
-}
-
-export async function requestAccountOtp(purpose: OtpPurpose, channel: OtpChannel): Promise<{ error?: string }> {
+export async function requestAccountOtp(purpose: OtpPurpose): Promise<{ error?: string }> {
   const db = createAdminClient();
   if (!db) return { error: "Service unavailable." };
   const { user, client, error: authError } = await getAuthenticatedUser();
   if (!user || !client) return { error: authError ?? "You must be signed in." };
-
-  if (channel === "email") {
-    if (!hasRealEmail(user.email)) return { error: "This account has no email on file — use SMS instead." };
-    const { error } = await client.auth.signInWithOtp({ email: user.email!, options: { shouldCreateUser: false } });
-    if (error) return { error: error.message };
-    return {};
-  }
 
   const { data: profile } = await db.from("profiles").select("contact_number").eq("id", user.id).maybeSingle();
   const target = normalizePhilippineNumber(profile?.contact_number ?? "");
@@ -107,18 +75,11 @@ export async function requestAccountOtp(purpose: OtpPurpose, channel: OtpChannel
   return {};
 }
 
-async function consumeOtp(purpose: OtpPurpose, channel: OtpChannel, code: string): Promise<{ error?: string }> {
+async function consumeOtp(purpose: OtpPurpose, code: string): Promise<{ error?: string }> {
   const db = createAdminClient();
   if (!db) return { error: "Service unavailable." };
   const { user, client, error: authError } = await getAuthenticatedUser();
   if (!user || !client) return { error: authError ?? "You must be signed in." };
-
-  if (channel === "email") {
-    if (!hasRealEmail(user.email)) return { error: "This account has no email on file — use SMS instead." };
-    const { error } = await client.auth.verifyOtp({ email: user.email!, token: code, type: "email" });
-    if (error) return { error: "That code is invalid or expired." };
-    return {};
-  }
 
   const { data: otp } = await db
     .from("account_otps")
@@ -140,13 +101,12 @@ async function consumeOtp(purpose: OtpPurpose, channel: OtpChannel, code: string
 
 export async function changeUsernameWithOtp(
   newUsername: string,
-  channel: OtpChannel,
   code: string
 ): Promise<{ error?: string }> {
   if (!/^[a-zA-Z0-9_.-]{3,80}$/.test(newUsername)) {
     return { error: "Username must be 3–80 characters and use only letters, numbers, dots, underscores, or hyphens." };
   }
-  const verify = await consumeOtp("username_change", channel, code);
+  const verify = await consumeOtp("username_change", code);
   if (verify.error) return verify;
 
   const db = createAdminClient();
@@ -161,11 +121,10 @@ export async function changeUsernameWithOtp(
 
 export async function changePasswordWithOtp(
   newPassword: string,
-  channel: OtpChannel,
   code: string
 ): Promise<{ error?: string }> {
   if (newPassword.length < 8) return { error: "Password must be at least 8 characters long." };
-  const verify = await consumeOtp("password_change", channel, code);
+  const verify = await consumeOtp("password_change", code);
   if (verify.error) return verify;
 
   const db = createAdminClient();
