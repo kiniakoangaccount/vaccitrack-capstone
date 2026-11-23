@@ -79,7 +79,7 @@ export default function SettingsPage() {
                   <h2>Vaccines</h2>
                   <p>Available vaccine types for dropdown selection in vaccination records.</p>
                 </div>
-                {supabase ? <VaccineManager /> : <div className="settings-empty"><Save size={24} /><p>Supabase is not configured, so vaccines are available as a small demo list for registration.</p></div>}
+                {supabase ? <VaccineManager /> : <div className="settings-empty"><Save size={24} /><p>Supabase is not configured, so vaccines are available as a small built-in list for registration.</p></div>}
               </div>
             </section>
           </div>

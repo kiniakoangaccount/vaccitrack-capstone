@@ -87,9 +87,8 @@ export default function LeafletMap({
   const mapInstance = useRef<L.Map | null>(null);
   const markersLayer = useRef<L.MarkerClusterGroup | null>(null);
   const heatLayer = useRef<L.LayerGroup | null>(null);
-  const purokLayer = useRef<L.LayerGroup | null>(null);
   const [showHeat, setShowHeat] = useState(true);
-  const [showPuroks, setShowPuroks] = useState(true);
+  const [showClusters, setShowClusters] = useState(true);
   const [mapSearch, setMapSearch] = useState("");
   const [selectedId, setSelectedId] = useState<MapAnimal["id"] | null>(null);
 
@@ -163,6 +162,7 @@ export default function LeafletMap({
     }).addTo(map);
 
     mapInstance.current = map;
+    map.on("zoomend", () => setZoomLevel(map.getZoom()));
 
     let fitted = false;
     const fitToArea = () => {
@@ -292,21 +292,25 @@ export default function LeafletMap({
             onChange={(e) => setMapSearch(e.target.value)}
           />
         </div>
+        {!pickMode && <select aria-label="Filter by species" value={speciesFilter} onChange={(event) => setSpeciesFilter(event.target.value)}>
+          <option value="All">All species</option>
+          <option value="Dog">Dogs</option>
+          <option value="Cat">Cats</option>
+        </select>}
+        {!pickMode && <select aria-label="Filter by vaccination status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+          <option value="All">All statuses</option>
+          <option value="Vaxxed">Vaxxed</option>
+          <option value="To expire">To expire</option>
+          <option value="Overdue">Overdue</option>
+          <option value="Unvaccinated">Unvaccinated</option>
+        </select>}
+        {!pickMode && <select aria-label="Filter by purok or service area" value={purokFilter} onChange={(event) => setPurokFilter(event.target.value)}>
+          <option value="All">All puroks</option>
+          {puroks.map((purok) => <option key={purok.id} value={purok.name}>{purok.name}</option>)}
+        </select>}
         <div className="leaflet-map-toggles">
-          <button
-            type="button"
-            className={`leaflet-toggle${showHeat ? " active" : ""}`}
-            onClick={() => setShowHeat(!showHeat)}
-          >
-            Heatmap
-          </button>
-          <button
-            type="button"
-            className={`leaflet-toggle${showPuroks ? " active" : ""}`}
-            onClick={() => setShowPuroks(!showPuroks)}
-          >
-            Purok zones
-          </button>
+          {!pickMode && <button type="button" className={`leaflet-toggle${showHeat ? " active" : ""}`} onClick={() => setShowHeat(!showHeat)}>Heatmap</button>}
+          {!pickMode && <button type="button" className={`leaflet-toggle${showClusters ? " active" : ""}`} onClick={() => setShowClusters(!showClusters)}>Clusters</button>}
         </div>
       </div>
       {(unplacedCount > 0 || approximateCount > 0) && (

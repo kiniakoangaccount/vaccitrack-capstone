@@ -564,6 +564,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const isClient = userRole === "client";
   const isStaff = ["admin", "bhw"].includes(userRole);
   const isAdmin = userRole === "admin";
+  const isBhw = userRole === "bhw";
   // Clients may register their own animals; staff may register any animal.
   // Offline mode (no Supabase) keeps the button visible for all roles.
   const canManageAnimals = isStaff || isClient || !isLive;
@@ -660,6 +661,89 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!authUser) return;
+    const supabase = createClient();
+    if (!supabase) return;
+
+    let mounted = true;
+    const refreshLiveData = async () => {
+      if (document.visibilityState === "hidden") return;
+
+      const isClientRole = authUser.role === "client";
+      const ownerId = authUser.id;
+      const today = new Date();
+      const todayIso = today.toISOString().slice(0, 10);
+      const recentQuery = supabase.from("animals").select("id, name, species, classification, neutered, breed, age, sex, color, owner_name, contact_number, impound_area, vaccinated, vaccine_date, next_due_date, vaccine_type, latitude, longitude, notes, pound_status, puroks(name)").order("created_at", { ascending: false });
+      const totalQuery = supabase.from("animals").select("id", { count: "exact", head: true });
+      const vaccinatedQuery = supabase.from("animals").select("id", { count: "exact", head: true }).eq("vaccinated", true);
+      const dueQuery = supabase.from("animals").select("id", { count: "exact", head: true }).gte("next_due_date", todayIso).lte("next_due_date", new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10));
+      const overdueQuery = supabase.from("animals").select("id", { count: "exact", head: true }).lt("next_due_date", todayIso);
+
+      const [recentResult, totalResult, vaccinatedResult, dueResult, overdueResult] = await Promise.all([
+        isClientRole ? recentQuery.eq("user_id", ownerId) : recentQuery,
+        isClientRole ? totalQuery.eq("user_id", ownerId) : totalQuery,
+        isClientRole ? vaccinatedQuery.eq("user_id", ownerId) : vaccinatedQuery,
+        isClientRole ? dueQuery.eq("user_id", ownerId) : dueQuery,
+        isClientRole ? overdueQuery.eq("user_id", ownerId) : overdueQuery,
+      ]);
+      if (!mounted) return;
+
+      if (!recentResult.error) {
+        const records = ((recentResult.data ?? []) as SupabaseAnimalRecord[]).map((record) => {
+          const nextDueDate = record.next_due_date ?? null;
+          const vaccinated = Boolean(record.vaccinated);
+          return {
+            id: record.id,
+            name: record.name,
+            species: record.species,
+            classification: record.classification,
+            neutered: record.neutered ?? undefined,
+            breed: record.breed ?? undefined,
+            age: record.age ?? undefined,
+            sex: record.sex ?? undefined,
+            color: record.color ?? undefined,
+            owner: record.owner_name,
+            vaccinated,
+            vaccineDate: record.vaccine_date ?? null,
+            purok: Array.isArray(record.puroks) ? record.puroks[0]?.name ?? "Unassigned" : record.puroks?.name ?? "Unassigned",
+            status: getAnimalStatus(vaccinated, nextDueDate, today),
+            nextDueDate,
+            nextDue: formatDueDate(nextDueDate),
+            contact: record.contact_number ?? "",
+            impoundArea: record.impound_area ?? "",
+            vaccineType: record.vaccine_type ?? undefined,
+            latitude: record.latitude ?? undefined,
+            longitude: record.longitude ?? undefined,
+            notes: record.notes ?? undefined,
+            poundStatus: record.pound_status ?? null,
+          } satisfies Animal;
+        });
+        setAnimalRecords(records);
+        setLiveStats({ registered: totalResult.count ?? 0, vaccinated: vaccinatedResult.count ?? 0, dueSoon: dueResult.count ?? 0, overdue: overdueResult.count ?? 0 });
+      }
+
+      const { data: notificationRows } = await supabase.from("notifications").select("id, title, message, type, is_read, created_at").eq("user_id", authUser.id).eq("is_read", false).order("created_at", { ascending: false }).limit(20);
+      if (mounted) setNotifications((notificationRows ?? []) as UserNotification[]);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshLiveData();
+    };
+
+    void refreshLiveData();
+    const intervalId = window.setInterval(() => void refreshLiveData(), 30_000);
+    window.addEventListener("focus", refreshLiveData);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshLiveData);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [authUser]);
 
   useEffect(() => {
     const tabParam = new URLSearchParams(window.location.search).get("tab");
@@ -963,6 +1047,19 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const coverageByBreed = buildCoverageBreakdown(reportAnimals, (animal) => animal.breed?.trim() || "Unspecified");
   const coverageByAgeGroup = buildCoverageBreakdown(reportAnimals, (animal) => ageGroupLabel(animal.age), AGE_GROUP_ORDER);
   const coverageByVaccine = buildCoverageBreakdown(reportAnimals, (animal) => animal.vaccineType?.trim() || "Not recorded");
+
+  const reportByBreed = useMemo(() => summarizeReportDimension(reportAnimals, (animal) => animal.breed?.trim() || "Unknown"), [reportAnimals]);
+  const reportByAge = useMemo(() => summarizeReportDimension(reportAnimals, (animal) => {
+    const months = animal.age ?? -1;
+    if (months < 0) return "Unknown";
+    if (months < 12) return "0-11 months";
+    if (months < 36) return "1-2 years";
+    if (months < 84) return "3-6 years";
+    if (months < 120) return "7-9 years";
+    return "10+ years";
+  }), [reportAnimals]);
+  const reportByVaccine = useMemo(() => summarizeReportDimension(reportAnimals, (animal) => animal.vaccineType?.trim() || "Unknown"), [reportAnimals]);
+  const reportByPurok = useMemo(() => summarizeReportDimension(reportAnimals, (animal) => animal.purok?.trim() || "Unassigned"), [reportAnimals]);
 
   const strayAnimals = useMemo(() => {
     const normalized = poundQuery.trim().toLowerCase();
@@ -1610,8 +1707,147 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   );
 }
 
+function AppointmentManager({ animals, teamMembers }: { animals: Animal[]; teamMembers: TeamMember[] }) {
+  const [appointments, setAppointments] = useState<VaccinationAppointment[]>([]);
+  const [animalId, setAnimalId] = useState("");
+  const [staffId, setStaffId] = useState("");
+  const [appointmentAt, setAppointmentAt] = useState("");
+  const [location, setLocation] = useState("Barangay health station");
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function refreshAppointments() {
+    const result = await listAppointments();
+    if (result.error) setError(result.error);
+    else setAppointments(result.appointments ?? []);
+  }
+
+  useEffect(() => {
+    void refreshAppointments();
+  }, []);
+
+  async function scheduleAppointment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+    setBusy(true);
+    const animal = animals.find((item) => String(item.id) === animalId);
+    const result = await scheduleVaccinationAppointment({
+      animalId: Number(animalId),
+      assignedStaffId: staffId || undefined,
+      appointmentAt,
+      vaccineType: animal?.vaccineType,
+      location,
+      notes,
+    });
+    setBusy(false);
+    if (result.error) { setError(result.error); return; }
+    setSuccess("Appointment scheduled and the owner has been notified.");
+    setAnimalId("");
+    setStaffId("");
+    setAppointmentAt("");
+    setNotes("");
+    await refreshAppointments();
+  }
+
+  async function changeStatus(appointment: VaccinationAppointment, status: AppointmentStatus) {
+    setError("");
+    setSuccess("");
+    setBusy(true);
+    const result = await updateVaccinationAppointment({ appointmentId: appointment.id, status });
+    setBusy(false);
+    if (result.error) { setError(result.error); return; }
+    setSuccess(`Appointment marked ${status.toLowerCase()} and the owner notified.`);
+    await refreshAppointments();
+  }
+
+  return (
+    <div className="module-content appointment-manager">
+      <div className="module-intro">
+        <div>
+          <p className="eyebrow">VACCINATION APPOINTMENTS</p>
+          <h2>Schedule and assign appointments</h2>
+          <p>Create upcoming vaccination visits and assign responsible BHW or admin staff.</p>
+        </div>
+      </div>
+
+      <form className="appointment-form" onSubmit={scheduleAppointment}>
+        <label>Animal
+          <select value={animalId} onChange={(event) => setAnimalId(event.target.value)} required>
+            <option value="">Select animal</option>
+            {animals.filter((animal) => typeof animal.id === "number").map((animal) => <option key={animal.id} value={animal.id}>{animal.name} - {animal.owner}</option>)}
+          </select>
+        </label>
+        <label>Assigned staff
+          <select value={staffId} onChange={(event) => setStaffId(event.target.value)}>
+            <option value="">Unassigned</option>
+            {teamMembers.filter((member) => member.status === "active").map((member) => <option key={member.id} value={member.id}>{member.fullName} ({member.role})</option>)}
+          </select>
+        </label>
+        <label>Date and time
+          <input type="datetime-local" value={appointmentAt} onChange={(event) => setAppointmentAt(event.target.value)} required />
+        </label>
+        <label>Location
+          <input value={location} onChange={(event) => setLocation(event.target.value)} required />
+        </label>
+        <label className="appointment-notes">Notes
+          <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Instructions for staff or the owner" />
+        </label>
+        {error && <p className="form-error">{error}</p>}
+        {success && <p className="appointment-success">{success}</p>}
+        <div className="modal-actions"><button className="primary-button" type="submit" disabled={busy}>{busy ? "Saving..." : "Schedule appointment"}</button></div>
+      </form>
+
+      <div className="appointment-list">
+        <h3>Scheduled appointments</h3>
+        {appointments.length === 0 ? <p className="module-muted">No vaccination appointments scheduled.</p> : appointments.map((appointment) => (
+          <article className="appointment-row" key={appointment.id}>
+            <div>
+              <strong>{appointment.animalName}</strong>
+              <small>{appointment.ownerName} · {appointment.assignedStaffName}</small>
+              <span>{new Date(appointment.appointmentAt).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" })}</span>
+            </div>
+            <div className="appointment-actions">
+              <span className={`appointment-status appointment-${appointment.status.toLowerCase()}`}>{appointment.status}</span>
+              {appointment.status !== "Completed" && appointment.status !== "Cancelled" && <>
+                <button type="button" className="secondary-button" disabled={busy} onClick={() => changeStatus(appointment, "Confirmed")}>Confirm</button>
+                <button type="button" className="secondary-button" disabled={busy} onClick={async () => { const value = window.prompt("Enter the new date and time", new Date(appointment.appointmentAt).toISOString().slice(0, 16)); if (!value) return; setBusy(true); setError(""); setSuccess(""); const result = await updateVaccinationAppointment({ appointmentId: appointment.id, status: "Rescheduled", appointmentAt: value }); setBusy(false); if (result.error) { setError(result.error); return; } setSuccess("Appointment rescheduled and the owner notified."); await refreshAppointments(); }}>Reschedule</button>
+                <button type="button" className="primary-button" disabled={busy} onClick={() => changeStatus(appointment, "Completed")}>Complete</button>
+                <button type="button" className="danger-button" disabled={busy} onClick={() => changeStatus(appointment, "Cancelled")}>Cancel</button>
+              </>}
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Coverage({ name, value, count }: { name: string; value: number; count: string }) {
   return <div className="coverage-row"><div className="coverage-meta"><span>{name}</span><strong>{count} <em>{value}%</em></strong></div><div className="progress"><span style={{ width: `${value}%` }} /></div></div>;
+}
+
+function ReportBreakdownTable({ title, rows }: { title: string; rows: ReportBreakdownRow[] }) {
+  return (
+    <article className="report-breakdown-card">
+      <h3>{title}</h3>
+      {rows.length === 0 ? <p className="module-muted">No records in range.</p> : (
+        <div className="report-breakdown-table">
+          <div className="report-breakdown-head"><span>Category</span><span>Vaccinated</span><span>Total</span><span>Coverage</span></div>
+          {rows.map((row) => (
+            <div className="report-breakdown-row" key={row.label}>
+              <strong>{row.label}</strong>
+              <span>{row.vaccinated}</span>
+              <span>{row.total}</span>
+              <em>{row.coverage}%</em>
+            </div>
+          ))}
+        </div>
+      )}
+    </article>
+  );
 }
 
 function Landing({ onSignIn, isTransitioning }: { onSignIn: () => void; isTransitioning: boolean }) {
