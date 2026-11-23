@@ -22,7 +22,6 @@ export default function ProfilePage() {
   const [newUsername, setNewUsername] = useState("");
   const [usernameBusy, setUsernameBusy] = useState(false);
 
-  const [passwordChannel, setPasswordChannel] = useState<Channel>("sms");
   const [passwordCodeSent, setPasswordCodeSent] = useState(false);
   const [passwordCode, setPasswordCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -41,7 +40,6 @@ export default function ProfilePage() {
       setChannels({ hasEmail: result.hasEmail, hasSms: result.hasSms });
       const defaultChannel: Channel = result.hasSms ? "sms" : "email";
       setUsernameChannel(defaultChannel);
-      setPasswordChannel(defaultChannel);
     });
   }, [supabase]);
 
@@ -169,7 +167,7 @@ export default function ProfilePage() {
             <section className="account-section">
               <p className="eyebrow">SECURITY</p>
               <h2>Change password</h2>
-              <p className="heading-sub">Verify with a code sent to your email or phone — no need to remember your current password.</p>
+              <p className="heading-sub">A verification code will be sent by SMS to your registered mobile number.</p>
 
               <form className="account-form" onSubmit={async (e) => {
                 e.preventDefault();
@@ -178,7 +176,7 @@ export default function ProfilePage() {
                 if (newPassword !== confirmPassword) { setError("The new password does not match the confirmation."); return; }
                 if (newPassword.length < 8) { setError("Your new password must be at least 8 characters long."); return; }
                 setPasswordBusy(true);
-                const result = await changePasswordWithOtp(newPassword, passwordChannel, passwordCode.trim());
+                const result = await changePasswordWithOtp(newPassword, passwordCode.trim());
                 setPasswordBusy(false);
                 if (result.error) { setError(result.error); return; }
                 setSuccess("Your password was changed.");
@@ -187,14 +185,14 @@ export default function ProfilePage() {
                 setNewPassword("");
                 setConfirmPassword("");
               }}>
-                <ChannelPicker channels={channels} value={passwordChannel} onChange={setPasswordChannel} disabled={passwordCodeSent} />
+                {!channels.hasSms && <p className="form-error">Add a valid mobile number in your contact details to change your password by SMS.</p>}
                 {!passwordCodeSent ? (
                   <div className="account-actions">
                     <button
                       className="secondary-button"
                       type="button"
-                      disabled={passwordBusy || (passwordChannel === "email" ? !channels.hasEmail : !channels.hasSms)}
-                      onClick={async () => { setPasswordBusy(true); const ok = await sendCode("password_change", passwordChannel); setPasswordBusy(false); if (ok) setPasswordCodeSent(true); }}
+                      disabled={passwordBusy || !channels.hasSms}
+                      onClick={async () => { setPasswordBusy(true); const ok = await sendCode("password_change", "sms"); setPasswordBusy(false); if (ok) setPasswordCodeSent(true); }}
                     >
                       Send verification code
                     </button>
@@ -212,7 +210,7 @@ export default function ProfilePage() {
                     </label>
                     <div className="account-actions">
                       <button className="primary-button" type="submit" disabled={passwordBusy || passwordCode.length !== 6 || !newPassword || !confirmPassword}><Key size={15} /> Update password</button>
-                      <button className="secondary-button" type="button" disabled={passwordBusy} onClick={() => sendCode("password_change", passwordChannel)}>Resend code</button>
+                      <button className="secondary-button" type="button" disabled={passwordBusy} onClick={async () => { setPasswordBusy(true); await sendCode("password_change", "sms"); setPasswordBusy(false); }}>Resend code</button>
                     </div>
                   </>
                 )}

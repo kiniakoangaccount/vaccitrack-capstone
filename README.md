@@ -2,6 +2,8 @@
 
 A Vercel-ready animal vaccination monitoring dashboard built with Next.js, TypeScript, Tailwind CSS, and Supabase.
 
+See [system diagrams](docs/system-diagrams.md) for the ERD, DFDs, architecture, IPOO, and frontend/backend views.
+
 ## Contributing
 
 Push changes to the `staging` branch and open a pull request into `master`. Merge it from GitHub once reviewed — this keeps deploys triggered by the repo owner's own merge.

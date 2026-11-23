@@ -49,6 +49,10 @@ export async function getAccountChannels(): Promise<{ hasEmail: boolean; hasSms:
 }
 
 export async function requestAccountOtp(purpose: OtpPurpose, channel: OtpChannel): Promise<{ error?: string }> {
+  if (purpose === "password_change" && channel !== "sms") {
+    return { error: "Password changes require SMS verification." };
+  }
+
   const db = createAdminClient();
   if (!db) return { error: "Service unavailable." };
   const { user, client, error: authError } = await getAuthenticatedUser();
@@ -134,11 +138,10 @@ export async function changeUsernameWithOtp(
 
 export async function changePasswordWithOtp(
   newPassword: string,
-  channel: OtpChannel,
   code: string
 ): Promise<{ error?: string }> {
   if (newPassword.length < 8) return { error: "Password must be at least 8 characters long." };
-  const verify = await consumeOtp("password_change", channel, code);
+  const verify = await consumeOtp("password_change", "sms", code);
   if (verify.error) return verify;
 
   const db = createAdminClient();
