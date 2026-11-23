@@ -1,224 +1,141 @@
-# VacciTrack System Documentation
+# VacciTrack Diagrams
 
-This document describes the implemented Next.js, Supabase, Vercel, and Semaphore system. It replaces the older duplicate diagram and task-tracking documents.
+These diagrams summarize the implemented VacciTrack system. They use Mermaid's neutral theme for a simple black-and-white appearance.
 
-## System Objectives
+## Implemented Features
 
-| Objective | Implemented area |
-|---|---|
-| 1 | Live vaccination monitoring, status calculation, notifications, and dashboard refresh |
-| 2 | Geospatial mapping, purok coverage, filters, heatmap, and clusters |
-| 3 | Refer to the capstone proposal for the exact external objective text |
-| 4 | Staff scheduling and tracking of vaccination appointments |
-| 5 | Dashboard and registry reporting, coverage breakdowns, and exports |
-
-## System Architecture
-
-```mermaid
-flowchart TB
-  subgraph Browser[Client Browser]
-    UI[Role-aware Next.js workspace]
-    MAP[Leaflet coverage map]
-  end
-
-  subgraph Vercel[Vercel Runtime]
-    ACTIONS[Server Actions]
-    CRON[Cron vaccination-alert route]
-    MIDDLEWARE[Proxy and super-admin guard]
-  end
-
-  subgraph Supabase[Supabase]
-    AUTH[Auth]
-    DB[(Postgres with RLS)]
-    STORAGE[(Private Storage buckets)]
-  end
-
-  SEMAPHORE[Semaphore SMS API]
-  OSM[OpenStreetMap Nominatim]
-
-  UI --> AUTH
-  UI --> DB
-  UI --> ACTIONS
-  UI --> MAP
-  MAP --> OSM
-  ACTIONS --> DB
-  ACTIONS --> STORAGE
-  ACTIONS --> SEMAPHORE
-  CRON --> DB
-  CRON --> SEMAPHORE
-  MIDDLEWARE --> UI
-```
+- **Accounts and access:** registration and sign-in, role-based workspaces, account verification, staff invitations, profile settings, English/Tagalog/Hiligaynon language preference, password recovery, and SMS one-time codes for supported account changes. Roles include client, BHW, and admin; super-admin tools are provided through a separate restricted dashboard.
+- **Animal registry:** register and update dogs and cats, pet or stray classification, owner/contact details, breed, age, sex, neuter status, notes, vaccination details, location, and identification photos. Staff can search/filter records, view animal profiles, and export registry data as CSV.
+- **Vaccination tracking:** vaccination history, due and overdue status, planning lists, vaccine reference data, dashboard counts, and risk/coverage summaries by purok and animal groups. Dashboard data refreshes every 30 seconds and when the browser regains focus.
+- **Appointments:** staff can schedule visits, assign staff, and update appointment status; owners can view their own appointments.
+- **Maps and location:** Leaflet coverage maps, map pins, purok coverage, search and filters, clusters, heat density, location selection, and place lookup through OpenStreetMap Nominatim.
+- **Reports and stray/pound records:** animal, vaccination, map/coverage, and stray/pound reports with PDF, Word, Excel, CSV, and print options; track impound area and statuses for observation, adoption, or reclamation.
+- **Notifications and messaging:** in-app notifications, scheduled vaccination reminders, staff SMS messaging, delivery/message history, and SMS audit records through Semaphore.
+- **Operations and administration:** team management, user verification and account management, staff invites, feedback handling, audit log, and SMS testing/custom messages.
 
 ## IPOO
 
 ```mermaid
+%%{init: {"theme":"neutral"}}%%
 flowchart LR
-  I["INPUT<br/>Accounts and roles<br/>Animal and owner records<br/>Vaccination history<br/>Puroks and locations<br/>Appointments and feedback"]
-  P["PROCESS<br/>Authenticate and authorize<br/>Validate and store records<br/>Calculate vaccination status<br/>Build maps and reports<br/>Schedule reminders and appointments"]
-  O["OUTPUT<br/>Registry and animal profiles<br/>Vaccination dashboard<br/>Coverage map<br/>Appointment schedule<br/>SMS and in-app alerts"]
-  C["OUTCOME<br/>Earlier vaccination follow-up<br/>Better barangay coverage visibility<br/>Reduced overdue cases<br/>Traceable health operations"]
-
-  I --> P --> O --> C
+  I["INPUT<br/>User accounts and roles<br/>Animals and owners<br/>Vaccination records<br/>Puroks and locations<br/>Appointments and feedback"]
+  P["PROCESS<br/>Authenticate users<br/>Manage animal records<br/>Track vaccination status<br/>Manage appointments<br/>Prepare maps and reports<br/>Send reminders"]
+  O["OUTPUT<br/>Animal registry<br/>Vaccination dashboard<br/>Coverage map<br/>Appointment schedule<br/>Reports and alerts"]
+  O2["OUTCOME<br/>Timely vaccination follow-up<br/>Clearer coverage monitoring<br/>Traceable community operations"]
+  I --> P --> O --> O2
 ```
 
-## Data Flow Diagram - Level 0
+## Entity Relationship Diagram (ERD)
+
+The ERD focuses on the main records used by the registry, vaccination, and appointment workflows.
 
 ```mermaid
-flowchart LR
-  C[Client or Pet Owner]
-  S[Admin or BHW]
-  SA[Super Admin]
-  SYS[VacciTrack System]
-  SMS[Semaphore SMS]
-
-  C -->|Registration, account, feedback| SYS
-  C -->|Own animal and appointment data| SYS
-  S -->|Animal, vaccination, appointment, report actions| SYS
-  SA -->|User, invite, verification, audit actions| SYS
-  SYS -->|Registry, reports, notifications| C
-  SYS -->|Operational dashboard and reports| S
-  SYS -->|Administrative information| SA
-  SYS -->|Vaccination reminders| SMS
-  SMS -->|Delivery result| SYS
-```
-
-## Data Flow Diagram - Level 1
-
-```mermaid
-flowchart TD
-  USER[Users]
-
-  subgraph Processes
-    AUTH[1.0 Authentication and authorization]
-    REG[2.0 Animal registry]
-    VAX[3.0 Vaccination monitoring]
-    MAP[4.0 Map and geospatial coverage]
-    APPT[5.0 Appointment management]
-    REPORT[6.0 Reports and exports]
-    ENGAGE[7.0 Feedback and notifications]
-  end
-
-  subgraph Stores
-    PROFILES[(Profiles)]
-    ANIMALS[(Animals)]
-    HISTORY[(Vaccination history)]
-    PUROKS[(Puroks)]
-    APPTS[(Vaccination appointments)]
-    ALERTS[(Vaccination alerts and notifications)]
-    FEEDBACK[(Feedback)]
-    AUDIT[(Audit log)]
-  end
-
-  USER --> AUTH
-  AUTH --> PROFILES
-
-  USER --> REG
-  REG --> ANIMALS
-  PUROKS --> REG
-
-  ANIMALS --> VAX
-  VAX --> HISTORY
-  VAX --> ALERTS
-
-  PUROKS --> MAP
-  ANIMALS --> MAP
-
-  USER --> APPT
-  APPT --> APPTS
-  ANIMALS --> APPT
-  APPTS --> AUDIT
-
-  ANIMALS --> REPORT
-  HISTORY --> REPORT
-
-  USER --> ENGAGE
-  ENGAGE --> FEEDBACK
-  ENGAGE --> ALERTS
-  ENGAGE --> AUDIT
-```
-
-## Entity Relationship Diagram
-
-```mermaid
+%%{init: {"theme":"neutral"}}%%
 erDiagram
   AUTH_USERS ||--o| PROFILES : has
-  AUTH_USERS o|--o{ ANIMALS : owns
-  PUROKS ||--o{ ANIMALS : locates
-
+  PROFILES o|--o{ ANIMALS : owns
+  PUROKS ||--o{ ANIMALS : contains
   ANIMALS ||--o{ VACCINATION_HISTORY : has
-  AUTH_USERS o|--o{ VACCINATION_HISTORY : records
-
-  ANIMALS o|--o{ APPOINTMENTS : has_legacy
-  AUTH_USERS o|--o{ APPOINTMENTS : manages
-
+  PROFILES o|--o{ VACCINATION_HISTORY : records
   ANIMALS ||--o{ VACCINATION_APPOINTMENTS : scheduled_for
-  AUTH_USERS o|--o{ VACCINATION_APPOINTMENTS : owns
-  PROFILES o|--o{ VACCINATION_APPOINTMENTS : assigned_to
-  AUTH_USERS o|--o{ VACCINATION_APPOINTMENTS : creates
-
+  PROFILES ||--o{ VACCINATION_APPOINTMENTS : owner
+  PROFILES o|--o{ VACCINATION_APPOINTMENTS : assigned_staff
   ANIMALS ||--o{ VACCINATION_ALERTS : triggers
-  AUTH_USERS ||--o{ VACCINATION_ALERTS : receives
-  AUTH_USERS o|--o{ NOTIFICATIONS : receives
-
-  AUTH_USERS o|--o{ FEEDBACK : submits
-  AUTH_USERS o|--o{ AUDIT_LOG : performs
-  AUTH_USERS o|--o{ ACCOUNT_OTPS : requests
+  PROFILES ||--o{ VACCINATION_ALERTS : receives
+  PROFILES ||--o{ NOTIFICATIONS : receives
+  PROFILES o|--o{ FEEDBACK : submits
+  PROFILES o|--o{ AUDIT_LOG : performs
   AUTH_USERS o|--o{ STAFF_INVITES : redeems
+  AUTH_USERS o|--o{ ACCOUNT_OTPS : requests
+  ANIMALS o|--o{ APPOINTMENTS : legacy_schedule
+  AUTH_USERS o|--o{ LOGIN_ATTEMPTS : has
 
   AUTH_USERS {
     uuid id PK
     text email
-    json raw_user_meta_data
   }
-
   PROFILES {
     uuid id PK, FK
     text full_name
     enum role
-    text username UK
     text contact_number
-    text id_document_reference
     enum status
-    boolean notify_sms
   }
-
   PUROKS {
     bigint id PK
     text name UK
     numeric latitude
     numeric longitude
   }
-
   ANIMALS {
     bigint id PK
     bigint purok_id FK
     uuid user_id FK
     text name
-    enum species
-    enum classification
-    boolean neutered
+    text species
     text breed
-    integer age
-    string sex
-    boolean vaccinated
     date vaccine_date
     date next_due_date
-    text vaccine_type
-    text pound_status
-    numeric latitude
-    numeric longitude
-    text[] image_references
   }
-
   VACCINATION_HISTORY {
     bigint id PK
     bigint animal_id FK
     uuid recorded_by FK
     date vaccine_date
     date next_due_date
-    text vaccine_type
   }
-
+  VACCINATION_APPOINTMENTS {
+    bigint id PK
+    bigint animal_id FK
+    uuid owner_id FK
+    uuid assigned_staff_id FK
+    timestamptz appointment_at
+    text status
+  }
+  VACCINATION_ALERTS {
+    bigint id PK
+    bigint animal_id FK
+    uuid user_id FK
+    date due_date
+    text status
+  }
+  NOTIFICATIONS {
+    bigint id PK
+    uuid user_id FK
+    text title
+    boolean is_read
+  }
+  FEEDBACK {
+    bigint id PK
+    uuid user_id FK
+    text category
+    text status
+  }
+  AUDIT_LOG {
+    bigint id PK
+    uuid user_id FK
+    text action
+    text table_name
+  }
+  STAFF_INVITES {
+    bigint id PK
+    text token UK
+    text role
+    timestamptz expires_at
+    uuid used_by FK
+  }
+  ACCOUNT_OTPS {
+    bigint id PK
+    uuid user_id FK
+    text purpose
+    text channel
+  }
+  LOGIN_ATTEMPTS {
+    bigint id PK
+    text username
+    text ip_address
+    boolean success
+  }
   APPOINTMENTS {
     bigint id PK
     bigint animal_id FK
@@ -226,78 +143,6 @@ erDiagram
     date scheduled_date
     text status
   }
-
-  VACCINATION_APPOINTMENTS {
-    bigint id PK
-    bigint animal_id FK
-    uuid owner_id FK
-    uuid assigned_staff_id FK
-    uuid created_by FK
-    timestamptz appointment_at
-    text vaccine_type
-    text location
-    text status
-  }
-
-  VACCINATION_ALERTS {
-    bigint id PK
-    bigint animal_id FK
-    uuid user_id FK
-    date due_date
-    text channel
-    text reminder_type
-    text status
-    text recipient
-  }
-
-  NOTIFICATIONS {
-    bigint id PK
-    uuid user_id FK
-    text title
-    text type
-    boolean is_read
-    text dedupe_key UK
-  }
-
-  FEEDBACK {
-    bigint id PK
-    uuid user_id FK
-    text category
-    text message
-    text status
-  }
-
-  AUDIT_LOG {
-    bigint id PK
-    uuid user_id FK
-    text action
-    text table_name
-    bigint record_id
-  }
-
-  STAFF_INVITES {
-    bigint id PK
-    text token UK
-    enum role
-    uuid claim_id
-    datetime expires_at
-  }
-
-  ACCOUNT_OTPS {
-    bigint id PK
-    uuid user_id FK
-    text purpose
-    text channel
-    text code_hash
-  }
-
-  LOGIN_ATTEMPTS {
-    bigint id PK
-    text username
-    text ip_address
-    boolean success
-  }
-
   MESSAGE_HISTORY {
     bigint id PK
     text channel
@@ -307,115 +152,178 @@ erDiagram
   }
 ```
 
-## Front-end and Role Views
+## Data Flow Diagram (DFD) - Level 0
 
 ```mermaid
+%%{init: {"theme":"neutral"}}%%
+flowchart LR
+  OWNER[Pet Owner]
+  STAFF[Admin or BHW]
+  SUPER[Super Admin]
+  SYSTEM([VacciTrack System])
+  SMS[Semaphore SMS Service]
+  OSM[OpenStreetMap Nominatim]
+
+  OWNER -->|Account, own records, feedback, settings| SYSTEM
+  SYSTEM -->|Own animal records, appointments, notifications| OWNER
+  STAFF -->|Registry, vaccination, appointment, map updates| SYSTEM
+  SYSTEM -->|Dashboard, planning, risk, map, reports| STAFF
+  SUPER -->|Accounts, verification, invites, audit, SMS requests| SYSTEM
+  SYSTEM -->|User administration and audit information| SUPER
+  SYSTEM -->|Reminder messages| SMS
+  SMS -->|Delivery status| SYSTEM
+  SYSTEM -->|Place search request| OSM
+  OSM -->|Location suggestions| SYSTEM
+```
+
+## Data Flow Diagram (DFD) - Level 1
+
+```mermaid
+%%{init: {"theme":"neutral"}}%%
+flowchart LR
+  USER[Users]
+
+  subgraph PROCESS[System Processes]
+    AUTH([1. Authenticate and authorize])
+    REG([2. Manage animal registry])
+    VAX([3. Track vaccinations])
+    APPT([4. Manage appointments])
+    MAP([5. Prepare coverage map])
+    REPORT([6. Prepare reports and alerts])
+    ADMIN([7. Manage users, feedback, and audit])
+  end
+
+  subgraph STORE[Data Stores]
+    PROFILE[(Profiles)]
+    ANIMAL[(Animals)]
+    PUROK[(Puroks)]
+    HISTORY[(Vaccination history)]
+    APPOINTMENT[(Appointments)]
+    NOTICE[(Notifications and alerts)]
+    FEEDBACK[(Feedback)]
+    AUDIT[(Audit log and message history)]
+  end
+
+  SMS[Semaphore SMS Service]
+
+  USER --> AUTH --> PROFILE
+  USER --> REG
+  REG <--> ANIMAL
+  PUROK --> REG
+  ANIMAL --> VAX
+  VAX <--> HISTORY
+  USER --> APPT
+  APPT <--> APPOINTMENT
+  ANIMAL --> APPT
+  PUROK --> MAP
+  ANIMAL --> MAP
+  ANIMAL --> REPORT
+  HISTORY --> REPORT
+  APPOINTMENT --> REPORT
+  USER --> ADMIN
+  ADMIN <--> PROFILE
+  ADMIN <--> FEEDBACK
+  ADMIN --> AUDIT
+  REG --> AUDIT
+  VAX --> AUDIT
+  APPT --> AUDIT
+  REPORT --> NOTICE
+  NOTICE --> SMS
+  SMS --> NOTICE
+```
+
+## Front-end
+
+```mermaid
+%%{init: {"theme":"neutral"}}%%
 flowchart TB
-  START[Sign in or registration]
-  START --> WORKSPACE[Role-aware workspace]
+  USER[Pet Owner, Admin, BHW, or Super Admin]
+  SIGNIN[Sign in or registration]
+  WORKSPACE[Role-aware Next.js workspace]
 
-  WORKSPACE --> OVERVIEW[Overview]
-  WORKSPACE --> REGISTRY[Registry and animal profiles]
-  WORKSPACE --> MAP[Coverage map]
-  WORKSPACE --> REPORTS[Reports and exports]
+  USER --> SIGNIN --> WORKSPACE
+
+  WORKSPACE --> OVERVIEW[Overview and live dashboard]
+  WORKSPACE --> REGISTRY[Animal registry, profiles, search, and CSV export]
+  WORKSPACE --> PLAN[Due-soon and overdue planning]
+  WORKSPACE --> APPOINTMENTS[Schedule, assign, and update appointments]
+  WORKSPACE --> RISK[Risk and coverage analysis]
+  WORKSPACE --> MAP[Coverage map and animal locations]
+  WORKSPACE --> POUND[Stray and pound tracking]
+  WORKSPACE --> REPORTS[Animal, vaccination, map, and pound reports]
   WORKSPACE --> FEEDBACK[Feedback]
-  WORKSPACE --> SETTINGS[Profile and settings]
-
-  WORKSPACE --> STAFF[Admin and BHW only]
-  STAFF --> PLANNING[Planning]
-  STAFF --> APPOINTMENTS[Appointments]
-  STAFF --> RISK[Risk analysis]
-  STAFF --> POUND[Pound and stray records]
-  STAFF --> TEAM[Team and SMS]
-
-  WORKSPACE --> ADMIN[Admin only]
-  ADMIN --> AUDIT[Audit log]
-
-  START --> HIDDEN[Hidden super-admin route]
-  HIDDEN --> USERS[User accounts]
-  HIDDEN --> PENDING[Verification and invites]
-  HIDDEN --> ADMIN_FEEDBACK[Feedback management]
-  HIDDEN --> ADMIN_MAP[Coverage map]
-  HIDDEN --> SMS[Test and custom SMS]
+  WORKSPACE --> TEAM[Team management]
+  WORKSPACE --> SMS[SMS messaging and reminders]
+  WORKSPACE --> AUDIT[Audit log]
+  WORKSPACE --> SETTINGS[Profile, language, and SMS settings]
+  WORKSPACE --> ADMIN[Restricted super-admin dashboard]
+  ADMIN --> ADMIN_TOOLS[User accounts, verification, invites, feedback, map, SMS, message history, and audit]
 ```
 
-## Storage and Security
+## Back-end
 
 ```mermaid
+%%{init: {"theme":"neutral"}}%%
 flowchart LR
-  PROFILE[Profile owner] --> IDDOC[Private id-documents bucket]
-  OWNER[Animal owner] --> ANIMALIMG[Private animal-images bucket]
-  STAFF[Admin or BHW] --> READ[Read through RLS or server actions]
+  FRONTEND[Next.js front-end]
+  PROXY[Next.js proxy and access checks]
+  ACTIONS[Server actions and route handlers]
+  AUTHFLOW[Registration, verification, OTP, and session handling]
+  DATAFLOW[Registry, vaccination, appointments, reports, and audit operations]
+  CRON[Scheduled vaccination reminder route]
+  AUTH[Supabase Auth]
+  DB[(Supabase Postgres<br/>Row Level Security)]
+  STORAGE[(Private Supabase Storage)]
+  SMS[Semaphore SMS API]
+  LOCATION[Location search action]
+  OSM[OpenStreetMap Nominatim]
 
-  IDDOC --> RLSP[Owner and admin policies]
-  ANIMALIMG --> RLSS[Owner and staff policies]
-  READ --> DATABASE[(Supabase Postgres)]
-
-  DATABASE --> RLS[Row Level Security]
-  DATABASE --> AUDIT[Audit log]
+  FRONTEND --> PROXY --> AUTHFLOW
+  FRONTEND --> ACTIONS --> DATAFLOW
+  AUTHFLOW --> AUTH
+  DATAFLOW --> DB
+  DATAFLOW --> STORAGE
+  DATAFLOW --> SMS
+  ACTIONS --> LOCATION --> OSM
+  CRON --> DB
+  CRON --> SMS
 ```
 
-## Objective 1 Monitoring
+## System Architecture
 
 ```mermaid
+%%{init: {"theme":"neutral"}}%%
 flowchart LR
-  SESSION[Authenticated session] --> POLL[30-second browser refresh]
-  SESSION --> FOCUS[Focus and visibility refresh]
-  DB[(Supabase)] --> RECORDS[Animal records]
-  DB --> COUNTS[Dashboard counts]
-  DB --> NOTICE[Unread notifications]
-  RECORDS --> STATUS[Vaccination status calculation]
-  COUNTS --> DASHBOARD[Live dashboard]
-  STATUS --> DASHBOARD
-  NOTICE --> DASHBOARD
+  subgraph BROWSER[Client Browser]
+    UI[Role-aware Next.js workspace]
+    MAP[Leaflet coverage map]
+  end
+
+  subgraph VERCEL[Vercel Runtime]
+    GUARD[Proxy and role guard]
+    ACTIONS[Server actions]
+    CRON[Scheduled reminder route]
+  end
+
+  subgraph SUPABASE[Supabase]
+    AUTH[Authentication]
+    DB[(Postgres with RLS)]
+    STORAGE[(Private storage buckets)]
+  end
+
+  LOCATION[Server-side location lookup]
+  OSM[OpenStreetMap Nominatim]
+  SMS[Semaphore SMS API]
+
+  UI --> GUARD
+  GUARD --> UI
+  UI --> MAP
+  MAP --> LOCATION --> OSM
+  UI --> ACTIONS
+  ACTIONS --> AUTH
+  ACTIONS --> DB
+  ACTIONS --> STORAGE
+  ACTIONS --> SMS
+  CRON --> DB
+  CRON --> SMS
 ```
-
-## Objective 2 Geospatial Coverage
-
-```mermaid
-flowchart LR
-  ANIMALS[(Animals)] --> POSITION[Resolve coordinates or purok center]
-  PUROKS[(Puroks)] --> POSITION
-  POSITION --> MARKERS[Vaccination-status markers]
-  MARKERS --> SEARCH[Search and filters]
-  SEARCH --> HEAT[Heat density]
-  SEARCH --> CLUSTERS[Zoom-aware clusters]
-  SEARCH --> DETAIL[Animal detail popup]
-```
-
-## Objective 4 Appointments
-
-```mermaid
-sequenceDiagram
-  participant Staff
-  participant App as VacciTrack
-  participant DB as Supabase
-  participant Owner
-
-  Staff->>App: Schedule appointment
-  App->>DB: Insert vaccination appointment
-  App->>Owner: Create in-app notification
-  App->>DB: Record audit entry
-  Staff->>App: Confirm or reschedule
-  App->>DB: Update appointment status
-  Staff->>App: Complete or cancel
-  App->>DB: Update final status and audit entry
-```
-
-## Objective 5 Reports
-
-```mermaid
-flowchart LR
-  ANIMALS[(Animals)] --> FILTER[Date and registry filters]
-  HISTORY[(Vaccination history)] --> FILTER
-  FILTER --> SUMMARY[Totals and coverage]
-  FILTER --> BREAKDOWN[Breed, age, vaccine, and purok]
-  FILTER --> POUND[Pound and status report]
-  SUMMARY --> EXPORT[PDF, Word, Excel, or CSV export]
-  BREAKDOWN --> EXPORT
-  POUND --> EXPORT
-```
-
-## Implementation Note
-
-`vaccination_appointments` is the detailed appointment workflow used by the current implementation. `appointments` remains in the schema for compatibility with the legacy appointment model. Animal breed and vaccine type are text fields rather than foreign keys to `breeds` and `vaccines`.

@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-11-24T00:00:00.000Z" agent="Codex" version="24.7.17" type="device" compressed="false">
+  <diagram id="page-1" name="IPOO">
+    <mxGraphModel dx="1200" dy="760" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="760" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="input" value="INPUT&#xA;Accounts and roles&#xA;Animals and owners&#xA;Vaccination records&#xA;Puroks and locations&#xA;Appointments and feedback" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="30" y="250" width="250" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="process" value="PROCESS&#xA;Authenticate users&#xA;Manage animal records&#xA;Track vaccination status&#xA;Manage appointments&#xA;Prepare maps and reports&#xA;Send reminders" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="330" y="250" width="260" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="output" value="OUTPUT&#xA;Animal registry&#xA;Vaccination dashboard&#xA;Coverage map&#xA;Appointment schedule&#xA;Reports and alerts" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="640" y="250" width="240" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="outcome" value="OUTCOME&#xA;Timely vaccination follow-up&#xA;Clearer coverage monitoring&#xA;Traceable community operations" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="930" y="250" width="240" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="input" target="process">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="process" target="output">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="output" target="outcome">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

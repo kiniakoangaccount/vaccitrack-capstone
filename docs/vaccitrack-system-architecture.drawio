@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-11-24T00:00:00.000Z" agent="Codex" version="24.7.17" type="device" compressed="false">
+  <diagram id="page-7" name="System Architecture">
+    <mxGraphModel dx="1240" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1240" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="browser" value="CLIENT BROWSER" style="swimlane;startSize=30;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=15;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="25" y="45" width="290" height="365" as="geometry" />
+        </mxCell>
+        <mxCell id="ui" value="Role-aware Next.js&#xA;workspace" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="70" y="105" width="200" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="leaflet" value="Leaflet coverage map" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="70" y="250" width="200" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="vercel" value="VERCEL RUNTIME" style="swimlane;startSize=30;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=15;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="400" y="45" width="300" height="365" as="geometry" />
+        </mxCell>
+        <mxCell id="guard" value="Proxy and role guard" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="445" y="105" width="210" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="actions" value="Server actions" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="445" y="215" width="210" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="cron" value="Scheduled reminder&#xA;route" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="445" y="320" width="210" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="supabase" value="SUPABASE" style="swimlane;startSize=30;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=15;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="790" y="45" width="300" height="365" as="geometry" />
+        </mxCell>
+        <mxCell id="auth" value="Authentication" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="835" y="105" width="210" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="db" value="Postgres with RLS" style="shape=cylinder;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="835" y="205" width="210" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="storage" value="Private storage buckets" style="shape=cylinder;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="835" y="305" width="210" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="osm" value="OpenStreetMap&#xA;Nominatim" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="70" y="510" width="200" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="sms" value="Semaphore SMS API" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="445" y="510" width="210" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-1" value="Session and role checks" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ui" target="guard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-2" value="Authorized workspace" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="guard" target="ui">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-3" value="Map view" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ui" target="leaflet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-4" value="Place search" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="leaflet" target="osm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-5" value="Data requests" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ui" target="actions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-6" value="Auth operations" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="actions" target="auth">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-7" value="RLS-protected queries" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="actions" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-8" value="Photo and document access" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="actions" target="storage">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-9" value="SMS requests" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="actions" target="sms">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-10" value="Due vaccination records" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cron" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-11" value="Scheduled reminders" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cron" target="sms">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

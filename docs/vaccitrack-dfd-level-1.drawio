@@ -1,0 +1,137 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-11-24T00:00:00.000Z" agent="Codex" version="24.7.17" type="device" compressed="false">
+  <diagram id="page-4" name="DFD Level 1">
+    <mxGraphModel dx="1250" dy="780" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1250" pageHeight="780" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="user" value="Users" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="15" y="325" width="120" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="auth" value="1. Authenticate&#xA;and authorize" style="ellipse;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="175" y="40" width="165" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="reg" value="2. Manage animal&#xA;registry" style="ellipse;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="175" y="170" width="165" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="vax" value="3. Track&#xA;vaccinations" style="ellipse;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="175" y="300" width="165" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="appt" value="4. Manage&#xA;appointments" style="ellipse;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="175" y="430" width="165" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="map" value="5. Prepare&#xA;coverage map" style="ellipse;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="175" y="560" width="165" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="report" value="6. Reports and&#xA;alerts" style="ellipse;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="440" y="175" width="165" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="admin" value="7. Users, feedback,&#xA;and audit" style="ellipse;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="440" y="440" width="165" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="profile" value="Profiles" style="shape=cylinder;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="690" y="35" width="145" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="animal" value="Animals" style="shape=cylinder;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="690" y="150" width="145" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="purok" value="Puroks" style="shape=cylinder;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="690" y="265" width="145" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="history" value="Vaccination history" style="shape=cylinder;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="690" y="380" width="175" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="appointments" value="Appointments" style="shape=cylinder;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="690" y="495" width="160" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="notice" value="Notifications and alerts" style="shape=cylinder;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="950" y="150" width="185" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="feedback" value="Feedback" style="shape=cylinder;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="950" y="300" width="150" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="audit" value="Audit and message history" style="shape=cylinder;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="950" y="450" width="190" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="sms" value="Semaphore SMS" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="950" y="610" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-1" value="Credentials" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="user" target="auth">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-2" value="Read/write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="auth" target="profile">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-3" value="Animal data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="user" target="reg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-4" value="Create/update" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="reg" target="animal">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-5" value="Location" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="purok" target="reg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-6" value="Animal data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="animal" target="vax">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-7" value="Record doses" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="vax" target="history">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-8" value="Schedule actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="user" target="appt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-9" value="Create/update" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="appt" target="appointments">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-10" value="Animal" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="animal" target="appt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-11" value="Purok data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="purok" target="map">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-12" value="Map pins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="animal" target="map">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-13" value="Registry data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="animal" target="report">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-14" value="Vaccination data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="history" target="report">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-15" value="Schedule data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="appointments" target="report">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-16" value="Admin actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="user" target="admin">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-17" value="Account management" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="admin" target="profile">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-18" value="Manage feedback" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="admin" target="feedback">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-19" value="Record actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="admin" target="audit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-20" value="Audit actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="reg" target="audit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-21" value="Audit actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="vax" target="audit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-22" value="Audit actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="appt" target="audit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-23" value="Create alerts" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="report" target="notice">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-24" value="Reminder delivery" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="notice" target="sms">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-25" value="Delivery result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="sms" target="notice">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

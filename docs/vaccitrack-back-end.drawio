@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-11-24T00:00:00.000Z" agent="Codex" version="24.7.17" type="device" compressed="false">
+  <diagram id="page-6" name="Back-end">
+    <mxGraphModel dx="1300" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="720" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="frontend" value="Next.js front-end" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="25" y="285" width="175" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="proxy" value="Proxy and role&#xA;access checks" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="245" y="285" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="authflow" value="Registration, verification,&#xA;OTP, session handling" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="475" y="65" width="220" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="dataflow" value="Registry, vaccination,&#xA;appointments, reports, audit" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="475" y="260" width="220" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="location" value="Location search action" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="475" y="500" width="220" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="cron" value="Scheduled vaccination&#xA;reminder route" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="245" y="500" width="180" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="auth" value="Supabase Auth" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="795" y="55" width="170" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="db" value="Supabase Postgres&#xA;Row Level Security" style="shape=cylinder;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="795" y="230" width="185" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="storage" value="Private Supabase&#xA;Storage" style="shape=cylinder;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="795" y="410" width="185" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="sms" value="Semaphore SMS API" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="270" width="180" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="osm" value="OpenStreetMap&#xA;Nominatim" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="795" y="545" width="185" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-1" value="Requests" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="frontend" target="proxy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-2" value="Account and auth" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proxy" target="authflow">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-3" value="Application actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proxy" target="dataflow">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-4" value="Identity and sessions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="authflow" target="auth">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-5" value="Read/write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="dataflow" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-6" value="Photos and documents" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="dataflow" target="storage">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-7" value="Messages" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="dataflow" target="sms">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-8" value="Due records and alert queue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cron" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-9" value="Scheduled reminders" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cron" target="sms">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-10" value="Place lookup" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="location" target="osm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
