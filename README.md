@@ -2,7 +2,7 @@
 
 A Vercel-ready animal vaccination monitoring dashboard built with Next.js, TypeScript, Tailwind CSS, and Supabase.
 
-See [system diagrams](docs/system-diagrams.md) for the ERD, DFDs, architecture, IPOO, and frontend/backend views.
+See [VacciTrack system documentation](docs/vaccitrack-system.md) for the ERD, DFDs, architecture, IPOO, objective views, and security model.
 
 ## Contributing
 
