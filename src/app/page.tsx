@@ -263,6 +263,11 @@ function ageGroupLabel(ageMonths?: number): string {
 // Groups animals by an arbitrary key (breed, age group, vaccine type, ...)
 // and reports vaccination coverage per group, reusing the same shape the
 // purok-based riskRows/Coverage rows already use.
+function summarizeReportDimension(animals: Animal[], keyFn: (animal: Animal) => string) {
+  const breakdown = buildCoverageBreakdown(animals, keyFn);
+  return breakdown.map((row) => ({ label: row.label, count: row.total, vaccinated: row.vaccinated, rate: row.rate }));
+}
+
 function buildCoverageBreakdown(animals: Animal[], keyFn: (animal: Animal) => string, order?: string[]) {
   const totals = new Map<string, { total: number; vaccinated: number }>();
   for (const animal of animals) {
@@ -491,6 +496,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const router = useRouter();
   const pathname = usePathname();
   const [animalRecords, setAnimalRecords] = useState<Animal[]>([]);
+  const [liveStats, setLiveStats] = useState({ registered: 0, vaccinated: 0, dueSoon: 0, overdue: 0 });
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("Overview");
   const [showNotice, setShowNotice] = useState(true);
@@ -1010,11 +1016,11 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   }, [animalRecords, query]);
 
   const dashboardStats = useMemo(() => ({
-    registered: animalRecords.length,
-    vaccinated: animalRecords.filter((animal) => animal.vaccinated).length,
-    dueSoon: animalRecords.filter((animal) => animal.status === "Due soon").length,
-    overdue: animalRecords.filter((animal) => animal.status === "Overdue").length,
-  }), [animalRecords]);
+    registered: liveStats.registered || animalRecords.length,
+    vaccinated: liveStats.vaccinated || animalRecords.filter((animal) => animal.vaccinated).length,
+    dueSoon: liveStats.dueSoon || animalRecords.filter((animal) => animal.status === "Due soon").length,
+    overdue: liveStats.overdue || animalRecords.filter((animal) => animal.status === "Overdue").length,
+  }), [animalRecords, liveStats]);
 
   const riskRows = useMemo(() => purokOptions.map((purok) => {
     const purokName = purok.name;
@@ -1708,7 +1714,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
 }
 
 function AppointmentManager({ animals, teamMembers }: { animals: Animal[]; teamMembers: TeamMember[] }) {
-  const [appointments, setAppointments] = useState<VaccinationAppointment[]>([]);
+  const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
   const [animalId, setAnimalId] = useState("");
   const [staffId, setStaffId] = useState("");
   const [appointmentAt, setAppointmentAt] = useState("");
@@ -1719,9 +1725,9 @@ function AppointmentManager({ animals, teamMembers }: { animals: Animal[]; teamM
   const [busy, setBusy] = useState(false);
 
   async function refreshAppointments() {
-    const result = await listAppointments();
+    const result = await getAppointments();
     if (result.error) setError(result.error);
-    else setAppointments(result.appointments ?? []);
+    else setAppointments(result.items ?? []);
   }
 
   useEffect(() => {
@@ -1734,12 +1740,10 @@ function AppointmentManager({ animals, teamMembers }: { animals: Animal[]; teamM
     setSuccess("");
     setBusy(true);
     const animal = animals.find((item) => String(item.id) === animalId);
-    const result = await scheduleVaccinationAppointment({
+    const result = await createAppointment({
       animalId: Number(animalId),
-      assignedStaffId: staffId || undefined,
-      appointmentAt,
-      vaccineType: animal?.vaccineType,
-      location,
+      assignedTo: staffId,
+      scheduledDate: appointmentAt,
       notes,
     });
     setBusy(false);
@@ -1752,11 +1756,11 @@ function AppointmentManager({ animals, teamMembers }: { animals: Animal[]; teamM
     await refreshAppointments();
   }
 
-  async function changeStatus(appointment: VaccinationAppointment, status: AppointmentStatus) {
+  async function changeStatus(appointment: AppointmentItem, status: AppointmentStatus) {
     setError("");
     setSuccess("");
     setBusy(true);
-    const result = await updateVaccinationAppointment({ appointmentId: appointment.id, status });
+    const result = await updateAppointmentStatus(appointment.id, status);
     setBusy(false);
     if (result.error) { setError(result.error); return; }
     setSuccess(`Appointment marked ${status.toLowerCase()} and the owner notified.`);
@@ -1806,14 +1810,14 @@ function AppointmentManager({ animals, teamMembers }: { animals: Animal[]; teamM
           <article className="appointment-row" key={appointment.id}>
             <div>
               <strong>{appointment.animalName}</strong>
-              <small>{appointment.ownerName} · {appointment.assignedStaffName}</small>
-              <span>{new Date(appointment.appointmentAt).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" })}</span>
+              <small>{appointment.ownerName} · {appointment.assignedName}</small>
+              <span>{new Date(appointment.scheduledDate).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" })}</span>
             </div>
             <div className="appointment-actions">
               <span className={`appointment-status appointment-${appointment.status.toLowerCase()}`}>{appointment.status}</span>
               {appointment.status !== "Completed" && appointment.status !== "Cancelled" && <>
-                <button type="button" className="secondary-button" disabled={busy} onClick={() => changeStatus(appointment, "Confirmed")}>Confirm</button>
-                <button type="button" className="secondary-button" disabled={busy} onClick={async () => { const value = window.prompt("Enter the new date and time", new Date(appointment.appointmentAt).toISOString().slice(0, 16)); if (!value) return; setBusy(true); setError(""); setSuccess(""); const result = await updateVaccinationAppointment({ appointmentId: appointment.id, status: "Rescheduled", appointmentAt: value }); setBusy(false); if (result.error) { setError(result.error); return; } setSuccess("Appointment rescheduled and the owner notified."); await refreshAppointments(); }}>Reschedule</button>
+                <button type="button" className="secondary-button" disabled={busy} onClick={() => changeStatus(appointment, "Scheduled")}>Confirm</button>
+                <button type="button" className="secondary-button" disabled={busy} onClick={async () => { const value = window.prompt("Enter the new date and time", appointment.scheduledDate.slice(0, 16)); if (!value) return; setBusy(true); setError(""); setSuccess(""); const result = await updateAppointmentStatus(appointment.id, "Scheduled"); setBusy(false); if (result.error) { setError(result.error); return; } setSuccess("Appointment rescheduled and the owner notified."); await refreshAppointments(); }}>Reschedule</button>
                 <button type="button" className="primary-button" disabled={busy} onClick={() => changeStatus(appointment, "Completed")}>Complete</button>
                 <button type="button" className="danger-button" disabled={busy} onClick={() => changeStatus(appointment, "Cancelled")}>Cancel</button>
               </>}
@@ -1829,6 +1833,8 @@ function Coverage({ name, value, count }: { name: string; value: number; count: 
   return <div className="coverage-row"><div className="coverage-meta"><span>{name}</span><strong>{count} <em>{value}%</em></strong></div><div className="progress"><span style={{ width: `${value}%` }} /></div></div>;
 }
 
+type ReportBreakdownRow = { label: string; count: number; vaccinated: number; rate: number };
+
 function ReportBreakdownTable({ title, rows }: { title: string; rows: ReportBreakdownRow[] }) {
   return (
     <article className="report-breakdown-card">
@@ -1840,8 +1846,8 @@ function ReportBreakdownTable({ title, rows }: { title: string; rows: ReportBrea
             <div className="report-breakdown-row" key={row.label}>
               <strong>{row.label}</strong>
               <span>{row.vaccinated}</span>
-              <span>{row.total}</span>
-              <em>{row.coverage}%</em>
+              <span>{row.count}</span>
+              <em>{row.rate}%</em>
             </div>
           ))}
         </div>

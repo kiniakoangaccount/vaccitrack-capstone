@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+export const SUPER_ADMIN_PATH = "/vaccitrack_super_hidden_admin";
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 

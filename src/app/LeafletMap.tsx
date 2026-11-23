@@ -87,8 +87,13 @@ export default function LeafletMap({
   const mapInstance = useRef<L.Map | null>(null);
   const markersLayer = useRef<L.MarkerClusterGroup | null>(null);
   const heatLayer = useRef<L.LayerGroup | null>(null);
+  const purokLayer = useRef<L.LayerGroup | null>(null);
   const [showHeat, setShowHeat] = useState(true);
   const [showClusters, setShowClusters] = useState(true);
+  const [showPuroks, setShowPuroks] = useState(false);
+  const [speciesFilter, setSpeciesFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [purokFilter, setPurokFilter] = useState("All");
   const [mapSearch, setMapSearch] = useState("");
   const [selectedId, setSelectedId] = useState<MapAnimal["id"] | null>(null);
 
@@ -162,7 +167,6 @@ export default function LeafletMap({
     }).addTo(map);
 
     mapInstance.current = map;
-    map.on("zoomend", () => setZoomLevel(map.getZoom()));
 
     let fitted = false;
     const fitToArea = () => {
@@ -238,11 +242,13 @@ export default function LeafletMap({
     heat.clearLayers();
 
     const term = mapSearch.trim().toLowerCase();
-    const visible = term
-      ? placed.filter(({ animal: a }) =>
-          [a.name, a.owner, a.purok, a.species].some((v) => String(v ?? "").toLowerCase().includes(term)),
-        )
-      : placed;
+    const visible = placed.filter(({ animal: animal }) => {
+      const matchesSearch = !term || [animal.name, animal.owner, animal.purok, animal.species].some((value) => String(value ?? "").toLowerCase().includes(term));
+      const matchesSpecies = speciesFilter === "All" || animal.species === speciesFilter;
+      const matchesStatus = statusFilter === "All" || animal.status === statusFilter;
+      const matchesPurok = purokFilter === "All" || animal.purok === purokFilter;
+      return matchesSearch && matchesSpecies && matchesStatus && matchesPurok;
+    });
 
     const markers: L.Marker[] = [];
     for (const { animal, lat, lng, approximate } of visible) {
@@ -276,7 +282,7 @@ export default function LeafletMap({
       }
     }
     cluster.addLayers(markers);
-  }, [placed, showHeat, mapSearch]);
+  }, [placed, showHeat, mapSearch, speciesFilter, statusFilter, purokFilter]);
 
   const selectedPlaced = selectedId === null ? null : (placed.find((p) => p.animal.id === selectedId) ?? null);
   const selectedAnimal = selectedPlaced?.animal ?? null;
