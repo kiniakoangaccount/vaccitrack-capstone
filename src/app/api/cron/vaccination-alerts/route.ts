@@ -461,12 +461,20 @@ export async function GET(request: Request) {
       const profile = profileById.get(target.animal.user_id);
       const language = profileLanguage(profile?.preferred_language);
       const message = buildMessage(target, profile, language);
+      const title = target.reminderType === "OVERDUE"
+        ? "Overdue vaccination"
+        : target.reminderType === "D1"
+          ? "Vaccination due tomorrow"
+          : "Vaccination due in 7 days";
+      const dedupeKey = target.reminderType === "OVERDUE"
+        ? `overdue:${target.animal.user_id}:${target.dueDate}`
+        : `auto:${target.animal.id}:${target.dueDate}:${target.reminderType}`;
       const { error } = await db.from("notifications").insert({
         user_id: target.animal.user_id,
-        title: target.reminderType === "OVERDUE" ? "Overdue vaccination" : "Vaccination due soon",
+        title,
         message,
         type: target.reminderType === "OVERDUE" ? "danger" : "warning",
-        dedupe_key: `sms:${target.animal.id}:${target.dueDate}`,
+        dedupe_key: dedupeKey,
       });
       if (error && error.code !== "23505") failures.push(`${target.animal.name}: could not save in-app notification: ${error.message}`);
     }

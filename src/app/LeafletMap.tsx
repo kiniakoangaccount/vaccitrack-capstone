@@ -12,6 +12,7 @@ export interface MapAnimal {
   id: number | string;
   name: string;
   species: string;
+  classification?: string;
   owner: string;
   purok: string;
   vaccinated: boolean;
@@ -59,6 +60,20 @@ function clusterHtml(count: number): string {
   return `<span style="background:#2f8065;color:#fff;border:3px solid #fff;border-radius:50%;display:grid;place-items:center;width:36px;height:36px;box-sizing:border-box;font-weight:700;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.35);">${count}</span>`;
 }
 
+function statusColor(status: string): string {
+  if (status === "Overdue") return "#c85f57";
+  if (status === "Due soon") return "#c48732";
+  if (status === "Vaccinated") return "#2f8065";
+  return "#7b8790";
+}
+
+function statusClass(status: string): string {
+  if (status === "Overdue") return "status-danger";
+  if (status === "Due soon") return "status-warn";
+  if (status === "Vaccinated") return "status-good";
+  return "status-neutral";
+}
+
 export interface LeafletMapHandle {
   flyTo: (lat: number, lng: number, zoom?: number) => boolean;
 }
@@ -92,6 +107,7 @@ export default function LeafletMap({
   const [showClusters, setShowClusters] = useState(true);
   const [showPuroks, setShowPuroks] = useState(false);
   const [speciesFilter, setSpeciesFilter] = useState("All");
+  const [classificationFilter, setClassificationFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [purokFilter, setPurokFilter] = useState("All");
   const [mapSearch, setMapSearch] = useState("");
@@ -243,20 +259,23 @@ export default function LeafletMap({
 
     const term = mapSearch.trim().toLowerCase();
     const visible = placed.filter(({ animal: animal }) => {
-      const matchesSearch = !term || [animal.name, animal.owner, animal.purok, animal.species].some((value) => String(value ?? "").toLowerCase().includes(term));
+      const classification = animal.classification ?? "Pet";
+      const matchesSearch = !term || [animal.name, animal.owner, animal.purok, animal.species, classification].some((value) => String(value ?? "").toLowerCase().includes(term));
       const matchesSpecies = speciesFilter === "All" || animal.species === speciesFilter;
+      const matchesClassification = classificationFilter === "All" || classification === classificationFilter;
       const matchesStatus = statusFilter === "All" || animal.status === statusFilter;
       const matchesPurok = purokFilter === "All" || animal.purok === purokFilter;
-      return matchesSearch && matchesSpecies && matchesStatus && matchesPurok;
+      return matchesSearch && matchesSpecies && matchesClassification && matchesStatus && matchesPurok;
     });
 
     const markers: L.Marker[] = [];
     for (const { animal, lat, lng, approximate } of visible) {
-      const color = animal.vaccinated ? "#2f8065" : animal.status === "Overdue" ? "#c85f57" : "#c48732";
+      const color = statusColor(animal.status);
+      const classification = animal.classification ?? "Pet";
 
       const tooltip =
         `<strong>${escapeHtml(animal.name)}</strong><br/>${escapeHtml(animal.species)} · ${escapeHtml(animal.purok)}` +
-        `<br/>${escapeHtml(animal.owner)}<br/><em>${escapeHtml(animal.status)}</em>` +
+        `<br/>${escapeHtml(classification)} · ${escapeHtml(animal.owner)}<br/><em>${escapeHtml(animal.status)}</em>` +
         (approximate ? "<br/><small>Approximate position (purok center)</small>" : "");
 
       const marker = L.marker([lat, lng], {
@@ -276,13 +295,13 @@ export default function LeafletMap({
           radius: 90,
           color: "transparent",
           weight: 0,
-          fillColor: "#2f8065",
-          fillOpacity: 0.12 * (animal.vaccinated ? 1 : 0.5),
+          fillColor: color,
+          fillOpacity: 0.12,
         }).addTo(heat);
       }
     }
     cluster.addLayers(markers);
-  }, [placed, showHeat, mapSearch, speciesFilter, statusFilter, purokFilter]);
+  }, [placed, showHeat, mapSearch, speciesFilter, classificationFilter, statusFilter, purokFilter]);
 
   const selectedPlaced = selectedId === null ? null : (placed.find((p) => p.animal.id === selectedId) ?? null);
   const selectedAnimal = selectedPlaced?.animal ?? null;
@@ -303,12 +322,17 @@ export default function LeafletMap({
           <option value="Dog">Dogs</option>
           <option value="Cat">Cats</option>
         </select>}
+        {!pickMode && <select aria-label="Filter by pet or stray classification" value={classificationFilter} onChange={(event) => setClassificationFilter(event.target.value)}>
+          <option value="All">Pets and strays</option>
+          <option value="Pet">Pets</option>
+          <option value="Stray">Strays</option>
+        </select>}
         {!pickMode && <select aria-label="Filter by vaccination status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
           <option value="All">All statuses</option>
-          <option value="Vaxxed">Vaxxed</option>
-          <option value="To expire">To expire</option>
+          <option value="Vaccinated">Vaccinated</option>
+          <option value="Due soon">Due soon</option>
           <option value="Overdue">Overdue</option>
-          <option value="Unvaccinated">Unvaccinated</option>
+          <option value="Not scheduled">Not scheduled</option>
         </select>}
         {!pickMode && <select aria-label="Filter by purok or service area" value={purokFilter} onChange={(event) => setPurokFilter(event.target.value)}>
           <option value="All">All puroks</option>
@@ -333,9 +357,10 @@ export default function LeafletMap({
           <button className="leaflet-popup-close" onClick={() => setSelectedId(null)}>×</button>
           <strong>{selectedAnimal.name}</strong>
           <span>{selectedAnimal.species} · {selectedAnimal.purok}</span>
+          <span>{selectedAnimal.classification ?? "Pet"}</span>
           <span>{selectedAnimal.owner}</span>
           {selectedPlaced?.approximate && <span>Approximate position (purok center)</span>}
-          <em className={`status ${selectedAnimal.vaccinated ? "status-good" : selectedAnimal.status === "Overdue" ? "status-danger" : "status-warn"}`}>
+          <em className={`status ${statusClass(selectedAnimal.status)}`}>
             <i />{selectedAnimal.status}
           </em>
         </div>

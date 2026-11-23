@@ -93,14 +93,14 @@ export const purokOptions = [
 ];
 
 export function getAnimalStatus(vaccinated: boolean, nextDueDate: string | null, today = new Date()): AnimalStatus {
-  if (!nextDueDate) return vaccinated ? "Vaccinated" : "Not scheduled";
+  if (!nextDueDate) return "Not scheduled";
 
   const dueDate = new Date(`${nextDueDate.slice(0, 10)}T00:00:00`);
-  if (Number.isNaN(dueDate.getTime())) return vaccinated ? "Vaccinated" : "Not scheduled";
+  if (Number.isNaN(dueDate.getTime())) return "Not scheduled";
 
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const daysUntilDue = Math.round((dueDate.getTime() - todayMidnight.getTime()) / 86400000);
   if (daysUntilDue < 0) return "Overdue";
   if (daysUntilDue <= 30) return "Due soon";
-  return "Vaccinated";
+  return vaccinated ? "Vaccinated" : "Not scheduled";
 }
