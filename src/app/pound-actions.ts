@@ -3,7 +3,7 @@
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
 
-const POUND_STATUSES = ["Impounded", "Under Observation", "Up for Adoption", "Reclaimed"] as const;
+const POUND_STATUSES = ["Impounded", "Up for Adoption", "Reclaimed"] as const;
 export type PoundStatus = (typeof POUND_STATUSES)[number];
 
 export async function updatePoundStatus(

@@ -35,9 +35,7 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
   const mapInstance = useRef<L.Map | null>(null);
   const markersLayer = useRef<L.LayerGroup | null>(null);
   const heatLayer = useRef<L.LayerGroup | null>(null);
-  const purokLayer = useRef<L.LayerGroup | null>(null);
   const [showHeat, setShowHeat] = useState(true);
-  const [showPuroks, setShowPuroks] = useState(true);
   const [mapSearch, setMapSearch] = useState("");
   const [selectedAnimal, setSelectedAnimal] = useState<MapAnimal | null>(null);
 
@@ -57,7 +55,6 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
 
     markersLayer.current = L.layerGroup().addTo(map);
     heatLayer.current = L.layerGroup().addTo(map);
-    purokLayer.current = L.layerGroup().addTo(map);
 
     mapInstance.current = map;
 
@@ -72,19 +69,6 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
       mapInstance.current = null;
     };
   }, [pickMode, onPickCoordinates]);
-
-  // Purok zone circles
-  useEffect(() => {
-    if (!mapInstance.current || !purokLayer.current) return;
-    purokLayer.current.clearLayers();
-    if (!showPuroks) return;
-
-    for (const p of puroks) {
-      L.circle([p.latitude, p.longitude], { radius: 180, color: "#2f8065", weight: 2, fillColor: "#2f806520", fillOpacity: 0.15 })
-        .addTo(purokLayer.current)
-        .bindTooltip(`<strong>${p.name}</strong>`);
-    }
-  }, [puroks, showPuroks]);
 
   // Animal markers + heatmap
   useEffect(() => {
@@ -114,7 +98,7 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
       }
       if (lat === undefined || lng === undefined || lat === null || lng === null) continue;
 
-      const color = animal.vaccinated ? "#2f8065" : animal.status === "Overdue" ? "#c85f57" : "#c48732";
+      const color = !animal.vaccinated ? "#dc2626" : animal.status === "Overdue" ? "#f97316" : animal.status === "Due soon" ? "#eab308" : "#16a34a";
       const icon = animal.species === "Cat" ? "🐈" : "🐕";
 
       const marker = L.marker([lat, lng], {
@@ -169,13 +153,6 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
           >
             Heatmap
           </button>
-          <button
-            type="button"
-            className={`leaflet-toggle${showPuroks ? " active" : ""}`}
-            onClick={() => setShowPuroks(!showPuroks)}
-          >
-            Purok zones
-          </button>
         </div>
       </div>
       <div ref={mapRef} className="leaflet-map-canvas" />
@@ -185,7 +162,7 @@ export default function LeafletMap({ animals, puroks, onPickCoordinates, pickMod
           <strong>{selectedAnimal.name}</strong>
           <span>{selectedAnimal.species} · {selectedAnimal.purok}</span>
           <span>{selectedAnimal.owner}</span>
-          <em className={`status ${selectedAnimal.vaccinated ? "status-good" : selectedAnimal.status === "Overdue" ? "status-danger" : "status-warn"}`}>
+          <em className={`status ${!selectedAnimal.vaccinated ? "status-danger" : selectedAnimal.status === "Overdue" ? "status-overdue" : selectedAnimal.status === "Due soon" ? "status-warn" : "status-good"}`}>
             <i />{selectedAnimal.status}
           </em>
         </div>

@@ -28,7 +28,7 @@ Open http://localhost:3000.
 
 ## Automatic SMS vaccination reminders
 
-The Vercel cron job at `/api/cron/vaccination-alerts` runs daily and sends a Semaphore SMS to the registered user's phone number exactly 7 days before an animal's `next_due_date`. It also creates an in-app notification and stores a deduplication record in `vaccination_alerts`, so retries do not send the same reminder twice.
+The Vercel cron job at `/api/cron/vaccination-alerts` runs daily and sends distinct Semaphore SMS messages 7 days and 1 day before an animal's `next_due_date`, plus an overdue notice after that date passes. It also creates an in-app notification and stores a deduplication record in `vaccination_alerts` by animal, due date, channel, and alert type, so retries do not send the same message twice.
 
 Run the current `supabase/schema.sql`, then configure these server-side environment variables in Vercel:
 

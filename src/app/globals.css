@@ -176,6 +176,8 @@ button { cursor: pointer; }
 .admin-feedback-date { font-size: 14px; margin-left: auto; }
 .admin-feedback-from { margin: 0 0 6px; font-size: 15px; color: var(--muted); }
 .admin-feedback-msg { margin: 0; font-size: 18px; color: var(--ink); line-height: 1.6; }
+.status-overdue { color: #c2410c; background: #fff0e8; }.status-overdue i { background: #f97316; }
+.legend-dot.overdue { background: #f97316; }
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬ Empty / not-configured states Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 .admin-empty-state { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 52px 24px; color: var(--muted); text-align: center; }.admin-empty-state svg { color: #c5d4cc; }.admin-empty-state strong { color: var(--ink); font-size: 20px; }.admin-empty-state p { margin: 0; font-size: 17px; }

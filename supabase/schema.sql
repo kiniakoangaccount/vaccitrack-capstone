@@ -110,10 +110,10 @@ alter table public.animals add column if not exists neutered boolean not null de
 
 do $$
 begin
-  if not exists (select 1 from pg_constraint where conname = 'animals_pound_status_check') then
-    alter table public.animals add constraint animals_pound_status_check
-      check (pound_status is null or pound_status in ('Impounded', 'Under Observation', 'Up for Adoption', 'Reclaimed'));
-  end if;
+  update public.animals set pound_status = 'Impounded' where pound_status = 'Under Observation';
+  alter table public.animals drop constraint if exists animals_pound_status_check;
+  alter table public.animals add constraint animals_pound_status_check
+    check (pound_status is null or pound_status in ('Impounded', 'Up for Adoption', 'Reclaimed'));
 end $$;
 
 do $$
@@ -220,17 +220,25 @@ create table if not exists public.vaccination_alerts (
   animal_id bigint not null references public.animals(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   due_date date not null,
+  alert_type text not null default '7_day',
   channel text not null default 'sms',
   status text not null default 'pending',
   provider_message_id text,
   error_message text,
   sent_at timestamptz,
   created_at timestamptz not null default now(),
-  unique (animal_id, due_date, channel),
+  constraint vaccination_alerts_event_unique unique (animal_id, due_date, channel, alert_type),
   check (channel in ('sms')),
-  check (status in ('pending', 'sent', 'failed'))
+  check (status in ('pending', 'sent', 'failed')),
+  check (alert_type in ('7_day', '1_day', 'overdue'))
 );
 
+alter table public.vaccination_alerts add column if not exists alert_type text not null default '7_day';
+alter table public.vaccination_alerts drop constraint if exists vaccination_alerts_animal_id_due_date_channel_key;
+alter table public.vaccination_alerts drop constraint if exists vaccination_alerts_event_unique;
+alter table public.vaccination_alerts add constraint vaccination_alerts_event_unique unique (animal_id, due_date, channel, alert_type);
+alter table public.vaccination_alerts drop constraint if exists vaccination_alerts_alert_type_check;
+alter table public.vaccination_alerts add constraint vaccination_alerts_alert_type_check check (alert_type in ('7_day', '1_day', 'overdue'));
 create index if not exists vaccination_alerts_due_date_idx on public.vaccination_alerts (due_date, status);
 
 -- Login attempt tracking for brute-force protection
