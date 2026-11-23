@@ -137,6 +137,20 @@ erDiagram
         datetime consumed_at
         datetime created_at
     }
+    VACCINATION_APPOINTMENTS {
+        bigint id PK
+        bigint animal_id FK
+        uuid owner_id FK
+        uuid assigned_staff_id FK
+        uuid created_by FK
+        datetime appointment_at
+        string vaccine_type
+        string location
+        string status
+        string notes
+        datetime created_at
+        datetime updated_at
+    }
     LOGIN_ATTEMPTS {
         bigint id PK
         string email
@@ -157,6 +171,10 @@ erDiagram
     AUTH_USERS o|--o{ AUDIT_LOG : performs
     AUTH_USERS o|--o{ STAFF_INVITES : redeems
     AUTH_USERS ||--o{ ACCOUNT_OTPS : verifies
+    ANIMALS ||--o{ VACCINATION_APPOINTMENTS : scheduled_for
+    AUTH_USERS o|--o{ VACCINATION_APPOINTMENTS : owns
+    AUTH_USERS o|--o{ VACCINATION_APPOINTMENTS : assigned_to
+    AUTH_USERS o|--o{ VACCINATION_APPOINTMENTS : creates
 ```
 
 `LOGIN_ATTEMPTS` has no foreign key. Animal `breed` and `vaccine_type` are text values rather than references to `BREEDS` and `VACCINES`. Animal photos are not currently represented in the schema.
@@ -205,6 +223,7 @@ flowchart LR
     p4([4.0 Generate and deliver reminders])
     p5([5.0 Handle feedback and audit activity])
     p6([6.0 Manage staff invitations and accounts])
+    p7([7.0 Schedule and manage appointments])
 
     d1[(D1 Supabase Auth and profiles)]
     d2[(D2 Animals and puroks)]
@@ -213,6 +232,7 @@ flowchart LR
     d5[(D5 Feedback and audit log)]
     d6[(D6 Staff invites and account OTPs)]
     d7[(D7 Private ID-document storage)]
+    d8[(D8 Vaccination appointments)]
 
     owner -->|Credentials and session| p1
     staff -->|Credentials and session| p1
@@ -253,6 +273,12 @@ flowchart LR
     p6 <-->|Single-use invite and OTP state| d6
     p6 -->|ID document reference| d7
     p6 -->|Invite and account status| platformadmin
+
+    staff -->|Animal, date/time, assignee and location| p7
+    p7 <-->|Schedule, reassign and update status| d8
+    p7 <-->|Verify staff and owner profiles| d1
+    p7 -->|Appointment confirmation or status notice| owner
+    p7 -->|Assignment and appointment dashboard| staff
 ```
 
 ## System Architecture
@@ -303,6 +329,18 @@ flowchart TB
 ```
 
 The Supabase service-role key and Semaphore API key are server-only. Browser and cookie-scoped clients use the authenticated user's session and are subject to row-level security. The hidden dashboard has an additional middleware cookie gate.
+
+### Objective 4 appointment model
+
+Staff can schedule a future vaccination appointment for a registered animal, assign an active BHW or admin staff member, set the health-station location, and record instructions. Appointment records support Scheduled, Confirmed, Rescheduled, Completed, and Cancelled states. Scheduling or status changes create an owner in-app notification and an audit entry.
+
+### Objective 2 geospatial coverage model
+
+The coverage map distributes registered Dog and Cat records across purok/service areas. It provides search plus species, vaccination-status, and purok filters; a status legend for Vaxxed, To expire, Overdue, and Unvaccinated; heat-density display; and zoom-aware area clusters that expand as the user zooms. Individual markers retain animal name, species, purok, owner, and vaccination status details.
+
+### Objective 1 refresh model
+
+VacciTrack monitors vaccination compliance using live page data refreshed by browser polling because direct Supabase Realtime subscriptions are not enabled. When an authenticated session is active, animal records, summary counts, and unread notifications are refreshed every 30 seconds while the page is visible. Data is also refreshed immediately when the browser window regains focus or becomes visible after being hidden. Status is recalculated consistently as `Not scheduled`, `Vaccinated`, `Due soon`, or `Overdue`, and the Supabase `vaccination_status()` SQL helper mirrors this logic.
 
 ## IPOO
 
