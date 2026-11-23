@@ -7,7 +7,7 @@ These diagrams summarize the implemented VacciTrack system. They use Mermaid's n
 - **Accounts and access:** registration and sign-in, role-based workspaces, account verification, staff invitations, profile settings, English/Tagalog/Hiligaynon language preference, password recovery, and SMS one-time codes for supported account changes. Roles include client, BHW, and admin; super-admin tools are provided through a separate restricted dashboard.
 - **Animal registry:** register and update dogs and cats, pet or stray classification, owner/contact details, breed, age, sex, neuter status, notes, vaccination details, location, and identification photos. Staff can search/filter records, view animal profiles, and export registry data as CSV.
 - **Vaccination tracking:** vaccination history, due and overdue status, planning lists, vaccine reference data, dashboard counts, and risk/coverage summaries by purok and animal groups. Dashboard data refreshes every 30 seconds and when the browser regains focus.
-- **Appointments:** staff can schedule visits, assign staff, and update appointment status; owners can view their own appointments.
+- **Appointments:** staff can schedule visits, assign them to admin/BHW staff, and update status. The appointment workflow in the workspace is staff-only.
 - **Maps and location:** Leaflet coverage maps, map pins, purok coverage, search and filters, clusters, heat density, location selection, and place lookup through OpenStreetMap Nominatim.
 - **Reports and stray/pound records:** animal, vaccination, map/coverage, and stray/pound reports with PDF, Word, Excel, CSV, and print options; track impound area and statuses for observation, adoption, or reclamation.
 - **Notifications and messaging:** in-app notifications, scheduled vaccination reminders, staff SMS messaging, delivery/message history, and SMS audit records through Semaphore.
@@ -27,7 +27,7 @@ flowchart LR
 
 ## Entity Relationship Diagram (ERD)
 
-The ERD focuses on the main records used by the registry, vaccination, and appointment workflows.
+The ERD focuses on the main records used by the registry, vaccination, and appointment workflows. `vaccination_appointments` exists in the database schema, but the current workspace actions use the legacy `appointments` table for staff scheduling.
 
 ```mermaid
 %%{init: {"theme":"neutral"}}%%
@@ -48,7 +48,6 @@ erDiagram
   AUTH_USERS o|--o{ STAFF_INVITES : redeems
   AUTH_USERS o|--o{ ACCOUNT_OTPS : requests
   ANIMALS o|--o{ APPOINTMENTS : legacy_schedule
-  AUTH_USERS o|--o{ LOGIN_ATTEMPTS : has
 
   AUTH_USERS {
     uuid id PK
@@ -165,7 +164,7 @@ flowchart LR
   OSM[OpenStreetMap Nominatim]
 
   OWNER -->|Account, own records, feedback, settings| SYSTEM
-  SYSTEM -->|Own animal records, appointments, notifications| OWNER
+  SYSTEM -->|Own animal records and notifications| OWNER
   STAFF -->|Registry, vaccination, appointment, map updates| SYSTEM
   SYSTEM -->|Dashboard, planning, risk, map, reports| STAFF
   SUPER -->|Accounts, verification, invites, audit, SMS requests| SYSTEM
@@ -182,6 +181,7 @@ flowchart LR
 %%{init: {"theme":"neutral"}}%%
 flowchart LR
   USER[Users]
+  STAFF[Admin or BHW]
 
   subgraph PROCESS[System Processes]
     AUTH([1. Authenticate and authorize])
@@ -212,7 +212,7 @@ flowchart LR
   PUROK --> REG
   ANIMAL --> VAX
   VAX <--> HISTORY
-  USER --> APPT
+  STAFF --> APPT
   APPT <--> APPOINTMENT
   ANIMAL --> APPT
   PUROK --> MAP
@@ -256,7 +256,7 @@ flowchart TB
   WORKSPACE --> SMS[SMS messaging and reminders]
   WORKSPACE --> AUDIT[Audit log]
   WORKSPACE --> SETTINGS[Profile, language, and SMS settings]
-  WORKSPACE --> ADMIN[Restricted super-admin dashboard]
+  USER --> ADMIN[Restricted super-admin dashboard]
   ADMIN --> ADMIN_TOOLS[User accounts, verification, invites, feedback, map, SMS, message history, and audit]
 ```
 

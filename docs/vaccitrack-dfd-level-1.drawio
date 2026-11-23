@@ -77,9 +77,6 @@
         <mxCell id="edge-7" value="Record doses" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="vax" target="history">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge-8" value="Schedule actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="user" target="appt">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
         <mxCell id="edge-9" value="Create/update" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="appt" target="appointments">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
@@ -129,6 +126,12 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="edge-25" value="Delivery result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="sms" target="notice">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="staff" value="Admin or BHW staff" style="rounded=1;arcSize=12;strokeColor=#000000;fontColor=#000000;fillColor=#FFFFFF;whiteSpace=wrap;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="15" y="475" width="120" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="staff-appointment" value="Schedules and updates" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="staff" target="appt">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
