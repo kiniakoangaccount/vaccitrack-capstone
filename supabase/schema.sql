@@ -634,6 +634,12 @@ begin
   ) then
     alter publication supabase_realtime add table public.animals;
   end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'puroks'
+  ) then
+    alter publication supabase_realtime add table public.puroks;
+  end if;
 end $$;
 
 drop policy if exists "Users can read their own profile" on public.profiles;

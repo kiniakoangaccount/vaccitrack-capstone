@@ -492,10 +492,20 @@ async function loadAnimalRecords(
   });
 }
 
+async function loadRiskPurokNames(
+  supabase: NonNullable<ReturnType<typeof createClient>>,
+): Promise<string[] | null> {
+  const { data, error } = await supabase.from("puroks").select("name").order("name");
+  if (error) return null;
+  const rows = (data ?? []) as { name: string | null }[];
+  return rows.map((row) => row.name).filter((name): name is string => typeof name === "string" && Boolean(name.trim()));
+}
+
 export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?: "landing" | "signin" | "register" } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const [animalRecords, setAnimalRecords] = useState<Animal[]>([]);
+  const [riskPurokNames, setRiskPurokNames] = useState(() => purokOptions.map((purok) => purok.name));
   const [liveStats, setLiveStats] = useState({ registered: 0, vaccinated: 0, dueSoon: 0, overdue: 0 });
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("Overview");
@@ -668,6 +678,9 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     };
   }, []);
 
+  // Keep the registry, risk analysis, and reports on the same live animal
+  // snapshot. Realtime changes refresh immediately; polling covers missed
+  // events and reconnects when the browser returns to the foreground.
   useEffect(() => {
     if (!authUser) return;
     const supabase = createClient();
@@ -679,59 +692,24 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
 
       const isClientRole = authUser.role === "client";
       const ownerId = authUser.id;
-      const today = new Date();
-      const todayIso = today.toISOString().slice(0, 10);
-      const recentQuery = supabase.from("animals").select("id, name, species, classification, neutered, breed, age, sex, color, owner_name, contact_number, impound_area, vaccinated, vaccine_date, next_due_date, vaccine_type, latitude, longitude, notes, pound_status, puroks(name)").order("created_at", { ascending: false });
-      const totalQuery = supabase.from("animals").select("id", { count: "exact", head: true });
-      const vaccinatedQuery = supabase.from("animals").select("id", { count: "exact", head: true }).eq("vaccinated", true);
-      const dueQuery = supabase.from("animals").select("id", { count: "exact", head: true }).gte("next_due_date", todayIso).lte("next_due_date", new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10));
-      const overdueQuery = supabase.from("animals").select("id", { count: "exact", head: true }).lt("next_due_date", todayIso);
-
-      const [recentResult, totalResult, vaccinatedResult, dueResult, overdueResult] = await Promise.all([
-        isClientRole ? recentQuery.eq("user_id", ownerId) : recentQuery,
-        isClientRole ? totalQuery.eq("user_id", ownerId) : totalQuery,
-        isClientRole ? vaccinatedQuery.eq("user_id", ownerId) : vaccinatedQuery,
-        isClientRole ? dueQuery.eq("user_id", ownerId) : dueQuery,
-        isClientRole ? overdueQuery.eq("user_id", ownerId) : overdueQuery,
+      const [records, purokNames, { data: notificationRows }] = await Promise.all([
+        loadAnimalRecords(supabase, isClientRole, ownerId),
+        loadRiskPurokNames(supabase),
+        supabase.from("notifications").select("id, title, message, type, is_read, created_at").eq("user_id", ownerId).eq("is_read", false).order("created_at", { ascending: false }).limit(20),
       ]);
       if (!mounted) return;
 
-      if (!recentResult.error) {
-        const records = ((recentResult.data ?? []) as SupabaseAnimalRecord[]).map((record) => {
-          const nextDueDate = record.next_due_date ?? null;
-          const vaccinated = Boolean(record.vaccinated);
-          return {
-            id: record.id,
-            name: record.name,
-            species: record.species,
-            classification: record.classification,
-            neutered: record.neutered ?? undefined,
-            breed: record.breed ?? undefined,
-            age: record.age ?? undefined,
-            sex: record.sex ?? undefined,
-            color: record.color ?? undefined,
-            owner: record.owner_name,
-            vaccinated,
-            vaccineDate: record.vaccine_date ?? null,
-            purok: Array.isArray(record.puroks) ? record.puroks[0]?.name ?? "Unassigned" : record.puroks?.name ?? "Unassigned",
-            status: getAnimalStatus(vaccinated, nextDueDate, today),
-            nextDueDate,
-            nextDue: formatDueDate(nextDueDate),
-            contact: record.contact_number ?? "",
-            impoundArea: record.impound_area ?? "",
-            vaccineType: record.vaccine_type ?? undefined,
-            latitude: record.latitude ?? undefined,
-            longitude: record.longitude ?? undefined,
-            notes: record.notes ?? undefined,
-            poundStatus: record.pound_status ?? null,
-          } satisfies Animal;
-        });
+      if (records) {
         setAnimalRecords(records);
-        setLiveStats({ registered: totalResult.count ?? 0, vaccinated: vaccinatedResult.count ?? 0, dueSoon: dueResult.count ?? 0, overdue: overdueResult.count ?? 0 });
+        setLiveStats({
+          registered: records.length,
+          vaccinated: records.filter((animal) => animal.vaccinated).length,
+          dueSoon: records.filter((animal) => animal.status === "Due soon").length,
+          overdue: records.filter((animal) => animal.status === "Overdue").length,
+        });
       }
-
-      const { data: notificationRows } = await supabase.from("notifications").select("id, title, message, type, is_read, created_at").eq("user_id", authUser.id).eq("is_read", false).order("created_at", { ascending: false }).limit(20);
-      if (mounted) setNotifications((notificationRows ?? []) as UserNotification[]);
+      if (purokNames) setRiskPurokNames(purokNames);
+      setNotifications((notificationRows ?? []) as UserNotification[]);
     };
 
     const onVisibilityChange = () => {
@@ -742,12 +720,26 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     const intervalId = window.setInterval(() => void refreshLiveData(), 30_000);
     window.addEventListener("focus", refreshLiveData);
     document.addEventListener("visibilitychange", onVisibilityChange);
+    const channel = supabase
+      .channel(`animals-live-${authUser.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "animals", ...(authUser.role === "client" ? { filter: `user_id=eq.${authUser.id}` } : {}) },
+        () => { void refreshLiveData(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "puroks" },
+        () => { void refreshLiveData(); },
+      )
+      .subscribe();
 
     return () => {
       mounted = false;
       window.clearInterval(intervalId);
       window.removeEventListener("focus", refreshLiveData);
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      void supabase.removeChannel(channel);
     };
   }, [authUser]);
 
@@ -810,35 +802,6 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       mounted = false;
     };
   }, [authUser]);
-
-  // Keeps the registry live: any insert/update/delete on `animals` (by this
-  // user or, for staff, by anyone) re-fetches instead of waiting for a
-  // reload. Requires the `animals` table to be added to the Supabase
-  // `supabase_realtime` publication (see supabase/schema.sql).
-  useEffect(() => {
-    if (!authUser) return;
-    const supabase = createClient();
-    if (!supabase) return;
-
-    const isClientRole = isClient;
-    const ownerId = authUser.id;
-    const channel = supabase
-      .channel(`animals-live-${ownerId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "animals", ...(isClientRole ? { filter: `user_id=eq.${ownerId}` } : {}) },
-        () => {
-          void loadAnimalRecords(supabase, isClientRole, ownerId).then((records) => {
-            if (records) setAnimalRecords(records);
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [authUser, isClient]);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1022,8 +985,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     overdue: liveStats.overdue || animalRecords.filter((animal) => animal.status === "Overdue").length,
   }), [animalRecords, liveStats]);
 
-  const riskRows = useMemo(() => purokOptions.map((purok) => {
-    const purokName = purok.name;
+  const riskRows = useMemo(() => riskPurokNames.map((purokName) => {
     const records = animalRecords.filter((animal) => animal.purok === purokName);
     const vaccinated = records.filter((animal) => animal.vaccinated).length;
     const dueSoon = records.filter((animal) => animal.status === "Due soon").length;
@@ -1032,7 +994,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     const rate = records.length ? Math.round((vaccinated / records.length) * 100) : 0;
     const gapToTarget = Math.max(0, Math.ceil(records.length * 0.7) - vaccinated);
     return { purok: purokName, total: records.length, vaccinated, dueSoon, overdue, notScheduled, gapToTarget, rate, risk: records.length === 0 ? "NO DATA" : rate < 50 ? "HIGH" : rate < 70 ? "MODERATE" : "LOW" };
-  }), [animalRecords, purokOptions]);
+  }), [animalRecords, riskPurokNames]);
 
   const riskSummary = useMemo(() => ({
     totalAnimals: animalRecords.length,
@@ -1711,7 +1673,11 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                 </>}
               </article>)}</div>
             </div> : <RoleBlocked role={userRole} message="Risk analysis is only available for staff accounts (admin, bhw)." />)}
-            {activeTab === "Map" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">GEOSPATIAL COVERAGE</p><h2>Barangay coverage map</h2><p>Use purok-level records to plan field visits and vaccination drives.</p></div><span className="module-chip"><MapPin size={14} /> {purokOptions.length} puroks monitored</span></div><LeafletMap animals={animalRecords.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species, classification: animal.classification ?? "Pet", owner: animal.owner, purok: animal.purok, vaccinated: animal.vaccinated, status: animal.status, latitude: animal.latitude, longitude: animal.longitude }))} puroks={purokOptions} /><div className="map-legend" role="list" aria-label="Vaccination status legend"><span role="listitem"><i className="map-status-dot vaccinated" /> Vaccinated</span><span role="listitem"><i className="map-status-dot expiring" /> Expiring soon</span><span role="listitem"><i className="map-status-dot overdue" /> Overdue</span><span role="listitem"><i className="map-status-dot unvaccinated" /> Unvaccinated</span></div></div> : <RoleBlocked role={userRole} message="Coverage map is only available for staff accounts (admin, bhw)." />)}
+            {activeTab === "Map" && (isStaff ? <div className="module-content">
+              <div className="module-intro"><div><p className="eyebrow">GEOSPATIAL COVERAGE</p><h2>Barangay coverage map</h2><p>Use purok-level records to plan field visits and vaccination drives.</p></div><span className="module-chip"><MapPin size={14} /> {purokOptions.length} puroks monitored</span></div>
+              <LeafletMap animals={animalRecords.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species, classification: animal.classification ?? "Pet", owner: animal.owner, purok: animal.purok, vaccinated: animal.vaccinated, status: animal.status, vaccineDate: animal.vaccineDate, nextDueDate: animal.nextDueDate, vaccineType: animal.vaccineType, breed: animal.breed, age: animal.age, contact: animal.contact, latitude: animal.latitude, longitude: animal.longitude }))} puroks={purokOptions} />
+              <div className="map-legend" role="list" aria-label="Vaccination status legend"><span role="listitem"><i className="map-status-dot vaccinated" /> Vaccinated</span><span role="listitem"><i className="map-status-dot expiring" /> Expiring soon</span><span role="listitem"><i className="map-status-dot overdue" /> Overdue</span><span role="listitem"><i className="map-status-dot unvaccinated" /> Unvaccinated</span></div>
+            </div> : <RoleBlocked role={userRole} message="Coverage map is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Pound" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">STRAY &amp; POUND</p><h2>Stray dog directory</h2><p>Track impounded and stray animals through intake, observation, and outcome.</p></div><span className="module-chip"><HomeIcon size={14} /> {strayAnimals.length} strays</span></div><div className="pound-filters"><div className="search-box"><Search size={16} /><input aria-label="Search strays" placeholder="Search name, purok, or impound area..." value={poundQuery} onChange={(event) => setPoundQuery(event.target.value)} /></div><select value={poundStatusFilter} onChange={(event) => setPoundStatusFilter(event.target.value as PoundStatus | "All")}><option value="All">All statuses</option>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></div>{poundError && <p className="form-error">{poundError}</p>}{strayAnimals.length === 0 ? <div className="empty-state">No stray animals match the current filters.</div> : <div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th><th>Pound status</th></tr></thead><tbody>{strayAnimals.map((animal) => <tr key={`pound-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td><td><select className="pound-status-select" value={animal.poundStatus ?? "Under Observation"} onChange={(event) => changePoundStatus(animal.id, event.target.value as PoundStatus)}>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></td></tr>)}</tbody></table></div>}</div> : <RoleBlocked role={userRole} message="Stray and pound records are only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Feedback" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Client feedback</h2><p>Feedback submitted by clients, for admin and BHW review.</p></div></div>{feedbackListError && <p className="form-error">{feedbackListError}</p>}{feedbackItems.length === 0 ? <div className="empty-state">No feedback submitted yet.</div> : <div className="table-wrap module-table"><table><thead><tr><th>From</th><th>Category</th><th>Message</th><th>Received</th><th>Status</th></tr></thead><tbody>{feedbackItems.map((item) => <tr key={`feedback-${item.id}`}><td>{item.senderName}</td><td>{item.category}</td><td>{item.message}</td><td>{new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</td><td><select className="pound-status-select" value={item.status} onChange={(event) => void changeFeedbackStatus(item.id, event.target.value as "New" | "Reviewed" | "Resolved")}><option>New</option><option>Reviewed</option><option>Resolved</option></select></td></tr>)}</tbody></table></div>}</div> : isClient ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Feedback and suggestions</h2><p>Send notes to the barangay animal health team.</p></div></div>{feedbackSent ? <div className="feedback-success"><CheckCircle2 size={22} /><div><strong>Feedback submitted</strong><p>Thank you. Your message has been recorded for review.</p></div><button className="secondary-button" onClick={() => setFeedbackSent(false)}>Send another</button></div> : <form className="feedback-form" onSubmit={submitFeedback}><label>Category<select value={feedbackCategory} onChange={(event) => setFeedbackCategory(event.target.value)}><option>Suggestion</option><option>Complaint</option><option>Compliment</option></select></label><label>Message<textarea required rows={5} placeholder="Tell us how to improve our service." value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} /></label><button className="primary-button" type="submit"><MessageSquare size={16} /> Submit feedback</button></form>}</div> : <RoleBlocked role={userRole} message="Feedback is only available for client and staff accounts (admin, bhw)." />)}
             {activeTab === "Team" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">MANAGEMENT</p><h2>Team members</h2><p>Staff access for the Barangay Estefania health team.</p></div></div><div className="team-list">{teamMembers.length === 0 ? <div className="empty-state">No staff accounts found.</div> : teamMembers.map((member) => <div className="team-row" key={member.id}><span className={`avatar${member.id === authUser?.id ? "" : " team-muted"}`}>{member.fullName.slice(0, 2).toUpperCase()}</span><span><strong>{member.fullName}{member.id === authUser?.id ? " (you)" : ""}</strong><small>{member.username ? `@${member.username}` : member.status}</small></span><em>{member.role}</em></div>)}</div></div> : <RoleBlocked role={userRole} message="Team members view is only available for staff accounts (admin, bhw)." />)}

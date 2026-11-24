@@ -120,8 +120,8 @@ export default async function AdminDashboardPage({
 
   if (supaCfg && tab === "map") {
     const { data } = await db!.from("animals")
-      .select("id, name, species, classification, owner_name, vaccinated, next_due_date, latitude, longitude, puroks(name)");
-    mapAnimals = ((data as { id: number; name: string; species: string; classification: string; owner_name: string; vaccinated: boolean; next_due_date: string | null; latitude: number | null; longitude: number | null; puroks: { name: string } | { name: string }[] | null }[]) ?? []).map((r) => ({
+      .select("id, name, species, classification, owner_name, contact_number, breed, age, vaccinated, vaccine_date, next_due_date, vaccine_type, latitude, longitude, puroks(name)");
+    mapAnimals = ((data as { id: number; name: string; species: string; classification: string; owner_name: string; contact_number: string | null; breed: string | null; age: number | null; vaccinated: boolean; vaccine_date: string | null; next_due_date: string | null; vaccine_type: string | null; latitude: number | null; longitude: number | null; puroks: { name: string } | { name: string }[] | null }[]) ?? []).map((r) => ({
       id: r.id,
       name: r.name,
       species: r.species,
@@ -130,6 +130,12 @@ export default async function AdminDashboardPage({
       purok: Array.isArray(r.puroks) ? r.puroks[0]?.name ?? "Unassigned" : r.puroks?.name ?? "Unassigned",
       vaccinated: r.vaccinated,
       status: getAnimalStatus(r.vaccinated, r.next_due_date),
+      vaccineDate: r.vaccine_date,
+      nextDueDate: r.next_due_date,
+      vaccineType: r.vaccine_type ?? undefined,
+      breed: r.breed ?? undefined,
+      age: r.age,
+      contact: r.contact_number ?? "",
       latitude: r.latitude,
       longitude: r.longitude,
     }));

@@ -17,6 +17,12 @@ export interface MapAnimal {
   purok: string;
   vaccinated: boolean;
   status: string;
+  vaccineDate?: string | null;
+  nextDueDate?: string | null;
+  vaccineType?: string;
+  breed?: string;
+  age?: number | null;
+  contact?: string;
   latitude?: number | null;
   longitude?: number | null;
 }
@@ -85,6 +91,12 @@ function statusClass(category: MapVaccinationCategory): string {
     case "Overdue": return "status-overdue";
     case "Unvaccinated": return "status-danger";
   }
+}
+
+function formatMapDate(value?: string | null): string {
+  if (!value) return "Not recorded";
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? "Not recorded" : date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export interface LeafletMapHandle {
@@ -298,6 +310,7 @@ export default function LeafletMap({
         (approximate ? "<br/><small>Approximate position (purok center)</small>" : "");
 
       const marker = L.marker([lat, lng], {
+        title: `${animal.name} — ${category}. Click to show details.`,
         icon: L.divIcon({
           className: "animal-marker",
           html: markerHtml(color, animal.species, approximate),
@@ -377,8 +390,8 @@ export default function LeafletMap({
       )}
       <div ref={mapRef} className="leaflet-map-canvas" />
       {selectedAnimal && (
-        <div className="leaflet-popup">
-          <button className="leaflet-popup-close" onClick={() => setSelectedId(null)}>×</button>
+        <div className="leaflet-popup" role="region" aria-label={`${selectedAnimal.name} animal details`} aria-live="polite">
+          <button type="button" aria-label="Close animal details" className="leaflet-popup-close" onClick={() => setSelectedId(null)}>×</button>
           <strong>{selectedAnimal.name}</strong>
           <span>{selectedAnimal.species} · {selectedAnimal.purok}</span>
           <span>{selectedAnimal.classification ?? "Pet"}</span>
@@ -387,6 +400,15 @@ export default function LeafletMap({
           <em className={`status ${statusClass(vaccinationCategory(selectedAnimal))}`}>
             <i />{vaccinationCategory(selectedAnimal)}
           </em>
+          <dl className="leaflet-popup-details">
+            <div><dt>Owner</dt><dd>{selectedAnimal.owner || "Not recorded"}</dd></div>
+            <div><dt>Contact</dt><dd>{selectedAnimal.contact || "Not recorded"}</dd></div>
+            <div><dt>Breed</dt><dd>{selectedAnimal.breed || "Not recorded"}</dd></div>
+            <div><dt>Age</dt><dd>{selectedAnimal.age == null ? "Not recorded" : `${selectedAnimal.age} months`}</dd></div>
+            <div><dt>Vaccine</dt><dd>{selectedAnimal.vaccineType || "Not recorded"}</dd></div>
+            <div><dt>Last vaccinated</dt><dd>{formatMapDate(selectedAnimal.vaccineDate)}</dd></div>
+            <div><dt>Next due</dt><dd>{formatMapDate(selectedAnimal.nextDueDate)}</dd></div>
+          </dl>
         </div>
       )}
     </div>
