@@ -1180,7 +1180,9 @@ form input[type="radio"] { accent-color: var(--green); }
   .admin-login-submit,
   .admin-btn-primary,
   .admin-btn-secondary,
-  .admin-btn-danger
+  .admin-btn-danger,
+  .admin-btn-approve,
+  .admin-btn-reject
 ) {
   box-sizing: border-box;
   min-height: 44px;
@@ -1196,9 +1198,9 @@ form input[type="radio"] { accent-color: var(--green); }
   text-align: center;
 }
 
-:is(.auth-form, .admin-login-form, .feedback-form, .settings-form, .account-form, .animal-form, .admin-modal-body) input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
-:is(.auth-form, .admin-login-form, .feedback-form, .settings-form, .account-form, .animal-form, .admin-modal-body) select,
-:is(.auth-form, .feedback-form, .settings-form, .account-form, .animal-form, .admin-modal-body) textarea {
+:is(.auth-form, .admin-login-form, .feedback-form, .settings-form, .account-form, .animal-form, .booster-form, .sms-composer-fields, .detail-add-form, .report-controls, .admin-modal-body) input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+:is(.auth-form, .admin-login-form, .feedback-form, .settings-form, .account-form, .animal-form, .booster-form, .sms-composer-fields, .detail-add-form, .report-controls, .admin-modal-body) select,
+:is(.auth-form, .feedback-form, .settings-form, .account-form, .animal-form, .booster-form, .sms-composer-fields, .detail-add-form, .planning-list, .admin-modal-body) textarea {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -1209,11 +1211,11 @@ form input[type="radio"] { accent-color: var(--green); }
   line-height: 1.4;
 }
 
-:is(.auth-form, .feedback-form, .settings-form, .account-form, .animal-form, .admin-modal-body) textarea {
+:is(.auth-form, .feedback-form, .settings-form, .account-form, .animal-form, .booster-form, .sms-composer-fields, .detail-add-form, .planning-list, .admin-modal-body) textarea {
   min-height: 104px;
 }
 
-:is(.auth-form, .admin-login-form, .feedback-form, .settings-form, .account-form, .animal-form, .admin-modal-body) label {
+:is(.auth-form, .admin-login-form, .feedback-form, .settings-form, .account-form, .animal-form, .booster-form, .sms-composer-fields, .admin-modal-body) label {
   min-width: 0;
   line-height: 1.4;
 }
@@ -1240,6 +1242,9 @@ form input[type="radio"] { accent-color: var(--green); }
 .modal-actions > button,
 .admin-modal-foot > button { min-width: 112px; }
 .admin-action-btn { width: 36px; height: 36px; }
+.sms-composer-actions,
+.admin-pending-actions,
+.booster-actions { align-items: center; }
 
 @media (min-width: 681px) {
   .auth-shell,
@@ -1265,7 +1270,10 @@ form input[type="radio"] { accent-color: var(--green); }
   .admin-page-heading > button { width: 100%; min-width: 0; }
   .settings-actions > button:only-child,
   .account-actions > button:only-child,
-  .module-actions > button:only-child { grid-column: 1 / -1; }
+  .module-actions > button:only-child,
+  .sms-composer-actions > button:only-child,
+  .admin-pending-actions > button:only-child,
+  .booster-actions > button:only-child { grid-column: 1 / -1; }
   .modal-actions > button,
   .admin-modal-foot > button { min-width: 0; }
   .admin-modal-head,
@@ -1274,6 +1282,12 @@ form input[type="radio"] { accent-color: var(--green); }
   .admin-modal-head h2 { font-size: 23px; }
   .admin-row-actions { gap: 8px; }
   .admin-action-btn { width: 40px; height: 40px; }
+  .sms-composer-actions,
+  .admin-pending-actions,
+  .booster-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sms-composer-actions > button,
+  .admin-pending-actions > button,
+  .booster-actions > button { width: 100%; min-width: 0; }
   .auth-card,
   .admin-login-card { padding: 24px 20px; }
   .auth-card .brand { margin-bottom: 26px; }
@@ -1284,7 +1298,11 @@ form input[type="radio"] { accent-color: var(--green); }
 
 @media (max-width: 380px) {
   .module-actions,
-  .settings-actions { grid-template-columns: 1fr; }
+  .settings-actions,
+  .account-actions,
+  .sms-composer-actions,
+  .admin-pending-actions,
+  .booster-actions { grid-template-columns: 1fr; }
   .settings-actions > button,
   .account-actions > button,
   .module-actions > button { width: 100%; }
