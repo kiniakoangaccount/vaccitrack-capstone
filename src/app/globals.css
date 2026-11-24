@@ -1012,11 +1012,11 @@ form input[type="radio"] { accent-color: var(--green); }
 .risk-details dd { margin: 4px 0 0; color: #344b40; font-size: 17px; font-weight: 750; }
 .risk-card-clickable { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
 .risk-card-clickable:hover, .risk-card-clickable:focus-visible { border-color: #8fb7a0; box-shadow: 0 4px 14px rgba(38, 82, 58, .1); outline: none; transform: translateY(-1px); }
-.risk-purok-modal { width: min(100%, 1240px); max-height: calc(100dvh - 32px); }
+.risk-purok-modal { width: min(100%, 980px); max-height: calc(100dvh - 32px); }
 .risk-purok-summary { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
 .risk-purok-summary strong { font-size: 23px; overflow-wrap: anywhere; }
 .risk-purok-table { max-height: min(50dvh, 460px); overflow: auto; }
-.risk-purok-table table { min-width: 1300px; }
+.risk-purok-table table { min-width: 760px; }
 .risk-high .risk-progress span { background: #d64545; }
 .risk-moderate .risk-progress span { background: #d99d40; }
 .risk-low .risk-progress span { background: #57a875; }
