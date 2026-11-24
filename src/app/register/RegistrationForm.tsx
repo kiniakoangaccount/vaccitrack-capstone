@@ -93,7 +93,7 @@ export default function RegistrationForm() {
           <p className="terms-intro">Please review our <button type="button" className="terms-link" onClick={() => setShowTerms(true)}>Terms and Conditions</button> before registering.</p>
           <label className="terms-check">
             <input required type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />
-            <span className="terms-check-copy">I have read and agree to the <button type="button" className="terms-link" onClick={(event) => { event.stopPropagation(); setShowTerms(true); }}>Terms and Conditions</button></span>
+            <span className="terms-check-copy">I have read and agree to the&nbsp;<button type="button" className="terms-link" onClick={(event) => { event.stopPropagation(); setShowTerms(true); }}>Terms and Conditions</button>.</span>
           </label>
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="primary-button" type="submit" disabled={isSubmitting}>
