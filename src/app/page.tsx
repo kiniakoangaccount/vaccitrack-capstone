@@ -545,6 +545,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const [showNotice, setShowNotice] = useState(true);
   const [showRegister, setShowRegister] = useState(false);
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
+  const [selectedRiskPurok, setSelectedRiskPurok] = useState<string | null>(null);
   const [vaccinationHistory, setVaccinationHistory] = useState<VaccinationHistoryRow[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -1041,6 +1042,8 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   }), [animalRecords, liveStats]);
 
   const riskRows = useMemo(() => buildPurokRiskRows(animalRecords, riskPurokNames), [animalRecords, riskPurokNames]);
+  const selectedRiskRow = selectedRiskPurok ? riskRows.find((row) => row.purok === selectedRiskPurok) ?? null : null;
+  const selectedRiskAnimals = selectedRiskPurok ? animalRecords.filter((animal) => animal.purok === selectedRiskPurok) : [];
 
   const riskSummary = useMemo(() => ({
     totalAnimals: animalRecords.length,
@@ -1739,8 +1742,8 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                 <article className="risk-summary-alert"><strong>{riskSummary.aboveUnvaccinatedTarget}</strong><span>Puroks above 30% unvaccinated</span></article>
                 <article className="risk-summary-high"><strong>{riskSummary.highUnvaccinated}</strong><span>Puroks above 50% unvaccinated</span></article>
               </div>
-              <p className="risk-explainer">Unvaccinated rate = unvaccinated animals ÷ registered animals. High risk means more than 50% unvaccinated; Moderate means more than 30% and up to 50%; Low means 30% or less. The 70% vaccination target is met when no more than 30% are unvaccinated. Due soon and overdue counts are shown separately because those animals may have a previous vaccination record.</p>
-              <div className="risk-grid">{riskRows.map((row) => <article className={`risk-card risk-${row.risk.toLowerCase().replace(" ", "-")}`} key={row.purok}>
+              <p className="risk-explainer">Unvaccinated rate = unvaccinated animals ÷ registered animals. High risk means more than 50% unvaccinated; Moderate means more than 30% and up to 50%; Low means 30% or less. The 70% vaccination target is met when no more than 30% are unvaccinated. Due soon and overdue counts are shown separately because those animals may have a previous vaccination record. Select a purok card to view all its animal records.</p>
+              <div className="risk-grid">{riskRows.map((row) => <article className={`risk-card risk-card-clickable risk-${row.risk.toLowerCase().replace(" ", "-")}`} key={row.purok} role="button" tabIndex={0} aria-haspopup="dialog" aria-expanded={selectedRiskPurok === row.purok} aria-label={`View all records for ${row.purok}`} onClick={() => setSelectedRiskPurok(row.purok)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedRiskPurok(row.purok); } }}>
                 <div className="risk-card-head"><h3>{row.purok}</h3><span>{row.risk === "NO DATA" ? "NO DATA" : `${row.risk} RISK`}</span></div>
                 {row.total === 0 ? <p className="risk-no-records">No registered animals in this purok yet.</p> : <>
                   <div className="risk-count"><strong>{row.unvaccinatedRate}%</strong><small>{row.unvaccinated} of {row.total} unvaccinated</small></div>
@@ -1749,6 +1752,22 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                   <dl className="risk-details"><div><dt>Overdue</dt><dd>{row.overdue}</dd></div><div><dt>Due within 30 days</dt><dd>{row.dueSoon}</dd></div><div><dt>No due date</dt><dd>{row.notScheduled}</dd></div></dl>
                 </>}
               </article>)}</div>
+              {selectedRiskPurok && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setSelectedRiskPurok(null)}>
+                <section className="modal risk-purok-modal" role="dialog" aria-modal="true" aria-labelledby="risk-purok-title">
+                  <div className="modal-heading"><div><p className="eyebrow">PUROK REPORT</p><h2 id="risk-purok-title">{selectedRiskPurok}</h2><p className="heading-sub">Full animal registry and vaccination details for this area.</p></div><button type="button" className="icon-button" aria-label="Close purok report" onClick={() => setSelectedRiskPurok(null)}><X size={18} /></button></div>
+                  {selectedRiskRow && <div className="risk-summary risk-purok-summary">
+                    <article><strong>{selectedRiskRow.total}</strong><span>Registered animals</span></article>
+                    <article><strong>{selectedRiskRow.vaccinated}</strong><span>Marked vaccinated</span></article>
+                    <article className="risk-summary-alert"><strong>{selectedRiskRow.unvaccinated} ({selectedRiskRow.unvaccinatedRate}%)</strong><span>Unvaccinated</span></article>
+                    <article><strong>{selectedRiskRow.dueSoon}</strong><span>Due within 30 days</span></article>
+                    <article className="risk-summary-high"><strong>{selectedRiskRow.overdue}</strong><span>Overdue</span></article>
+                    <article><strong>{selectedRiskRow.notScheduled}</strong><span>No due date</span></article>
+                  </div>}
+                  <div className="table-wrap risk-purok-table"><table><thead><tr><th>ID / animal</th><th>Species</th><th>Classification</th><th>Breed</th><th>Age</th><th>Sex</th><th>Color</th><th>Neuter status</th><th>Owner / contact</th><th>Vaccinated</th><th>Status</th><th>Vaccine</th><th>Last vaccinated</th><th>Next due</th><th>Impound area</th><th>Pound status</th><th>Photos</th><th>Map coordinates</th><th>Notes</th></tr></thead><tbody>{selectedRiskAnimals.map((animal) => <tr key={`purok-${selectedRiskPurok}-${animal.id}`}>
+                    <td><strong>{animal.name}</strong><small>#{animal.id}</small></td><td>{animal.species}</td><td>{animal.classification ?? "Pet"}</td><td>{animal.breed || "Not recorded"}</td><td>{animal.age == null ? "Not recorded" : `${animal.age} months`}</td><td>{animal.sex || "Not recorded"}</td><td>{animal.color || "Not recorded"}</td><td>{animal.neutered === undefined ? "Not recorded" : animal.neutered ? "Neutered" : "Not neutered"}</td><td>{animal.owner}<small>{animal.contact || "No contact recorded"}</small></td><td>{animal.vaccinated ? "Yes" : "No"}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td><td>{animal.vaccineType || "Not recorded"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td>{animal.impoundArea || "Not recorded"}</td><td>{animal.poundStatus || "Not recorded"}</td><td>{animal.imageReferences?.length ?? 0}</td><td>{animal.latitude != null && animal.longitude != null ? `${animal.latitude}, ${animal.longitude}` : "Not recorded"}</td><td>{animal.notes || "None"}</td>
+                  </tr>)}</tbody></table>{selectedRiskAnimals.length === 0 && <div className="empty-state">No animal records are assigned to this purok.</div>}</div>
+                </section>
+              </div>}
             </div> : <RoleBlocked role={userRole} message="Risk analysis is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Map" && (isStaff ? <div className="module-content">
               <div className="module-intro"><div><p className="eyebrow">GEOSPATIAL COVERAGE</p><h2>Barangay coverage map</h2><p>Use purok-level records to plan field visits and vaccination drives.</p></div><span className="module-chip"><MapPin size={14} /> {purokOptions.length} puroks monitored</span></div>
