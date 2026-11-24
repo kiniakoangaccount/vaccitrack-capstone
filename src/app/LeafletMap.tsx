@@ -60,18 +60,31 @@ function clusterHtml(count: number): string {
   return `<span style="background:#2f8065;color:#fff;border:3px solid #fff;border-radius:50%;display:grid;place-items:center;width:36px;height:36px;box-sizing:border-box;font-weight:700;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.35);">${count}</span>`;
 }
 
-function statusColor(status: string): string {
-  if (status === "Overdue") return "#c85f57";
-  if (status === "Due soon") return "#c48732";
-  if (status === "Vaccinated") return "#2f8065";
-  return "#7b8790";
+type MapVaccinationCategory = "Vaccinated" | "Expiring soon" | "Overdue" | "Unvaccinated";
+
+function vaccinationCategory(animal: MapAnimal): MapVaccinationCategory {
+  if (!animal.vaccinated) return "Unvaccinated";
+  if (animal.status === "Overdue") return "Overdue";
+  if (animal.status === "Due soon") return "Expiring soon";
+  return "Vaccinated";
 }
 
-function statusClass(status: string): string {
-  if (status === "Overdue") return "status-danger";
-  if (status === "Due soon") return "status-warn";
-  if (status === "Vaccinated") return "status-good";
-  return "status-neutral";
+function statusColor(category: MapVaccinationCategory): string {
+  switch (category) {
+    case "Vaccinated": return "#2f8065";
+    case "Expiring soon": return "#f2c94c";
+    case "Overdue": return "#f28c28";
+    case "Unvaccinated": return "#d64545";
+  }
+}
+
+function statusClass(category: MapVaccinationCategory): string {
+  switch (category) {
+    case "Vaccinated": return "status-good";
+    case "Expiring soon": return "status-warn";
+    case "Overdue": return "status-overdue";
+    case "Unvaccinated": return "status-danger";
+  }
 }
 
 export interface LeafletMapHandle {
@@ -263,19 +276,20 @@ export default function LeafletMap({
       const matchesSearch = !term || [animal.name, animal.owner, animal.purok, animal.species, classification].some((value) => String(value ?? "").toLowerCase().includes(term));
       const matchesSpecies = speciesFilter === "All" || animal.species === speciesFilter;
       const matchesClassification = classificationFilter === "All" || classification === classificationFilter;
-      const matchesStatus = statusFilter === "All" || animal.status === statusFilter;
+      const matchesStatus = statusFilter === "All" || vaccinationCategory(animal) === statusFilter;
       const matchesPurok = purokFilter === "All" || animal.purok === purokFilter;
       return matchesSearch && matchesSpecies && matchesClassification && matchesStatus && matchesPurok;
     });
 
     const markers: L.Marker[] = [];
     for (const { animal, lat, lng, approximate } of visible) {
-      const color = statusColor(animal.status);
+      const category = vaccinationCategory(animal);
+      const color = statusColor(category);
       const classification = animal.classification ?? "Pet";
 
       const tooltip =
         `<strong>${escapeHtml(animal.name)}</strong><br/>${escapeHtml(animal.species)} · ${escapeHtml(animal.purok)}` +
-        `<br/>${escapeHtml(classification)} · ${escapeHtml(animal.owner)}<br/><em>${escapeHtml(animal.status)}</em>` +
+        `<br/>${escapeHtml(classification)} · ${escapeHtml(animal.owner)}<br/><em>${escapeHtml(category)}</em>` +
         (approximate ? "<br/><small>Approximate position (purok center)</small>" : "");
 
       const marker = L.marker([lat, lng], {
@@ -330,9 +344,9 @@ export default function LeafletMap({
         {!pickMode && <select aria-label="Filter by vaccination status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
           <option value="All">All statuses</option>
           <option value="Vaccinated">Vaccinated</option>
-          <option value="Due soon">Due soon</option>
+          <option value="Expiring soon">Expiring soon</option>
           <option value="Overdue">Overdue</option>
-          <option value="Not scheduled">Not scheduled</option>
+          <option value="Unvaccinated">Unvaccinated</option>
         </select>}
         {!pickMode && <select aria-label="Filter by purok or service area" value={purokFilter} onChange={(event) => setPurokFilter(event.target.value)}>
           <option value="All">All puroks</option>
@@ -360,8 +374,8 @@ export default function LeafletMap({
           <span>{selectedAnimal.classification ?? "Pet"}</span>
           <span>{selectedAnimal.owner}</span>
           {selectedPlaced?.approximate && <span>Approximate position (purok center)</span>}
-          <em className={`status ${statusClass(selectedAnimal.status)}`}>
-            <i />{selectedAnimal.status}
+          <em className={`status ${statusClass(vaccinationCategory(selectedAnimal))}`}>
+            <i />{vaccinationCategory(selectedAnimal)}
           </em>
         </div>
       )}

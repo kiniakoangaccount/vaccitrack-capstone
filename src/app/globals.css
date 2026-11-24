@@ -999,3 +999,158 @@ form input[type="radio"] { accent-color: var(--green); }
 }
 
 .status-neutral { color: #69747c; background: #edf0f2; }
+
+.map-legend { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 16px; align-items: center; margin-top: 12px; color: #52645a; font-size: 14px; }
+.map-legend span { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+.map-status-dot { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; }
+.map-status-dot.vaccinated { background: #2f8065; }
+.map-status-dot.expiring { background: #f2c94c; }
+.map-status-dot.overdue { background: #f28c28; }
+.map-status-dot.unvaccinated { background: #d64545; }
+
+@media (max-width: 680px) {
+  .page-content, .admin-page-content { min-width: 0; }
+  .module-content { min-width: 0; padding: 14px; }
+  .module-intro { gap: 10px; }
+  .module-chip { white-space: normal; }
+  .registry-tools { width: 100%; flex-wrap: wrap; gap: 10px; }
+  .registry-tools .search-box { width: auto; min-width: 0; flex: 1 1 180px; }
+  .table-wrap, .admin-table-wrap { max-width: 100%; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+  .module-table { margin-right: -14px; margin-left: -14px; }
+  .leaflet-map-wrap { height: min(64dvh, 560px); min-height: 430px; }
+  .leaflet-map-toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 9px; }
+  .leaflet-map-search { grid-column: 1 / -1; min-width: 0; }
+  .leaflet-map-search input { max-width: none; min-height: 42px; font-size: 16px; }
+  .leaflet-map-toolbar select { width: 100%; min-width: 0; min-height: 42px; padding: 7px 8px; font-size: 14px; }
+  .leaflet-map-toggles { grid-column: 1 / -1; display: flex; }
+  .leaflet-toggle { min-height: 42px; flex: 1; font-size: 15px; }
+  .leaflet-map-note { font-size: 13px !important; line-height: 1.4; }
+  .leaflet-popup { left: 8px; right: 8px; bottom: 8px; max-height: 45%; overflow-y: auto; gap: 8px 12px; padding: 10px 12px; font-size: 14px; }
+  .leaflet-popup-close { min-width: 40px; min-height: 40px; }
+  .map-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 12px; font-size: 13px; }
+  .map-picker-hint { align-items: stretch; flex-direction: column; }
+  .map-picker-field .leaflet-map-wrap { height: 300px; min-height: 300px; }
+  .modal-backdrop { align-items: flex-start; overflow-y: auto; padding: max(12px, env(safe-area-inset-top)) 10px max(12px, env(safe-area-inset-bottom)); }
+  .modal { width: 100%; max-width: 560px; max-height: calc(100dvh - 24px); overflow-y: auto; }
+  .feedback-success { flex-wrap: wrap; }
+  .feedback-success .secondary-button { width: 100%; justify-content: center; }
+}
+
+@media (max-width: 380px) {
+  .leaflet-map-wrap { min-height: 410px; }
+  .leaflet-map-toolbar { gap: 6px; padding: 7px; }
+  .leaflet-map-toolbar select { font-size: 13px; }
+  .map-legend { gap: 8px; font-size: 12px; }
+  .topbar-left .crumb { max-width: 120px; }
+}
+
+/* Mobile interaction and layout polish across the workspace. */
+@media (max-width: 680px) {
+  html,
+  body { width: 100%; min-width: 320px; overflow-x: clip; }
+
+  .app-shell,
+  .admin-shell { width: 100%; min-height: 100dvh; }
+  .content-area,
+  .admin-content { width: 100%; min-width: 0; }
+
+  .sidebar {
+    inset: 0 auto 0 0;
+    width: min(88vw, 320px);
+    height: 100dvh;
+    padding-top: max(20px, env(safe-area-inset-top));
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+  }
+  .sidebar-close { top: max(12px, env(safe-area-inset-top)); right: 10px; width: 44px; height: 44px; justify-content: center; }
+  .mobile-nav-toggle { width: 44px; height: 44px; flex: 0 0 44px; justify-content: center; margin-right: 2px; }
+  .nav-item { min-height: 46px; font-size: 16px; }
+
+  .topbar { position: sticky; top: 0; z-index: 30; height: 60px; padding-top: env(safe-area-inset-top); }
+  .notification-panel { position: fixed; top: calc(60px + env(safe-area-inset-top)); right: 10px; max-height: calc(100dvh - 76px); overflow-y: auto; }
+  .profile-menu-wrap .account-menu { position: fixed; top: calc(60px + env(safe-area-inset-top)); right: 10px; left: auto; bottom: auto; width: min(260px, calc(100vw - 20px)); }
+
+  .page-content { padding-top: 22px; padding-bottom: max(44px, env(safe-area-inset-bottom)); }
+  .page-heading { align-items: stretch; }
+  .page-heading h1 { overflow-wrap: anywhere; }
+  .heading-sub { line-height: 1.5; }
+  .stat-grid,
+  .report-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat-card,
+  .report-grid article { min-width: 0; }
+  .stat-label,
+  .report-grid span { overflow-wrap: anywhere; line-height: 1.35; }
+
+  .panel-heading,
+  .registry-heading { align-items: stretch; gap: 14px; }
+  .registry-tools { align-items: stretch; }
+  .registry-tools .search-box { flex-basis: 100%; }
+  .registry-tools .text-button { min-height: 44px; align-self: flex-start; }
+  .table-wrap,
+  .admin-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+  .table-wrap table,
+  .admin-table-wrap table { min-width: 680px; }
+  .module-table table { min-width: 760px; }
+  .table-wrap th,
+  .table-wrap td,
+  .admin-table-wrap th,
+  .admin-table-wrap td { white-space: nowrap; }
+  .table-wrap td:first-child,
+  .admin-table-wrap td:first-child { white-space: normal; }
+
+  .module-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .module-actions > button { width: 100%; min-height: 46px; justify-content: center; }
+  .module-actions > button:only-child { grid-column: 1 / -1; }
+  .feedback-form { width: 100%; }
+  .feedback-form > button,
+  .module-content > form > .primary-button { width: 100%; min-height: 48px; justify-content: center; }
+  .report-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-controls label { min-width: 0; }
+  .report-controls input,
+  .report-controls select { width: 100%; min-width: 0; min-height: 44px; font-size: 16px; }
+  .report-tabs { scrollbar-width: thin; scroll-snap-type: x proximity; }
+  .report-tab { min-height: 44px; scroll-snap-align: start; }
+
+  .animal-form { gap: 14px; }
+  .animal-form input,
+  .animal-form select,
+  .animal-form textarea,
+  .feedback-form input,
+  .feedback-form select,
+  .feedback-form textarea { width: 100%; min-width: 0; font-size: 16px; }
+  .modal-backdrop { overscroll-behavior: contain; }
+  .modal { padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+  .modal-actions { position: sticky; bottom: 0; z-index: 1; margin: 12px -20px -18px; padding: 12px 20px max(18px, env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid var(--line); }
+  .modal-actions > button { min-height: 48px; }
+
+  .leaflet-map-wrap { height: min(68dvh, 620px); min-height: 440px; }
+  .leaflet-map-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .leaflet-map-toolbar select { min-height: 46px; font-size: 15px; }
+  .leaflet-map-search input { min-height: 46px; }
+  .leaflet-toggle { min-height: 46px; }
+  .leaflet-map-wrap .leaflet-control-zoom a { width: 42px; height: 42px; line-height: 40px; }
+  .leaflet-map-legend { top: auto; right: 10px; bottom: 12px; }
+  .leaflet-popup { max-height: 42%; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+
+  .admin-topbar { position: sticky; top: 0; z-index: 30; min-height: 60px; padding-top: env(safe-area-inset-top); }
+  .admin-page-heading { gap: 12px; }
+  .admin-page-heading .admin-btn-primary { width: 100%; justify-content: center; }
+  .admin-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-stat-card { min-width: 0; padding: 14px; }
+  .admin-stat-card strong { overflow-wrap: anywhere; }
+  .admin-modal { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; }
+}
+
+@media (max-width: 380px) {
+  .page-content { padding-right: 12px; padding-left: 12px; }
+  .module-content { padding: 12px; }
+  .module-actions { grid-template-columns: 1fr; }
+  .report-controls { grid-template-columns: 1fr; }
+  .stat-card { padding: 11px; }
+  .stat-number { font-size: 30px; }
+  .modal-actions { margin-right: -12px; margin-left: -12px; padding-right: 12px; padding-left: 12px; }
+}
