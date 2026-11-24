@@ -1008,6 +1008,16 @@ form input[type="radio"] { accent-color: var(--green); }
 .map-status-dot.overdue { background: #f28c28; }
 .map-status-dot.unvaccinated { background: #d64545; }
 
+.auth-card-register { width: min(100%, 480px); }
+.auth-card-register > .heading-sub { margin-top: 8px; line-height: 1.55; }
+.auth-form .terms-intro { margin: 0; text-align: center; }
+.auth-form label.terms-check { display: flex; align-items: flex-start; gap: 10px; line-height: 1.5; }
+.auth-form label.terms-check input { flex: 0 0 20px; width: 20px; height: 20px; margin: 1px 0 0; }
+.terms-check-copy { min-width: 0; }
+.auth-switch-row { margin: 18px 0 0; color: var(--muted); font-size: 15px; line-height: 1.5; text-align: center; }
+.auth-inline-link { min-height: 44px; padding: 4px 3px; color: var(--green); background: transparent; border: 0; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.auth-inline-link:hover { color: var(--green-dark); }
+
 @media (max-width: 680px) {
   .page-content, .admin-page-content { min-width: 0; }
   .module-content { min-width: 0; padding: 14px; }
@@ -1156,4 +1166,122 @@ form input[type="radio"] { accent-color: var(--green); }
   .stat-card { padding: 11px; }
   .stat-number { font-size: 30px; }
   .modal-actions { margin-right: -12px; margin-left: -12px; padding-right: 12px; padding-left: 12px; }
+}
+
+/* Shared sizing and alignment for primary actions and form controls. */
+:is(
+  .primary-button,
+  .secondary-button,
+  .danger-button,
+  .admin-login-submit,
+  .admin-btn-primary,
+  .admin-btn-secondary,
+  .admin-btn-danger
+) {
+  box-sizing: border-box;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 7px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+
+:is(.auth-form, .admin-login-form, .feedback-form, .settings-form, .account-form, .animal-form, .admin-modal-body) input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+:is(.auth-form, .admin-login-form, .feedback-form, .settings-form, .account-form, .animal-form, .admin-modal-body) select,
+:is(.auth-form, .feedback-form, .settings-form, .account-form, .animal-form, .admin-modal-body) textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+:is(.auth-form, .feedback-form, .settings-form, .account-form, .animal-form, .admin-modal-body) textarea {
+  min-height: 104px;
+}
+
+:is(.auth-form, .admin-login-form, .feedback-form, .settings-form, .account-form, .animal-form, .admin-modal-body) label {
+  min-width: 0;
+  line-height: 1.4;
+}
+
+.page-heading,
+.admin-page-heading { gap: 18px; }
+.page-heading > div,
+.admin-page-heading > div,
+.module-intro > div:first-child { min-width: 0; }
+.panel-heading,
+.module-intro,
+.settings-head,
+.admin-panel-head { row-gap: 12px; }
+.panel-heading h2,
+.module-intro h2,
+.settings-head h2 { line-height: 1.25; }
+.settings-actions,
+.account-actions,
+.modal-actions,
+.admin-modal-foot,
+.module-actions { align-items: center; }
+.settings-actions > button,
+.account-actions > button,
+.modal-actions > button,
+.admin-modal-foot > button { min-width: 112px; }
+.admin-action-btn { width: 36px; height: 36px; }
+
+@media (min-width: 681px) {
+  .auth-shell,
+  .admin-login-shell { align-items: center; }
+  .auth-card,
+  .admin-login-card { margin: 24px 0; }
+  .auth-card .brand { margin-bottom: 30px; }
+}
+
+@media (max-width: 680px) {
+  .page-heading,
+  .admin-page-heading,
+  .panel-heading,
+  .module-intro,
+  .settings-actions,
+  .admin-modal-foot { align-items: stretch; }
+  .module-actions,
+  .settings-actions,
+  .account-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .settings-actions > button,
+  .account-actions > button,
+  .module-actions > button,
+  .admin-page-heading > button { width: 100%; min-width: 0; }
+  .settings-actions > button:only-child,
+  .account-actions > button:only-child,
+  .module-actions > button:only-child { grid-column: 1 / -1; }
+  .modal-actions > button,
+  .admin-modal-foot > button { min-width: 0; }
+  .admin-modal-head,
+  .admin-modal-body,
+  .admin-modal-foot { padding-right: 18px; padding-left: 18px; }
+  .admin-modal-head h2 { font-size: 23px; }
+  .admin-row-actions { gap: 8px; }
+  .admin-action-btn { width: 40px; height: 40px; }
+  .auth-card,
+  .admin-login-card { padding: 24px 20px; }
+  .auth-card .brand { margin-bottom: 26px; }
+  .auth-card h1,
+  .admin-login-title { font-size: clamp(28px, 8vw, 36px); line-height: 1.15; }
+  .admin-login-submit { width: 100%; }
+}
+
+@media (max-width: 380px) {
+  .module-actions,
+  .settings-actions { grid-template-columns: 1fr; }
+  .settings-actions > button,
+  .account-actions > button,
+  .module-actions > button { width: 100%; }
 }
