@@ -539,7 +539,6 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const pathname = usePathname();
   const [animalRecords, setAnimalRecords] = useState<Animal[]>([]);
   const [riskPurokNames, setRiskPurokNames] = useState(() => purokOptions.map((purok) => purok.name));
-  const [liveStats, setLiveStats] = useState({ registered: 0, vaccinated: 0, dueSoon: 0, overdue: 0 });
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("Overview");
   const [showNotice, setShowNotice] = useState(true);
@@ -585,7 +584,6 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
   const [appointmentForm, setAppointmentForm] = useState({ animalId: "", assignedTo: "", scheduledDate: "", notes: "" });
   const [appointmentError, setAppointmentError] = useState("");
-  const [chartPeriod, setChartPeriod] = useState("Last 6 months");
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -737,12 +735,6 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
 
       if (records) {
         setAnimalRecords(records);
-        setLiveStats({
-          registered: records.length,
-          vaccinated: records.filter((animal) => animal.vaccinated).length,
-          dueSoon: records.filter((animal) => animal.status === "Due soon").length,
-          overdue: records.filter((animal) => animal.status === "Overdue").length,
-        });
       }
       if (purokNames) setRiskPurokNames(purokNames);
       setNotifications((notificationRows ?? []) as UserNotification[]);
@@ -1035,13 +1027,21 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const activeRegistryFilterCount = Object.values(registryFilters).filter((value) => value !== "All").length;
 
   const dashboardStats = useMemo(() => ({
-    registered: liveStats.registered || animalRecords.length,
-    vaccinated: liveStats.vaccinated || animalRecords.filter((animal) => animal.vaccinated).length,
-    dueSoon: liveStats.dueSoon || animalRecords.filter((animal) => animal.status === "Due soon").length,
-    overdue: liveStats.overdue || animalRecords.filter((animal) => animal.status === "Overdue").length,
-  }), [animalRecords, liveStats]);
+    registered: animalRecords.length,
+    vaccinated: animalRecords.filter((animal) => animal.vaccinated).length,
+    unvaccinated: animalRecords.filter((animal) => !animal.vaccinated).length,
+    dueSoon: animalRecords.filter((animal) => animal.status === "Due soon").length,
+    overdue: animalRecords.filter((animal) => animal.status === "Overdue").length,
+  }), [animalRecords]);
 
   const riskRows = useMemo(() => buildPurokRiskRows(animalRecords, riskPurokNames), [animalRecords, riskPurokNames]);
+  const dashboardRiskRows = useMemo(() => [...riskRows].sort((a, b) => b.unvaccinatedRate - a.unvaccinatedRate || b.unvaccinated - a.unvaccinated).slice(0, 5), [riskRows]);
+  const dashboardAppointments = useMemo(() => {
+    const today = todayLocalIso();
+    return appointments
+      .filter((appointment) => appointment.status === "Scheduled" && appointment.scheduledDate.slice(0, 10) >= today)
+      .slice(0, 5);
+  }, [appointments]);
   const selectedRiskRow = selectedRiskPurok ? riskRows.find((row) => row.purok === selectedRiskPurok) ?? null : null;
   const selectedRiskAnimals = selectedRiskPurok ? animalRecords.filter((animal) => animal.purok === selectedRiskPurok) : [];
 
@@ -1286,26 +1286,6 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       .order("vaccine_date", { ascending: false });
     setVaccinationHistory((data as VaccinationHistoryRow[]) ?? []);
   }
-
-  const chartMonths = useMemo(() => {
-    const today = new Date();
-    return Array.from({ length: 6 }, (_, index) => {
-      const month = new Date(today.getFullYear(), today.getMonth() - 5 + index, 1);
-      const key = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
-      const vaccinated = animalRecords.filter((animal) => animal.vaccineDate?.startsWith(key)).length;
-      const coverage = animalRecords.length ? Math.round((vaccinated / animalRecords.length) * 100) : 0;
-      return { label: month.toLocaleDateString("en-US", { month: "short" }), value: Math.max(0, Math.min(100, coverage)) };
-    });
-  }, [animalRecords]);
-
-  useEffect(() => {
-    const bars = document.querySelectorAll<HTMLElement>(".chart-panel .bar");
-    const labels = document.querySelectorAll<HTMLElement>(".chart-panel .chart-x span");
-    chartMonths.forEach((month, index) => {
-      if (bars[index]) bars[index].style.height = `${month.value}%`;
-      if (labels[index]) labels[index].textContent = month.label;
-    });
-  }, [chartMonths]);
 
   // Predictive place search for the location picker: debounce keystrokes and
   // drop stale results so a fast typist doesn't see an older query's matches
@@ -1771,7 +1751,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
             </div> : <RoleBlocked role={userRole} message="Risk analysis is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Map" && (isStaff ? <div className="module-content">
               <div className="module-intro"><div><p className="eyebrow">GEOSPATIAL COVERAGE</p><h2>Barangay coverage map</h2><p>Use purok-level records to plan field visits and vaccination drives.</p></div><span className="module-chip"><MapPin size={14} /> {purokOptions.length} puroks monitored</span></div>
-              <LeafletMap animals={animalRecords.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species, classification: animal.classification ?? "Pet", owner: animal.owner, purok: animal.purok, vaccinated: animal.vaccinated, status: animal.status, vaccineDate: animal.vaccineDate, nextDueDate: animal.nextDueDate, vaccineType: animal.vaccineType, breed: animal.breed, age: animal.age, contact: animal.contact, latitude: animal.latitude, longitude: animal.longitude }))} puroks={purokOptions} />
+              <LeafletMap animals={animalRecords.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species, classification: animal.classification ?? "Pet", owner: animal.owner, purok: animal.purok, vaccinated: animal.vaccinated, status: animal.status, vaccineDate: animal.vaccineDate, nextDueDate: animal.nextDueDate, vaccineType: animal.vaccineType, breed: animal.breed, age: animal.age, contact: animal.contact, latitude: animal.latitude, longitude: animal.longitude }))} puroks={purokOptions} onAnimalSelect={(animalId) => { const animal = animalRecords.find((record) => String(record.id) === String(animalId)); if (animal) void openAnimalDetail(animal); }} />
               <div className="map-legend" role="list" aria-label="Vaccination status legend"><span role="listitem"><i className="map-status-dot vaccinated" /> Vaccinated</span><span role="listitem"><i className="map-status-dot expiring" /> Expiring soon</span><span role="listitem"><i className="map-status-dot overdue" /> Overdue</span><span role="listitem"><i className="map-status-dot unvaccinated" /> Unvaccinated</span></div>
             </div> : <RoleBlocked role={userRole} message="Coverage map is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Pound" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">STRAY &amp; POUND</p><h2>Stray dog directory</h2><p>Track impounded and stray animals through intake, observation, and outcome.</p></div><span className="module-chip"><HomeIcon size={14} /> {strayAnimals.length} strays</span></div><div className="pound-filters"><div className="search-box"><Search size={16} /><input aria-label="Search strays" placeholder="Search name, purok, or impound area..." value={poundQuery} onChange={(event) => setPoundQuery(event.target.value)} /></div><select value={poundStatusFilter} onChange={(event) => setPoundStatusFilter(event.target.value as PoundStatus | "All")}><option value="All">All statuses</option>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></div>{poundError && <p className="form-error">{poundError}</p>}{strayAnimals.length === 0 ? <div className="empty-state">No stray animals match the current filters.</div> : <div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th><th>Pound status</th></tr></thead><tbody>{strayAnimals.map((animal) => <tr key={`pound-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td><td><select className="pound-status-select" value={animal.poundStatus ?? "Under Observation"} onChange={(event) => changePoundStatus(animal.id, event.target.value as PoundStatus)}>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></td></tr>)}</tbody></table></div>}</div> : <RoleBlocked role={userRole} message="Stray and pound records are only available for staff accounts (admin, bhw)." />)}
@@ -1788,12 +1768,12 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
           <div className={activeTab === "Overview" ? "" : "overview-hidden"}>
           <div className="stat-grid">
             <article className="stat-card"><div className="stat-top"><span className="stat-icon blue"><PawPrint size={18} /></span><span className="trend neutral">Total</span></div><p className="stat-number">{dashboardStats.registered}</p><p className="stat-label">Registered animals</p><div className="stat-foot">Current registry</div></article>
-            <article className="stat-card"><div className="stat-top"><span className="stat-icon green"><Syringe size={18} /></span><span className="trend neutral">Coverage</span></div><p className="stat-number">{dashboardStats.vaccinated}</p><p className="stat-label">Vaccinated animals</p><div className="stat-foot">{dashboardStats.registered ? Math.round((dashboardStats.vaccinated / dashboardStats.registered) * 100) : 0}% of total registry</div></article>
+            <article className="stat-card"><div className="stat-top"><span className="stat-icon red"><ShieldCheck size={18} /></span><span className="trend danger">Needs follow-up</span></div><p className="stat-number">{dashboardStats.unvaccinated}</p><p className="stat-label">Unvaccinated animals</p><div className="stat-foot">{dashboardStats.registered ? Math.round((dashboardStats.unvaccinated / dashboardStats.registered) * 100) : 0}% of total registry</div></article>
             <article className="stat-card"><div className="stat-top"><span className="stat-icon amber"><CalendarDays size={18} /></span><span className="trend neutral">This month</span></div><p className="stat-number">{dashboardStats.dueSoon}</p><p className="stat-label">Due for vaccination</p><div className="stat-foot">Needs scheduling</div></article>
             <article className="stat-card"><div className="stat-top"><span className="stat-icon red"><Bell size={18} /></span><span className="trend danger">Needs action</span></div><p className="stat-number">{dashboardStats.overdue}</p><p className="stat-label">Overdue vaccinations</p><div className="stat-foot">Review registry</div></article>
           </div>
 
-          {isStaff && <div className="section-grid"><section className="panel chart-panel"><div className="panel-heading"><div><h2>Vaccination coverage</h2><p>Progress toward the 80% barangay target</p></div><select className="select-button chart-select" value={chartPeriod} onChange={(event) => setChartPeriod(event.target.value)}><option>Last 6 months</option><option>Last 12 months</option><option>This year</option></select></div><div className="chart-wrap"><div className="chart-y"><span>80%</span><span>60%</span><span>40%</span><span>20%</span><span>0%</span></div><div className="chart"><div className="target-line"><span>Target</span></div><div className="bars"><span className="bar" style={{ height: "47%" }} /><span className="bar" style={{ height: "54%" }} /><span className="bar" style={{ height: "59%" }} /><span className="bar" style={{ height: "64%" }} /><span className="bar" style={{ height: "69%" }} /><span className="bar current" style={{ height: "72%" }} /></div><div className="chart-x"><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span></div></div></div><p className="chart-caption">Showing {chartPeriod.toLowerCase()} of barangay coverage.</p></section><section className="panel purok-panel"><div className="panel-heading"><div><h2>Coverage by purok</h2><p>Vaccinated animals / total</p></div><button className="text-button" onClick={() => setActiveTab("Risk")}>View all →</button></div><div className="purok-list">{riskRows.slice(0, 5).map((row) => <Coverage key={row.purok} name={row.purok} value={row.coverageRate} count={`${row.vaccinated} / ${row.total}`} />)}</div></section></div>}
+          {isStaff && <div className="section-grid dashboard-insights-grid"><section className="panel dashboard-insight-panel"><div className="panel-heading"><div><h2>Upcoming appointments</h2><p>Scheduled visits from the live appointment list</p></div><button className="text-button" onClick={() => setActiveTab("Appointments")}>View all →</button></div>{dashboardAppointments.length === 0 ? <p className="module-muted"><CalendarClock size={16} /> No upcoming appointments scheduled.</p> : <div className="purok-list">{dashboardAppointments.map((appointment) => <div className="planning-row" key={`dashboard-appt-${appointment.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{appointment.animalName}</strong><small>{appointment.ownerName} · Assigned to {appointment.assignedName}</small></span><em>{formatVaccineDate(appointment.scheduledDate)}</em></div>)}</div>}</section><section className="panel dashboard-insight-panel"><div className="panel-heading"><div><h2>Unvaccinated by purok</h2><p>Highest unvaccinated share, based on registered animals</p></div><button className="text-button" onClick={() => setActiveTab("Risk")}>View risk →</button></div>{dashboardRiskRows.length === 0 ? <p className="module-muted">No purok data available.</p> : <div className="purok-list">{dashboardRiskRows.map((row) => <div className="coverage-row dashboard-risk-row" key={row.purok}><div className="coverage-meta"><span>{row.purok}</span><strong>{row.unvaccinated} / {row.total} <em>{row.unvaccinatedRate}%</em></strong></div><div className="progress"><span style={{ width: `${row.unvaccinatedRate}%` }} /></div></div>)}</div>}</section></div>}
 
           <section className="panel registry-panel"><div className="panel-heading registry-heading"><div><h2>{isClient ? "Your recent registry activity" : "Recent registry activity"}</h2><p>{isClient ? "Pets you have registered and their vaccination schedules" : isLive ? "Latest 25 live animal records" : "Latest animal records and vaccination schedules"}</p></div><div className="registry-tools"><div className="search-box"><Search size={16} /><input aria-label="Search registry" placeholder="Search registry..." value={query} onChange={(event) => setQuery(event.target.value)} /></div>{!isViewer && <button className="text-button" onClick={() => setActiveTab("Registry")}>View registry →</button>}</div></div>{loadError && <p className="form-error load-error">{loadError}</p>}<div className="table-wrap"><table><thead><tr><th>Animal</th><th>Owner</th><th>Purok</th><th>Next vaccination</th><th>Status</th></tr></thead><tbody>{filteredAnimals.map((animal) => <tr key={animal.id} className="row-clickable" onClick={() => openAnimalDetail(animal)}><td><div className="animal-cell"><span className="animal-avatar">{animal.species === "Dog" ? <Dog size={16} /> : <Cat size={16} />}</span><span><strong>{animal.name}</strong><small>{animal.species}</small></span></div></td><td>{animal.owner}</td><td><span className="location"><MapPin size={13} /> {animal.purok}</span></td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredAnimals.length === 0 && <div className="empty-state">No animals match “{query}”.</div>}</div></section>
           </div>

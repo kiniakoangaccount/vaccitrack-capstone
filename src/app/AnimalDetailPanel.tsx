@@ -159,7 +159,7 @@ export default function AnimalDetailPanel({
   }
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop animal-detail-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <section className="modal animal-detail-modal" role="dialog" aria-modal="true">
         <div className="modal-heading">
           <div>

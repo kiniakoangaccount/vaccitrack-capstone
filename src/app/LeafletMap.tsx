@@ -106,6 +106,7 @@ export interface LeafletMapHandle {
 interface LeafletMapProps {
   animals: MapAnimal[];
   puroks: MapPurok[];
+  onAnimalSelect?: (animalId: MapAnimal["id"]) => void;
   onPickCoordinates?: (lat: number, lng: number) => void;
   onPickOutsideArea?: () => void;
   pickMode?: boolean;
@@ -118,6 +119,7 @@ interface LeafletMapProps {
 export default function LeafletMap({
   animals,
   puroks,
+  onAnimalSelect,
   onPickCoordinates,
   onPickOutsideArea,
   pickMode = false,
@@ -148,12 +150,14 @@ export default function LeafletMap({
   const onPickCoordinatesRef = useRef(onPickCoordinates);
   const onPickOutsideAreaRef = useRef(onPickOutsideArea);
   const onMapReadyRef = useRef(onMapReady);
+  const onAnimalSelectRef = useRef(onAnimalSelect);
   useEffect(() => {
     pickModeRef.current = pickMode;
     onPickCoordinatesRef.current = onPickCoordinates;
     onPickOutsideAreaRef.current = onPickOutsideArea;
     onMapReadyRef.current = onMapReady;
-  }, [pickMode, onPickCoordinates, onPickOutsideArea, onMapReady]);
+    onAnimalSelectRef.current = onAnimalSelect;
+  }, [pickMode, onPickCoordinates, onPickOutsideArea, onMapReady, onAnimalSelect]);
 
   const purokByName = useMemo(() => new Map(puroks.map((p) => [normalizeName(p.name), p] as const)), [puroks]);
   const placed = useMemo<PlacedAnimal<MapAnimal>[]>(
@@ -319,7 +323,10 @@ export default function LeafletMap({
         }),
       }).bindTooltip(tooltip, { direction: "top" });
 
-      marker.on("click", () => setSelectedId(animal.id));
+      marker.on("click", () => {
+        setSelectedId(animal.id);
+        onAnimalSelectRef.current?.(animal.id);
+      });
       markers.push(marker);
 
       if (showHeat) {
