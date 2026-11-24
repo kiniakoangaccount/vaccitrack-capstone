@@ -1054,6 +1054,8 @@ form input[type="radio"] { accent-color: var(--green); }
 .create-account-heading { display: flex; align-items: flex-start; gap: 10px; color: var(--green-dark); }
 .create-account-heading h3 { margin: 0; color: var(--ink); font-size: 18px; }
 .create-account-heading p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+.create-account-modal { width: min(100%, 620px); }
+.create-account-trigger { width: fit-content; }
 .create-account-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
 .create-account-form label { display: grid; gap: 5px; color: #52645a; font-size: 14px; font-weight: 650; }
 .create-account-form input, .create-account-form select { width: 100%; min-height: 42px; padding: 9px 11px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
