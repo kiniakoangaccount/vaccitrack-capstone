@@ -8,7 +8,8 @@ import FeedbackPanel from "./FeedbackPanel";
 import AuditPanel from "./AuditPanel";
 import MessageHistoryPanel from "./MessageHistoryPanel";
 import InvitesPanel from "./InvitesPanel";
-import { listStaffInvites, type StaffInvite } from "./crud-actions";
+import { createSuperAdminUser, listStaffInvites, type StaffInvite } from "./crud-actions";
+import CreateUserAccountForm from "@/app/CreateUserAccountForm";
 import SmsTestForm from "./SmsTestForm";
 import {
   ShieldCheck, Users, PawPrint, Activity, Bell,
@@ -17,10 +18,12 @@ import {
 } from "lucide-react";
 import { SmsComposer } from "@/app/SmsComposer";
 import AdminMapPanel from "./AdminMapPanel";
+import PuroksPanel from "./PuroksPanel";
+import type { ManagedPurok } from "./purok-actions";
 import { purokOptions, getAnimalStatus } from "@/lib/map-data";
 import type { MapAnimal } from "../../LeafletMap";
 
-type Tab = "overview" | "users" | "pending" | "feedback" | "audit" | "invites" | "map" | "sms" | "messages";
+type Tab = "overview" | "users" | "pending" | "feedback" | "audit" | "invites" | "map" | "puroks" | "sms" | "messages";
 
 interface Profile {
   id: string;
@@ -87,6 +90,7 @@ export default async function AdminDashboardPage({
   let feedbackRows: FeedbackRow[] = [];
   let invites: StaffInvite[] = [];
   let mapAnimals: MapAnimal[] = [];
+  let managedPuroks: ManagedPurok[] = [];
 
   if (supaCfg && tab === "users") {
     const { data } = await db!.from("profiles")
@@ -141,6 +145,11 @@ export default async function AdminDashboardPage({
     }));
   }
 
+  if (supaCfg && tab === "puroks") {
+    const { data } = await db!.from("puroks").select("id, name, latitude, longitude").order("name");
+    managedPuroks = ((data ?? []) as ManagedPurok[]);
+  }
+
   const navItems: { key: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: "overview",  label: "Overview",             icon: <Activity size={16} /> },
     { key: "users",     label: "User accounts",        icon: <Users size={16} />,          badge: stats.users },
@@ -150,6 +159,7 @@ export default async function AdminDashboardPage({
     { key: "sms",       label: "SMS messaging",         icon: <MessageSquare size={16} /> },
     { key: "messages",  label: "Sent messages",         icon: <Clock size={16} /> },
     { key: "map",       label: "Coverage map",         icon: <MapPin size={16} /> },
+    { key: "puroks",    label: "Purok areas",           icon: <MapPin size={16} /> },
     { key: "audit",     label: "Audit log",            icon: <ShieldCheck size={16} /> },
   ];
 
@@ -307,7 +317,10 @@ export default async function AdminDashboardPage({
                 <h1>All user accounts</h1>
                 <p className="heading-sub">Edit role and status, or permanently delete any account.</p>
               </div>
-              {!supaCfg ? <NotConfigured /> : <UsersPanel profiles={profiles} />}
+              {!supaCfg ? <NotConfigured /> : <>
+                <CreateUserAccountForm createAccount={createSuperAdminUser} />
+                <UsersPanel profiles={profiles} />
+              </>}
             </>
           )}
 
@@ -356,6 +369,17 @@ export default async function AdminDashboardPage({
                 <p className="heading-sub">Every registered animal across every purok, for field planning.</p>
               </div>
               {!supaCfg ? <NotConfigured /> : <AdminMapPanel animals={mapAnimals} puroks={purokOptions} />}
+            </>
+          )}
+
+          {tab === "puroks" && (
+            <>
+              <div className="admin-page-heading">
+                <p className="eyebrow">AREA MANAGEMENT</p>
+                <h1>Purok areas</h1>
+                <p className="heading-sub">Add, edit, and remove service areas. Updates flow into the workspace coverage and vaccination reports.</p>
+              </div>
+              {!supaCfg ? <NotConfigured /> : <PuroksPanel initialPuroks={managedPuroks} />}
             </>
           )}
 

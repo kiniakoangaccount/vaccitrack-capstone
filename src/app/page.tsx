@@ -54,6 +54,8 @@ import type { VaccinationHistoryRow } from "./AnimalDetailPanel";
 import ConfirmDialog from "./ConfirmDialog";
 import SkeletonBlock from "./Skeleton";
 import WorkspaceLoadingScreen from "./WorkspaceLoadingScreen";
+import CreateUserAccountForm from "./CreateUserAccountForm";
+import { createAdminManagedAccount } from "./user-account-actions";
 
 function MapLoadingSkeleton() {
   return (
@@ -148,6 +150,20 @@ type Animal = {
   imageLoadError?: string;
   poundStatus?: PoundStatus | null;
 };
+
+type AnimalFilters = { breed: string; species: string; owner: string; location: string; classification: string };
+
+function matchesAnimalFilters(animal: Animal, filters: AnimalFilters): boolean {
+  const breed = animal.breed?.trim() || "Unspecified";
+  const owner = animal.owner.trim() || "Unspecified owner";
+  const location = animal.purok?.trim() || "Unassigned";
+  const classification = animal.classification ?? "Pet";
+  return (filters.breed === "All" || breed === filters.breed)
+    && (filters.species === "All" || animal.species === filters.species)
+    && (filters.owner === "All" || owner === filters.owner)
+    && (filters.location === "All" || location === filters.location)
+    && (filters.classification === "All" || classification === filters.classification);
+}
 
 type SupabaseAnimalRecord = {
   id: number;
@@ -281,6 +297,23 @@ function buildCoverageBreakdown(animals: Animal[], keyFn: (animal: Animal) => st
   return keys.map((key) => {
     const { total, vaccinated } = totals.get(key)!;
     return { label: key, total, vaccinated, rate: total ? Math.round((vaccinated / total) * 100) : 0 };
+  });
+}
+
+function buildPurokRiskRows(animals: Animal[], purokNames: string[]) {
+  return purokNames.map((purokName) => {
+    const records = animals.filter((animal) => animal.purok === purokName);
+    const unvaccinated = records.filter((animal) => !animal.vaccinated).length;
+    const vaccinated = records.length - unvaccinated;
+    const dueSoon = records.filter((animal) => animal.status === "Due soon").length;
+    const overdue = records.filter((animal) => animal.status === "Overdue").length;
+    const notScheduled = records.filter((animal) => animal.status === "Not scheduled").length;
+    const unvaccinatedRate = records.length ? Math.round((unvaccinated / records.length) * 100) : 0;
+    const coverageRate = records.length ? 100 - unvaccinatedRate : 0;
+    const maxUnvaccinatedAtTarget = records.length - Math.ceil(records.length * 0.7);
+    const gapToTarget = Math.max(0, unvaccinated - maxUnvaccinatedAtTarget);
+    const risk = records.length === 0 ? "NO DATA" : unvaccinated * 2 > records.length ? "HIGH" : unvaccinated * 10 > records.length * 3 ? "MODERATE" : "LOW";
+    return { purok: purokName, total: records.length, vaccinated, unvaccinated, dueSoon, overdue, notScheduled, gapToTarget, coverageRate, unvaccinatedRate, risk };
   });
 }
 
@@ -559,6 +592,8 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const [activeReportTab, setActiveReportTab] = useState<ReportTabId>("all");
   const [selectedReportIds, setSelectedReportIds] = useState<ReportId[]>(["animals", "vaccinations", "maps", "pound"]);
   const [reportRange, setReportRange] = useState({ from: "2026-01-01", to: "2026-12-31" });
+  const [reportFilters, setReportFilters] = useState<AnimalFilters>({ breed: "All", species: "All", owner: "All", location: "All", classification: "All" });
+  const [registryFilters, setRegistryFilters] = useState<AnimalFilters>({ breed: "All", species: "All", owner: "All", location: "All", classification: "All" });
   const [bulkMessage, setBulkMessage] = useState("Your animal's vaccination is due. Please visit the barangay health station.");
   const [bulkSent, setBulkSentState] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -970,6 +1005,19 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     });
   }
 
+  const animalFilterOptions = useMemo(() => {
+    const owners = new Map<string, number>();
+    for (const animal of animalRecords) {
+      const ownerName = animal.owner.trim() || "Unspecified owner";
+      owners.set(ownerName, (owners.get(ownerName) ?? 0) + 1);
+    }
+    return {
+      breeds: Array.from(new Set(animalRecords.map((animal) => animal.breed?.trim() || "Unspecified"))).sort((a, b) => a.localeCompare(b)),
+      owners: Array.from(owners.entries()).sort(([a], [b]) => a.localeCompare(b)),
+      locations: Array.from(new Set([...riskPurokNames, ...animalRecords.map((animal) => animal.purok?.trim() || "Unassigned")])).sort((a, b) => a.localeCompare(b)),
+    };
+  }, [animalRecords, riskPurokNames]);
+
   const filteredAnimals = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return animalRecords;
@@ -978,6 +1026,13 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     );
   }, [animalRecords, query]);
 
+  const filteredRegistryAnimals = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return animalRecords.filter((animal) => matchesAnimalFilters(animal, registryFilters)
+      && (!normalized || [animal.name, animal.owner, animal.purok, animal.species].some((value) => value.toLowerCase().includes(normalized))));
+  }, [animalRecords, query, registryFilters]);
+  const activeRegistryFilterCount = Object.values(registryFilters).filter((value) => value !== "All").length;
+
   const dashboardStats = useMemo(() => ({
     registered: liveStats.registered || animalRecords.length,
     vaccinated: liveStats.vaccinated || animalRecords.filter((animal) => animal.vaccinated).length,
@@ -985,24 +1040,15 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     overdue: liveStats.overdue || animalRecords.filter((animal) => animal.status === "Overdue").length,
   }), [animalRecords, liveStats]);
 
-  const riskRows = useMemo(() => riskPurokNames.map((purokName) => {
-    const records = animalRecords.filter((animal) => animal.purok === purokName);
-    const vaccinated = records.filter((animal) => animal.vaccinated).length;
-    const dueSoon = records.filter((animal) => animal.status === "Due soon").length;
-    const overdue = records.filter((animal) => animal.status === "Overdue").length;
-    const notScheduled = records.filter((animal) => animal.status === "Not scheduled").length;
-    const rate = records.length ? Math.round((vaccinated / records.length) * 100) : 0;
-    const gapToTarget = Math.max(0, Math.ceil(records.length * 0.7) - vaccinated);
-    return { purok: purokName, total: records.length, vaccinated, dueSoon, overdue, notScheduled, gapToTarget, rate, risk: records.length === 0 ? "NO DATA" : rate < 50 ? "HIGH" : rate < 70 ? "MODERATE" : "LOW" };
-  }), [animalRecords, riskPurokNames]);
+  const riskRows = useMemo(() => buildPurokRiskRows(animalRecords, riskPurokNames), [animalRecords, riskPurokNames]);
 
   const riskSummary = useMemo(() => ({
     totalAnimals: animalRecords.length,
     overdue: animalRecords.filter((animal) => animal.status === "Overdue").length,
     dueSoon: animalRecords.filter((animal) => animal.status === "Due soon").length,
     notScheduled: animalRecords.filter((animal) => animal.status === "Not scheduled").length,
-    belowTarget: riskRows.filter((row) => row.total > 0 && row.rate < 70).length,
-    highRisk: riskRows.filter((row) => row.risk === "HIGH").length,
+    aboveUnvaccinatedTarget: riskRows.filter((row) => row.total > 0 && row.unvaccinated * 10 > row.total * 3).length,
+    highUnvaccinated: riskRows.filter((row) => row.risk === "HIGH").length,
   }), [animalRecords, riskRows]);
 
   const schedulableAnimals = useMemo(() => animalRecords.filter((animal) => animal.status === "Overdue" || animal.status === "Due soon"), [animalRecords]);
@@ -1012,11 +1058,19 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     return [...VACCINE_DATA, ...extra];
   }, [customVaccines]);
 
+  const filteredReportAnimals = useMemo(() => animalRecords.filter((animal) => matchesAnimalFilters(animal, reportFilters)), [animalRecords, reportFilters]);
+
   const { from: reportFrom, to: reportTo } = reportRange;
-  const reportAnimals = reportTo < reportFrom ? [] : animalRecords.filter((animal) => {
+  const reportAnimals = reportTo < reportFrom ? [] : filteredReportAnimals.filter((animal) => {
     if (!animal.nextDueDate) return true;
     return animal.nextDueDate >= reportFrom && animal.nextDueDate <= reportTo;
   });
+
+  const reportPurokNames = useMemo(() => reportFilters.location === "All"
+    ? Array.from(new Set([...riskPurokNames, ...filteredReportAnimals.map((animal) => animal.purok?.trim() || "Unassigned")]))
+    : [reportFilters.location], [riskPurokNames, filteredReportAnimals, reportFilters.location]);
+  const reportRiskRows = useMemo(() => buildPurokRiskRows(filteredReportAnimals, reportPurokNames), [filteredReportAnimals, reportPurokNames]);
+  const activeReportFilterCount = Object.values(reportFilters).filter((value) => value !== "All").length;
 
   const reportSummary = {
     total: reportAnimals.length,
@@ -1053,25 +1107,25 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   }, [animalRecords, poundQuery, poundStatusFilter]);
 
   const allStrayAnimals = useMemo(
-    () => animalRecords.filter((animal) => animal.classification === "Stray"),
-    [animalRecords],
+    () => filteredReportAnimals.filter((animal) => (animal.classification ?? "Pet") === "Stray"),
+    [filteredReportAnimals],
   );
-  const animalsWithPins = animalRecords.filter((animal) => animal.latitude != null && animal.longitude != null);
+  const animalsWithPins = filteredReportAnimals.filter((animal) => animal.latitude != null && animal.longitude != null);
   const reportSections: ReportData[] = [
       {
         id: "animals",
         title: "Animal report",
         description: "Registered animals, owners, and identifying details.",
         metrics: [
-          { label: "Total animals", value: animalRecords.length },
-          { label: "Dogs", value: animalRecords.filter((animal) => animal.species === "Dog").length },
-          { label: "Cats", value: animalRecords.filter((animal) => animal.species === "Cat").length },
+          { label: "Total animals", value: filteredReportAnimals.length },
+          { label: "Dogs", value: filteredReportAnimals.filter((animal) => animal.species === "Dog").length },
+          { label: "Cats", value: filteredReportAnimals.filter((animal) => animal.species === "Cat").length },
           { label: "Strays", value: allStrayAnimals.length },
         ],
         tables: [{
           title: "Animal registry",
           headers: ["Animal", "Species", "Classification", "Breed", "Age (months)", "Owner", "Contact", "Purok", "Vaccination status"],
-          rows: animalRecords.map((animal) => [
+          rows: filteredReportAnimals.map((animal) => [
             animal.name,
             animal.species,
             animal.classification ?? "Pet",
@@ -1138,14 +1192,14 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
         metrics: [
           { label: "Puroks monitored", value: riskRows.length },
           { label: "Animals with map pins", value: animalsWithPins.length },
-          { label: "Animals without map pins", value: animalRecords.length - animalsWithPins.length },
-          { label: "Total animals", value: animalRecords.length },
+          { label: "Animals without map pins", value: filteredReportAnimals.length - animalsWithPins.length },
+          { label: "Total animals", value: filteredReportAnimals.length },
         ],
         tables: [
           {
             title: "Coverage by purok",
-            headers: ["Purok", "Animals", "Vaccinated", "Coverage", "Risk level"],
-            rows: riskRows.map((row) => [row.purok, row.total, row.vaccinated, `${row.rate}%`, row.risk]),
+            headers: ["Purok", "Animals", "Unvaccinated", "Unvaccinated rate", "Vaccinated", "Coverage", "Risk level"],
+            rows: reportRiskRows.map((row) => [row.purok, row.total, row.unvaccinated, `${row.unvaccinatedRate}%`, row.vaccinated, `${row.coverageRate}%`, row.risk]),
             emptyMessage: "No purok coverage data is available.",
           },
           {
@@ -1325,7 +1379,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   async function handleExportCsv() {
     setIsExporting(true);
     try {
-      const result = await exportAnimalsCsv({ query: query.trim() || undefined });
+      const result = await exportAnimalsCsv({ query: query.trim() || undefined, filters: registryFilters });
       if ("error" in result && result.error) {
         setLoadError(result.error);
         return;
@@ -1576,7 +1630,23 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
           {showNotice && <div className="notice"><div className="notice-icon"><Syringe size={19} /></div><div><strong>Vaccination coverage is at {dashboardStats.registered ? Math.round((dashboardStats.vaccinated / dashboardStats.registered) * 100) : 0}%</strong><p>{dashboardStats.dueSoon} animals are due for their next vaccination.</p></div>{isStaff && <button type="button" className="notice-action" onClick={() => selectTab("Planning")}>View plan <span>→</span></button>}<button className="notice-close" aria-label="Dismiss notice" onClick={() => setShowNotice(false)}>×</button></div>}
 
           {activeTab !== "Overview" && <section className="workspace-panel">
-            {activeTab === "Registry" && (isViewer ? <RoleBlocked role={userRole} message="The animal registry is not available for viewer accounts. Viewers can access Overview and Feedback only." /> : <div className="module-content"><div className="module-intro"><div><p className="eyebrow">REGISTRY MANAGEMENT</p><h2>{isClient ? "My registered animals" : "All animal records"}</h2><p>{isClient ? "Review your registered pets and their vaccination schedules." : "Search, review, and register dogs and cats across every purok."}</p></div><div className="module-actions"><button className="secondary-button" onClick={handleExportCsv} disabled={isExporting}><FileText size={15} /> {isExporting ? "Exporting..." : isClient ? "Export my report" : "Export CSV"}</button>{canManageAnimals && <button className="primary-button" onClick={() => setShowRegister(true)}><Plus size={17} /> New record</button>}</div></div><div className="search-box wide-search"><Search size={16} /><input aria-label="Search all animals" placeholder="Search name, civilian, purok, or species..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th></tr></thead><tbody>{filteredAnimals.map((animal) => <tr key={`module-${animal.id}`} className="row-clickable" onClick={() => openAnimalDetail(animal)}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredAnimals.length === 0 && <div className="empty-state">No records found.</div>}</div></div>)}
+            {activeTab === "Registry" && (isViewer ? <RoleBlocked role={userRole} message="The animal registry is not available for viewer accounts. Viewers can access Overview and Feedback only." /> : <div className="module-content">
+              <div className="module-intro">
+                <div><p className="eyebrow">REGISTRY MANAGEMENT</p><h2>{isClient ? "My registered animals" : "All animal records"}</h2><p>{isClient ? "Review your registered pets and their vaccination schedules." : "Search, review, and register dogs and cats across every purok."}</p></div>
+                <div className="module-actions"><button className="secondary-button" onClick={handleExportCsv} disabled={isExporting}><FileText size={15} /> {isExporting ? "Exporting..." : isClient ? "Export my report" : "Export CSV"}</button>{canManageAnimals && <button className="primary-button" onClick={() => setShowRegister(true)}><Plus size={17} /> New record</button>}</div>
+              </div>
+              <div className="search-box wide-search"><Search size={16} /><input aria-label="Search all animals" placeholder="Search name, civilian, purok, or species..." value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+              <div className="registry-filter-controls" aria-label="Filter animal registry">
+                <label>Breed<select value={registryFilters.breed} onChange={(event) => setRegistryFilters({ ...registryFilters, breed: event.target.value })}><option value="All">All breeds</option>{animalFilterOptions.breeds.map((breed) => <option key={breed} value={breed}>{breed}</option>)}</select></label>
+                <label>Species<select value={registryFilters.species} onChange={(event) => setRegistryFilters({ ...registryFilters, species: event.target.value })}><option value="All">All species</option><option value="Dog">Dogs</option><option value="Cat">Cats</option></select></label>
+                <label>Owner (pets)<select value={registryFilters.owner} onChange={(event) => setRegistryFilters({ ...registryFilters, owner: event.target.value })}><option value="All">All owners</option>{animalFilterOptions.owners.map(([owner, count]) => <option key={owner} value={owner}>{owner} ({count} {count === 1 ? "pet" : "pets"})</option>)}</select></label>
+                <label>Location / purok<select value={registryFilters.location} onChange={(event) => setRegistryFilters({ ...registryFilters, location: event.target.value })}><option value="All">All locations</option>{animalFilterOptions.locations.map((location) => <option key={location} value={location}>{location}</option>)}</select></label>
+                <label>Classification<select value={registryFilters.classification} onChange={(event) => setRegistryFilters({ ...registryFilters, classification: event.target.value })}><option value="All">Pets and strays</option><option value="Pet">Pets</option><option value="Stray">Strays</option></select></label>
+                {activeRegistryFilterCount > 0 && <button type="button" className="secondary-button registry-clear-filters" onClick={() => setRegistryFilters({ breed: "All", species: "All", owner: "All", location: "All", classification: "All" })}>Clear filters ({activeRegistryFilterCount})</button>}
+              </div>
+              <p className="registry-filter-count" role="status" aria-live="polite">Showing {filteredRegistryAnimals.length} of {animalRecords.length} animals{query.trim() ? " matching the search and selected filters." : " matching the selected filters."}</p>
+              <div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th></tr></thead><tbody>{filteredRegistryAnimals.map((animal) => <tr key={`module-${animal.id}`} className="row-clickable" onClick={() => openAnimalDetail(animal)}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredRegistryAnimals.length === 0 && <div className="empty-state">No animal records match the search and filters.</div>}</div>
+            </div>)}
             {activeTab === "Planning" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PROGRAM PLANNING</p><h2>Vaccination plan</h2><p>Prioritize overdue animals and upcoming vaccination drives.</p></div><span className="module-chip"><CalendarDays size={14} /> 90-day view</span></div><div className="planning-grid"><div className="planning-list"><h3>Needs immediate action</h3>{animalRecords.filter((animal) => animal.status === "Overdue").map((animal) => <div className="planning-row" key={`overdue-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}{animalRecords.filter((animal) => animal.status === "Overdue").length === 0 && <p className="module-muted"><CheckCircle2 size={16} /> No overdue vaccinations.</p>}</div><div className="planning-list"><h3>Upcoming vaccinations</h3>{animalRecords.filter((animal) => animal.status === "Due soon").map((animal) => <div className="planning-row" key={`due-${animal.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}</div></div></div> : <RoleBlocked role={userRole} message="Vaccination planning is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Appointments" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">CLINIC WORKFLOW</p><h2>Vaccination appointments</h2><p>Schedule upcoming vaccination visits and assign them to a BHW or admin staff member.</p></div></div><form className="feedback-form" onSubmit={submitAppointment}><label>Animal<select required value={appointmentForm.animalId} onChange={(event) => setAppointmentForm({ ...appointmentForm, animalId: event.target.value })}><option value="">Select an animal needing vaccination</option>{schedulableAnimals.map((animal) => <option key={animal.id} value={animal.id}>{animal.name} — {animal.owner} ({animal.purok})</option>)}</select></label><label>Assign to<select required value={appointmentForm.assignedTo} onChange={(event) => setAppointmentForm({ ...appointmentForm, assignedTo: event.target.value })}><option value="">Select staff</option>{teamMembers.map((member) => <option key={member.id} value={member.id}>{member.fullName} ({member.role})</option>)}</select></label><label>Scheduled date<input required type="date" min={todayLocalIso()} value={appointmentForm.scheduledDate} onChange={(event) => setAppointmentForm({ ...appointmentForm, scheduledDate: event.target.value })} /></label><label>Notes <small>(optional)</small><textarea rows={3} value={appointmentForm.notes} onChange={(event) => setAppointmentForm({ ...appointmentForm, notes: event.target.value })} /></label>{appointmentError && <p className="form-error">{appointmentError}</p>}<button className="primary-button" type="submit"><CalendarClock size={16} /> Schedule appointment</button></form><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Owner</th><th>Assigned to</th><th>Scheduled date</th><th>Status</th></tr></thead><tbody>{appointments.map((appointment) => <tr key={`appt-${appointment.id}`}><td>{appointment.animalName}</td><td>{appointment.ownerName}</td><td>{appointment.assignedName}</td><td>{formatVaccineDate(appointment.scheduledDate)}</td><td><select className="pound-status-select" value={appointment.status} onChange={(event) => void changeAppointmentStatus(appointment.id, event.target.value as AppointmentStatus)}><option>Scheduled</option><option>Completed</option><option>Missed</option><option>Cancelled</option></select></td></tr>)}</tbody></table>{appointments.length === 0 && <div className="empty-state">No appointments scheduled yet.</div>}</div></div> : <RoleBlocked role={userRole} message="Appointments are only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Reports" && (isStaff ? (
@@ -1618,7 +1688,14 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                 <div className="report-controls no-print">
                   <label>Vaccination report from<input type="date" value={reportRange.from} onChange={(event) => setReportRange({ ...reportRange, from: event.target.value })} /></label>
                   <label>To<input type="date" min={reportRange.from} value={reportRange.to} onChange={(event) => setReportRange({ ...reportRange, to: event.target.value })} /></label>
+                  <label>Breed<select value={reportFilters.breed} onChange={(event) => setReportFilters({ ...reportFilters, breed: event.target.value })}><option value="All">All breeds</option>{animalFilterOptions.breeds.map((breed) => <option key={breed} value={breed}>{breed}</option>)}</select></label>
+                  <label>Species<select value={reportFilters.species} onChange={(event) => setReportFilters({ ...reportFilters, species: event.target.value })}><option value="All">All species</option><option value="Dog">Dogs</option><option value="Cat">Cats</option></select></label>
+                  <label>Owner (pets)<select value={reportFilters.owner} onChange={(event) => setReportFilters({ ...reportFilters, owner: event.target.value })}><option value="All">All owners</option>{animalFilterOptions.owners.map(([owner, count]) => <option key={owner} value={owner}>{owner} ({count} {count === 1 ? "pet" : "pets"})</option>)}</select></label>
+                  <label>Location / purok<select value={reportFilters.location} onChange={(event) => setReportFilters({ ...reportFilters, location: event.target.value })}><option value="All">All locations</option>{animalFilterOptions.locations.map((location) => <option key={location} value={location}>{location}</option>)}</select></label>
+                  <label>Classification<select value={reportFilters.classification} onChange={(event) => setReportFilters({ ...reportFilters, classification: event.target.value })}><option value="All">Pets and strays</option><option value="Pet">Pets</option><option value="Stray">Strays</option></select></label>
+                  {activeReportFilterCount > 0 && <button type="button" className="secondary-button report-clear-filters" onClick={() => setReportFilters({ breed: "All", species: "All", owner: "All", location: "All", classification: "All" })}>Clear filters ({activeReportFilterCount})</button>}
                 </div>
+                <p className="report-filter-count no-print" role="status" aria-live="polite">Showing {filteredReportAnimals.length} of {animalRecords.length} animals matching the selected filters. Owner selection includes all pets registered to that owner.</p>
                 {reportRange.to < reportRange.from && (activeReportTab === "all" || activeReportTab === "vaccinations") && <p className="form-error">The end date must be on or after the start date.</p>}
                 <div className="report-current-view">
                   {visibleReports.map((report) => <ReportSectionView key={report.id} report={report} />)}
@@ -1651,24 +1728,24 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
             ) : <RoleBlocked role={userRole} message="Reports are only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Risk" && (isStaff ? <div className="module-content">
               <div className="module-intro">
-                <div><p className="eyebrow">DECISION SUPPORT</p><h2>Risk analysis by purok</h2><p>Vaccination coverage and follow-up needs from registered animal records.</p></div>
-                <span className="module-chip"><ShieldCheck size={14} /> 70% coverage target</span>
+                <div><p className="eyebrow">DECISION SUPPORT</p><h2>Risk analysis by purok</h2><p>Prioritize service areas using their share of unvaccinated animals.</p></div>
+                <span className="module-chip"><ShieldCheck size={14} /> 30% maximum unvaccinated</span>
               </div>
               <div className="risk-summary" aria-label="Barangay risk summary">
                 <article><strong>{riskSummary.totalAnimals}</strong><span>Registered animals</span></article>
                 <article className="risk-summary-alert"><strong>{riskSummary.overdue}</strong><span>Overdue vaccinations</span></article>
                 <article><strong>{riskSummary.dueSoon}</strong><span>Due within 30 days</span></article>
                 <article><strong>{riskSummary.notScheduled}</strong><span>Without a due date</span></article>
-                <article className="risk-summary-alert"><strong>{riskSummary.belowTarget}</strong><span>Puroks below 70% target</span></article>
-                <article className="risk-summary-high"><strong>{riskSummary.highRisk}</strong><span>Puroks below 50% coverage</span></article>
+                <article className="risk-summary-alert"><strong>{riskSummary.aboveUnvaccinatedTarget}</strong><span>Puroks above 30% unvaccinated</span></article>
+                <article className="risk-summary-high"><strong>{riskSummary.highUnvaccinated}</strong><span>Puroks above 50% unvaccinated</span></article>
               </div>
-              <p className="risk-explainer">Coverage is the share of registered animals marked vaccinated. Risk labels use coverage: High is below 50%, Moderate is 50–69%, and Low is 70% or higher. Due soon and overdue counts come from each animal’s next vaccination date; they are shown separately because they may also be marked vaccinated.</p>
+              <p className="risk-explainer">Unvaccinated rate = unvaccinated animals ÷ registered animals. High risk means more than 50% unvaccinated; Moderate means more than 30% and up to 50%; Low means 30% or less. The 70% vaccination target is met when no more than 30% are unvaccinated. Due soon and overdue counts are shown separately because those animals may have a previous vaccination record.</p>
               <div className="risk-grid">{riskRows.map((row) => <article className={`risk-card risk-${row.risk.toLowerCase().replace(" ", "-")}`} key={row.purok}>
                 <div className="risk-card-head"><h3>{row.purok}</h3><span>{row.risk === "NO DATA" ? "NO DATA" : `${row.risk} RISK`}</span></div>
                 {row.total === 0 ? <p className="risk-no-records">No registered animals in this purok yet.</p> : <>
-                  <div className="risk-count"><strong>{row.rate}%</strong><small>{row.vaccinated} of {row.total} marked vaccinated</small></div>
-                  <div className="progress" role="progressbar" aria-label={`${row.purok} vaccination coverage`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={row.rate}><span style={{ width: `${row.rate}%` }} /></div>
-                  <p className="risk-gap">{row.rate < 70 ? `${row.gapToTarget} more marked vaccinated to reach the 70% target.` : "Coverage target met."}</p>
+                  <div className="risk-count"><strong>{row.unvaccinatedRate}%</strong><small>{row.unvaccinated} of {row.total} unvaccinated</small></div>
+                  <div className="progress risk-progress" role="progressbar" aria-label={`${row.purok} unvaccinated rate`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={row.unvaccinatedRate}><span style={{ width: `${row.unvaccinatedRate}%` }} /></div>
+                  <p className="risk-gap">{row.gapToTarget > 0 ? `Vaccinate ${row.gapToTarget} more animal${row.gapToTarget === 1 ? "" : "s"} to reach the 70% coverage target.` : "Unvaccinated rate is within the 30% target."}</p>
                   <dl className="risk-details"><div><dt>Overdue</dt><dd>{row.overdue}</dd></div><div><dt>Due within 30 days</dt><dd>{row.dueSoon}</dd></div><div><dt>No due date</dt><dd>{row.notScheduled}</dd></div></dl>
                 </>}
               </article>)}</div>
@@ -1680,7 +1757,11 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
             </div> : <RoleBlocked role={userRole} message="Coverage map is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Pound" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">STRAY &amp; POUND</p><h2>Stray dog directory</h2><p>Track impounded and stray animals through intake, observation, and outcome.</p></div><span className="module-chip"><HomeIcon size={14} /> {strayAnimals.length} strays</span></div><div className="pound-filters"><div className="search-box"><Search size={16} /><input aria-label="Search strays" placeholder="Search name, purok, or impound area..." value={poundQuery} onChange={(event) => setPoundQuery(event.target.value)} /></div><select value={poundStatusFilter} onChange={(event) => setPoundStatusFilter(event.target.value as PoundStatus | "All")}><option value="All">All statuses</option>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></div>{poundError && <p className="form-error">{poundError}</p>}{strayAnimals.length === 0 ? <div className="empty-state">No stray animals match the current filters.</div> : <div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th><th>Pound status</th></tr></thead><tbody>{strayAnimals.map((animal) => <tr key={`pound-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td><td><select className="pound-status-select" value={animal.poundStatus ?? "Under Observation"} onChange={(event) => changePoundStatus(animal.id, event.target.value as PoundStatus)}>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></td></tr>)}</tbody></table></div>}</div> : <RoleBlocked role={userRole} message="Stray and pound records are only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Feedback" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Client feedback</h2><p>Feedback submitted by clients, for admin and BHW review.</p></div></div>{feedbackListError && <p className="form-error">{feedbackListError}</p>}{feedbackItems.length === 0 ? <div className="empty-state">No feedback submitted yet.</div> : <div className="table-wrap module-table"><table><thead><tr><th>From</th><th>Category</th><th>Message</th><th>Received</th><th>Status</th></tr></thead><tbody>{feedbackItems.map((item) => <tr key={`feedback-${item.id}`}><td>{item.senderName}</td><td>{item.category}</td><td>{item.message}</td><td>{new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</td><td><select className="pound-status-select" value={item.status} onChange={(event) => void changeFeedbackStatus(item.id, event.target.value as "New" | "Reviewed" | "Resolved")}><option>New</option><option>Reviewed</option><option>Resolved</option></select></td></tr>)}</tbody></table></div>}</div> : isClient ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Feedback and suggestions</h2><p>Send notes to the barangay animal health team.</p></div></div>{feedbackSent ? <div className="feedback-success"><CheckCircle2 size={22} /><div><strong>Feedback submitted</strong><p>Thank you. Your message has been recorded for review.</p></div><button className="secondary-button" onClick={() => setFeedbackSent(false)}>Send another</button></div> : <form className="feedback-form" onSubmit={submitFeedback}><label>Category<select value={feedbackCategory} onChange={(event) => setFeedbackCategory(event.target.value)}><option>Suggestion</option><option>Complaint</option><option>Compliment</option></select></label><label>Message<textarea required rows={5} placeholder="Tell us how to improve our service." value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} /></label><button className="primary-button" type="submit"><MessageSquare size={16} /> Submit feedback</button></form>}</div> : <RoleBlocked role={userRole} message="Feedback is only available for client and staff accounts (admin, bhw)." />)}
-            {activeTab === "Team" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">MANAGEMENT</p><h2>Team members</h2><p>Staff access for the Barangay Estefania health team.</p></div></div><div className="team-list">{teamMembers.length === 0 ? <div className="empty-state">No staff accounts found.</div> : teamMembers.map((member) => <div className="team-row" key={member.id}><span className={`avatar${member.id === authUser?.id ? "" : " team-muted"}`}>{member.fullName.slice(0, 2).toUpperCase()}</span><span><strong>{member.fullName}{member.id === authUser?.id ? " (you)" : ""}</strong><small>{member.username ? `@${member.username}` : member.status}</small></span><em>{member.role}</em></div>)}</div></div> : <RoleBlocked role={userRole} message="Team members view is only available for staff accounts (admin, bhw)." />)}
+            {activeTab === "Team" && (isStaff ? <div className="module-content">
+              <div className="module-intro"><div><p className="eyebrow">MANAGEMENT</p><h2>Team members</h2><p>Staff access for the Barangay Estefania health team.</p></div></div>
+              {isAdmin && <CreateUserAccountForm createAccount={createAdminManagedAccount} />}
+              <div className="team-list">{teamMembers.length === 0 ? <div className="empty-state">No staff accounts found.</div> : teamMembers.map((member) => <div className="team-row" key={member.id}><span className={`avatar${member.id === authUser?.id ? "" : " team-muted"}`}>{member.fullName.slice(0, 2).toUpperCase()}</span><span><strong>{member.fullName}{member.id === authUser?.id ? " (you)" : ""}</strong><small>{member.username ? `@${member.username}` : member.status}</small></span><em>{member.role}</em></div>)}</div>
+            </div> : <RoleBlocked role={userRole} message="Team members view is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "SMS" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">CLIENT COMMUNICATION</p><h2>SMS messaging</h2><p>Send a custom Semaphore SMS to one active client or clients with vaccinations due in 7 days.</p></div></div><SmsComposer /></div> : <RoleBlocked role={userRole} message="SMS messaging is only available for staff accounts (admin, bhw)." />)}
 
             {activeTab === "Audit" && (isAdmin ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SECURITY</p><h2>Audit log</h2><p>Recent actions from this VacciTrack workspace.</p></div><span className="module-chip"><ShieldCheck size={14} /> Protected</span></div><AuditPanel /></div> : <RoleBlocked role={userRole} message="Audit log is only available for administrator accounts." />)}
@@ -1694,7 +1775,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
             <article className="stat-card"><div className="stat-top"><span className="stat-icon red"><Bell size={18} /></span><span className="trend danger">Needs action</span></div><p className="stat-number">{dashboardStats.overdue}</p><p className="stat-label">Overdue vaccinations</p><div className="stat-foot">Review registry</div></article>
           </div>
 
-          {isStaff && <div className="section-grid"><section className="panel chart-panel"><div className="panel-heading"><div><h2>Vaccination coverage</h2><p>Progress toward the 80% barangay target</p></div><select className="select-button chart-select" value={chartPeriod} onChange={(event) => setChartPeriod(event.target.value)}><option>Last 6 months</option><option>Last 12 months</option><option>This year</option></select></div><div className="chart-wrap"><div className="chart-y"><span>80%</span><span>60%</span><span>40%</span><span>20%</span><span>0%</span></div><div className="chart"><div className="target-line"><span>Target</span></div><div className="bars"><span className="bar" style={{ height: "47%" }} /><span className="bar" style={{ height: "54%" }} /><span className="bar" style={{ height: "59%" }} /><span className="bar" style={{ height: "64%" }} /><span className="bar" style={{ height: "69%" }} /><span className="bar current" style={{ height: "72%" }} /></div><div className="chart-x"><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span></div></div></div><p className="chart-caption">Showing {chartPeriod.toLowerCase()} of barangay coverage.</p></section><section className="panel purok-panel"><div className="panel-heading"><div><h2>Coverage by purok</h2><p>Vaccinated animals / total</p></div><button className="text-button" onClick={() => setActiveTab("Risk")}>View all →</button></div><div className="purok-list">{riskRows.slice(0, 5).map((row) => <Coverage key={row.purok} name={row.purok} value={row.rate} count={`${row.vaccinated} / ${row.total}`} />)}</div></section></div>}
+          {isStaff && <div className="section-grid"><section className="panel chart-panel"><div className="panel-heading"><div><h2>Vaccination coverage</h2><p>Progress toward the 80% barangay target</p></div><select className="select-button chart-select" value={chartPeriod} onChange={(event) => setChartPeriod(event.target.value)}><option>Last 6 months</option><option>Last 12 months</option><option>This year</option></select></div><div className="chart-wrap"><div className="chart-y"><span>80%</span><span>60%</span><span>40%</span><span>20%</span><span>0%</span></div><div className="chart"><div className="target-line"><span>Target</span></div><div className="bars"><span className="bar" style={{ height: "47%" }} /><span className="bar" style={{ height: "54%" }} /><span className="bar" style={{ height: "59%" }} /><span className="bar" style={{ height: "64%" }} /><span className="bar" style={{ height: "69%" }} /><span className="bar current" style={{ height: "72%" }} /></div><div className="chart-x"><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span></div></div></div><p className="chart-caption">Showing {chartPeriod.toLowerCase()} of barangay coverage.</p></section><section className="panel purok-panel"><div className="panel-heading"><div><h2>Coverage by purok</h2><p>Vaccinated animals / total</p></div><button className="text-button" onClick={() => setActiveTab("Risk")}>View all →</button></div><div className="purok-list">{riskRows.slice(0, 5).map((row) => <Coverage key={row.purok} name={row.purok} value={row.coverageRate} count={`${row.vaccinated} / ${row.total}`} />)}</div></section></div>}
 
           <section className="panel registry-panel"><div className="panel-heading registry-heading"><div><h2>{isClient ? "Your recent registry activity" : "Recent registry activity"}</h2><p>{isClient ? "Pets you have registered and their vaccination schedules" : isLive ? "Latest 25 live animal records" : "Latest animal records and vaccination schedules"}</p></div><div className="registry-tools"><div className="search-box"><Search size={16} /><input aria-label="Search registry" placeholder="Search registry..." value={query} onChange={(event) => setQuery(event.target.value)} /></div>{!isViewer && <button className="text-button" onClick={() => setActiveTab("Registry")}>View registry →</button>}</div></div>{loadError && <p className="form-error load-error">{loadError}</p>}<div className="table-wrap"><table><thead><tr><th>Animal</th><th>Owner</th><th>Purok</th><th>Next vaccination</th><th>Status</th></tr></thead><tbody>{filteredAnimals.map((animal) => <tr key={animal.id} className="row-clickable" onClick={() => openAnimalDetail(animal)}><td><div className="animal-cell"><span className="animal-avatar">{animal.species === "Dog" ? <Dog size={16} /> : <Cat size={16} />}</span><span><strong>{animal.name}</strong><small>{animal.species}</small></span></div></td><td>{animal.owner}</td><td><span className="location"><MapPin size={13} /> {animal.purok}</span></td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredAnimals.length === 0 && <div className="empty-state">No animals match “{query}”.</div>}</div></section>
           </div>

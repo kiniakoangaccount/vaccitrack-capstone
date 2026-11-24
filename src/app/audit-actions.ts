@@ -36,7 +36,11 @@ function getPurokName(puroks: unknown): string {
 }
 
 export async function exportAnimalsCsv(
-  params: { query?: string; purok?: string } = {}
+  params: {
+    query?: string;
+    purok?: string;
+    filters?: { breed?: string; species?: string; owner?: string; location?: string; classification?: string };
+  } = {}
 ): Promise<{ csv: string; filename: string } | { error?: string }> {
   const db = createAdminClient();
   if (!db) return { error: "Service unavailable." };
@@ -68,13 +72,26 @@ export async function exportAnimalsCsv(
   const { data, error } = await query;
   if (error) return { error: error.message };
 
+  const filters = params.filters ?? {};
+  const filteredData = (data ?? []).filter((record) => {
+    const breed = record.breed?.trim() || "Unspecified";
+    const owner = record.owner_name?.trim() || "Unspecified owner";
+    const location = getPurokName((record as { puroks?: unknown }).puroks).trim() || "Unassigned";
+    const classification = record.classification ?? "Pet";
+    return (!filters.breed || filters.breed === "All" || breed === filters.breed)
+      && (!filters.species || filters.species === "All" || record.species === filters.species)
+      && (!filters.owner || filters.owner === "All" || owner === filters.owner)
+      && (!filters.location || filters.location === "All" || location === filters.location)
+      && (!filters.classification || filters.classification === "All" || classification === filters.classification);
+  });
+
   const header = "id,name,species,classification,breed,age,sex,color,owner,contact,impound,purok,vaccinated,vaccine_date,next_due_date,vaccine_type,latitude,longitude,notes";
   const escaped = (v: unknown) => {
     const s = v == null ? "" : String(v);
     if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
     return s;
   };
-  const body = (data ?? []).map((r) => [
+  const body = filteredData.map((r) => [
     r.id, r.name, r.species, r.classification ?? "", r.breed ?? "", r.age ?? "", r.sex ?? "", r.color ?? "", r.owner_name, r.contact_number ?? "", r.impound_area ?? "", getPurokName((r as { puroks?: unknown }).puroks), r.vaccinated, r.vaccine_date ?? "", r.next_due_date ?? "", r.vaccine_type ?? "", r.latitude ?? "", r.longitude ?? "", r.notes ?? "",
   ].map(escaped).join(","));
 

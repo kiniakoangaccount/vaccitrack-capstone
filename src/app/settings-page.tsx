@@ -19,16 +19,16 @@ export default function SettingsPage() {
   const router = useRouter();
   const [checkingAuth, setCheckingAuth] = useState(Boolean(supabase));
   const [showMobileNav, setShowMobileNav] = useState(false);
-  const [profile, setProfile] = useState({ fullName: "", username: "" });
+  const [profile, setProfile] = useState({ fullName: "", username: "", role: "viewer" });
 
   useEffect(() => {
     if (!supabase) return;
     void supabase.auth.getUser().then(async (result: { data: { user: SupabaseUser | null } }) => {
       const user = result.data.user;
       if (!user) { router.replace("/signin"); return; }
+      const { data } = await supabase.from("profiles").select("full_name, username, role").eq("id", user.id).maybeSingle();
+      setProfile({ fullName: data?.full_name ?? "", username: data?.username ?? "", role: data?.role ?? "viewer" });
       setCheckingAuth(false);
-      const { data } = await supabase.from("profiles").select("full_name, username").eq("id", user.id).maybeSingle();
-      setProfile({ fullName: data?.full_name ?? "", username: data?.username ?? "" });
     });
   }, [supabase, router]);
 
@@ -69,7 +69,7 @@ export default function SettingsPage() {
                   <h2>Purok areas</h2>
                   <p>Geographic pin areas used to group animal records on the map and planning views.</p>
                 </div>
-                {supabase ? <PurokManager /> : <div className="settings-empty"><MapPin size={24} /><p>Supabase is not configured, so lookup tables are managed from the database directly.</p></div>}
+                {supabase ? <PurokManager canManage={profile.role === "admin"} /> : <div className="settings-empty"><MapPin size={24} /><p>Supabase is not configured, so lookup tables are managed from the database directly.</p></div>}
               </div>
             </section>
 
@@ -109,7 +109,7 @@ function SettingsListSkeleton({ type }: { type: "purok" | "vaccine" }) {
   );
 }
 
-function PurokManager() {
+function PurokManager({ canManage }: { canManage: boolean }) {
   const supabase = createClient();
   const [puroks, setPuroks] = useState<{ id: number; name: string; latitude: string; longitude: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,7 +168,7 @@ function PurokManager() {
 
   return (
     <div>
-      <form className="settings-form" onSubmit={submit}>
+      {canManage ? <form className="settings-form" onSubmit={submit}>
         <input className="account-input" placeholder="Purok name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
         <div className="settings-coords">
           <input className="account-input" placeholder="Latitude (optional)" inputMode="decimal" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} />
@@ -178,7 +178,7 @@ function PurokManager() {
           <button className="primary-button" type="submit" disabled={saving || !form.name.trim()}><Save size={14} /> {editing ? "Update" : "Add"} purok</button>
           {editing && <button className="secondary-button" type="button" onClick={() => { setEditing(null); setForm({ name: "", latitude: "", longitude: "" }); }}>Cancel</button>}
         </div>
-      </form>
+      </form> : <p className="module-muted" style={{ margin: "14px 0" }}>Only administrators can add, edit, or remove purok areas.</p>}
       {error && <div className="notice danger"><Trash2 size={14} /><span>{error}</span></div>}
       {loading ? <SettingsListSkeleton type="purok" /> : (
         <ul className="settings-list">
@@ -188,15 +188,15 @@ function PurokManager() {
                 <span className="settings-row-name">{p.name}</span>
                 {p.latitude || p.longitude ? <span className="settings-row-meta"><span className="settings-dot" />{p.latitude ? `${p.latitude}, ` : ""}{p.longitude || ""}</span> : null}
               </div>
-              <div className="settings-row-actions">
-                <button className="icon-button" title="Edit" onClick={() => { setEditing(p.id); setForm({ name: p.name, latitude: p.latitude, longitude: p.longitude }); }}><Edit2 size={13} /></button>
-                <button className="icon-button" title="Remove" onClick={() => setRemoveTarget({ id: p.id, name: p.name })}><Trash2 size={13} /></button>
-              </div>
+              {canManage && <div className="settings-row-actions">
+                <button type="button" className="icon-button" title="Edit" onClick={() => { setEditing(p.id); setForm({ name: p.name, latitude: p.latitude, longitude: p.longitude }); }}><Edit2 size={13} /></button>
+                <button type="button" className="icon-button" title="Remove" onClick={() => setRemoveTarget({ id: p.id, name: p.name })}><Trash2 size={13} /></button>
+              </div>}
             </li>
           ))}
         </ul>
       )}
-      <ConfirmDialog
+      {canManage && <ConfirmDialog
         open={removeTarget !== null}
         title="Remove purok"
         message={`Remove "${removeTarget?.name}"? Animal records referencing it will become unassigned.`}
@@ -205,7 +205,7 @@ function PurokManager() {
         busy={removing}
         onConfirm={() => removeTarget && remove(removeTarget.id)}
         onCancel={() => setRemoveTarget(null)}
-      />
+      />}
     </div>
   );
 }

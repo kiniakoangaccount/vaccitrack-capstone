@@ -663,10 +663,11 @@ create policy "Authenticated users can read puroks"
   on public.puroks for select to authenticated using (true);
 
 drop policy if exists "Staff can manage puroks" on public.puroks;
-create policy "Staff can manage puroks"
+drop policy if exists "Admins can manage puroks" on public.puroks;
+create policy "Admins can manage puroks"
   on public.puroks for all to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')))
-  with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')));
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop policy if exists "Staff can read animals" on public.animals;
 create policy "Staff can read animals"

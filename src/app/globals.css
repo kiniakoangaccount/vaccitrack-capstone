@@ -1007,6 +1007,19 @@ form input[type="radio"] { accent-color: var(--green); }
 .risk-details div { min-width: 0; }
 .risk-details dt { color: #829088; font-size: 12px; line-height: 1.3; }
 .risk-details dd { margin: 4px 0 0; color: #344b40; font-size: 17px; font-weight: 750; }
+.risk-high .risk-progress span { background: #d64545; }
+.risk-moderate .risk-progress span { background: #d99d40; }
+.risk-low .risk-progress span { background: #57a875; }
+.report-controls { align-items: end; }
+.report-controls label { flex: 1 1 165px; min-width: 155px; }
+.report-controls select { width: 100%; min-height: 42px; padding: 9px 10px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 5px; font: inherit; font-size: 16px; }
+.report-controls .report-clear-filters { align-self: end; min-height: 42px; white-space: nowrap; }
+.report-filter-count { margin: -8px 0 18px; color: var(--muted); font-size: 13px; }
+.registry-filter-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); align-items: end; gap: 10px; margin: 0 0 8px; }
+.registry-filter-controls label { display: grid; min-width: 0; gap: 5px; color: #607168; font-size: 14px; font-weight: 700; }
+.registry-filter-controls select { width: 100%; min-width: 0; min-height: 42px; padding: 8px 10px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 5px; font: inherit; font-size: 15px; }
+.registry-filter-controls .registry-clear-filters { min-height: 42px; }
+.registry-filter-count { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
 @media (max-width: 520px) {
   .risk-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .risk-card { padding: 13px; }
@@ -1027,9 +1040,30 @@ form input[type="radio"] { accent-color: var(--green); }
 .leaflet-popup-details dt { color: var(--muted); font-size: 11px; }
 .leaflet-popup-details dd { overflow-wrap: anywhere; margin: 2px 0 0; color: var(--ink); font-size: 13px; font-weight: 650; }
 .leaflet-popup-note { display: block; margin-top: 8px; color: var(--muted); }
+.admin-purok-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.admin-purok-form label { display: grid; gap: 5px; color: var(--admin-muted, #718078); font-size: 13px; font-weight: 650; }
+.admin-purok-form .admin-row-actions { grid-column: 1 / -1; flex-wrap: wrap; }
+.create-account-card { margin-bottom: 18px; padding: 16px; background: #fbfdfb; border: 1px solid var(--line); border-radius: 8px; }
+.create-account-heading { display: flex; align-items: flex-start; gap: 10px; color: var(--green-dark); }
+.create-account-heading h3 { margin: 0; color: var(--ink); font-size: 18px; }
+.create-account-heading p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+.create-account-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.create-account-form label { display: grid; gap: 5px; color: #52645a; font-size: 14px; font-weight: 650; }
+.create-account-form input, .create-account-form select { width: 100%; min-height: 42px; padding: 9px 11px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+.create-account-form .create-account-note, .create-account-form .form-error, .create-account-form .create-account-success, .create-account-form > button { grid-column: 1 / -1; }
+.create-account-note { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.create-account-success { margin: 0; padding: 10px 12px; color: #286744; background: #edf7ef; border: 1px solid #cfe5d4; border-radius: 6px; font-size: 14px; }
 @media (max-width: 700px) {
   .leaflet-map-wrap .leaflet-popup { max-height: 60%; }
   .leaflet-popup-details { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+}
+@media (max-width: 600px) {
+  .admin-purok-form { grid-template-columns: 1fr; }
+  .admin-purok-form .admin-row-actions { grid-column: auto; }
+  .create-account-form { grid-template-columns: 1fr; }
+}
+@media (max-width: 680px) {
+  .report-controls .report-clear-filters { grid-column: 1 / -1; width: 100%; }
 }
 
 @media (min-width: 841px) {

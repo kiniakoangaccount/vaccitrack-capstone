@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { createManagedAccount, type ManagedAccountInput } from "@/lib/managed-account";
 import { getAdminSession } from "../actions";
 
 const DASH = "/vaccitrack_super_hidden_admin/dashboard";
@@ -27,6 +28,18 @@ export interface StaffInvite {
 }
 
 const INVITABLE_ROLES = ["bhw", "admin"];
+
+export async function createSuperAdminUser(input: ManagedAccountInput) {
+  try {
+    const session = await getAdminSession();
+    if (!session) return { error: "Your administrator session has expired. Sign in again." };
+    const result = await createManagedAccount(input, { userId: null, label: `Super-admin ${session.username}` });
+    if (!result.error) revalidatePath(DASH);
+    return result;
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+}
 
 export async function createStaffInvite(role: string): Promise<{ token?: string; error?: string }> {
   try {
