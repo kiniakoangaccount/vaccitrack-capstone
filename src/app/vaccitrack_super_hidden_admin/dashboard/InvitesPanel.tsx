@@ -62,11 +62,13 @@ export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
           </button>
         </div>
         {generatedLink && (
-          <div className="admin-generated-password" style={{ marginTop: 12 }}>
-            <code>{generatedLink}</code>
-            <button type="button" className="admin-action-btn" title="Copy invite link" aria-label="Copy invite link" onClick={() => void copyInviteLink()}><Copy size={13} /></button>
-          </div>
-          {copyStatus && <p className="admin-muted" role="status" aria-live="polite">{copyStatus}</p>}
+          <>
+            <div className="admin-generated-password" style={{ marginTop: 12 }}>
+              <code>{generatedLink}</code>
+              <button type="button" className="admin-action-btn" title="Copy invite link" aria-label="Copy invite link" onClick={() => void copyInviteLink()}><Copy size={13} /></button>
+            </div>
+            {copyStatus && <p className="admin-muted" role="status" aria-live="polite">{copyStatus}</p>}
+          </>
         )}
         {errorMsg && <p className="admin-form-error">{errorMsg}</p>}
       </div>
