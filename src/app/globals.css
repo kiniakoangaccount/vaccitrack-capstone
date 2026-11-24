@@ -16,7 +16,7 @@ html, body { overscroll-behavior-y: none; }
 .terms-intro { margin: 4px 0; color: var(--muted); font-size: 14px; line-height: 1.6; }.terms-link { display: inline; padding: 0; color: var(--green); background: transparent; border: 0; font-size: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }.terms-link:hover { color: var(--green-dark); }.terms-check { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; }.terms-check input { width: auto; margin-top: 3px; }.terms-modal-body { display: grid; gap: 12px; max-height: 50vh; overflow-y: auto; color: var(--muted); font-size: 15px; line-height: 1.6; }.terms-modal-body p { margin: 0; }
 .row-clickable { cursor: pointer; }.row-clickable:hover { background: #f3f7f4; }
 .modal-heading-actions { display: flex; gap: 6px; align-items: start; }
-.modal.animal-detail-modal { width: min(100%, 760px); }
+.modal.animal-detail-modal { width: min(100%, 760px); overscroll-behavior: contain; }
 .modal.confirm-modal { width: min(100%, 400px); text-align: center; }
 .modal-backdrop.confirm-backdrop { z-index: 100; align-items: center; }
 .confirm-modal h2 { margin: 0; font-family: var(--font-display), sans-serif; font-size: 23px; }
@@ -1050,7 +1050,7 @@ form input[type="radio"] { accent-color: var(--green); }
 .leaflet-popup-details dt { color: var(--muted); font-size: 11px; }
 .leaflet-popup-details dd { overflow-wrap: anywhere; margin: 2px 0 0; color: var(--ink); font-size: 13px; font-weight: 650; }
 .leaflet-popup-note { display: block; margin-top: 8px; color: var(--muted); }
-.animal-detail-backdrop { z-index: 1000; }
+.animal-detail-backdrop { z-index: 1000; overscroll-behavior: contain; }
 .dashboard-insight-panel { min-width: 0; padding: 20px; }
 .dashboard-risk-row .progress span { background: #c85f57; }
 .admin-purok-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
