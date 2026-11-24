@@ -1015,9 +1015,12 @@ form input[type="radio"] { accent-color: var(--green); }
 .auth-form label.terms-check input { flex: 0 0 20px; width: 20px; height: 20px; margin: 1px 0 0; }
 .terms-check-copy { min-width: 0; overflow-wrap: normal; }
 .terms-check-copy .terms-link { white-space: nowrap; }
+.terms-agreement-phrase { display: inline-block; white-space: nowrap; }
 .auth-switch-row { margin: 18px 0 0; color: var(--muted); font-size: 15px; line-height: 1.5; text-align: center; }
 .auth-inline-link { min-height: 44px; padding: 4px 3px; color: var(--green); background: transparent; border: 0; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .auth-inline-link:hover { color: var(--green-dark); }
+.auth-form .photo-file-button { display: inline-flex; flex-direction: row; align-items: center; justify-content: center; }
+.auth-form > .primary-button { min-height: 48px; padding: 10px 14px; border-radius: 7px; font-size: 16px; }
 
 @media (max-width: 680px) {
   .page-content, .admin-page-content { min-width: 0; }
