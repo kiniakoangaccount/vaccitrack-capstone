@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Pencil, Trash2, X, Check, Loader2, KeyRound, Copy } from "lucide-react";
 import { updateUserRole, updateUserStatus, updateUserReminderPreferences, deleteUser, resetUserPassword, setUserPassword } from "./crud-actions";
 import AdminConfirmDialog from "./AdminConfirmDialog";
+import { copyTextToClipboard } from "./clipboard";
 
 interface Profile {
   id: string;
@@ -41,6 +42,7 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
   const [customPassword, setCustomPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [copyStatus, setCopyStatus] = useState("");
   const [editRole, setEditRole] = useState("");
   const [editStatus, setEditStatus] = useState("");
   const [editLanguage, setEditLanguage] = useState<"en" | "tl" | "hil">("en");
@@ -55,8 +57,18 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
     setCustomPassword("");
     setConfirmPassword("");
     setPasswordSuccess(false);
+    setCopyStatus("");
     setPasswordMode("set");
     setErrorMsg("");
+  }
+
+  async function copyResetPassword() {
+    try {
+      await copyTextToClipboard(resetPassword);
+      setCopyStatus("Password copied.");
+    } catch {
+      setCopyStatus("Could not copy the password. Select and copy it manually.");
+    }
   }
 
   function confirmGenerate() {
@@ -299,8 +311,9 @@ export default function UsersPanel({ profiles }: { profiles: Profile[] }) {
                   <p className="admin-confirm-text">Share this password with <strong>{resetTarget.full_name}</strong> now — it will not be shown again.</p>
                   <div className="admin-generated-password">
                     <code>{resetPassword}</code>
-                    <button type="button" className="admin-action-btn" title="Copy" onClick={() => navigator.clipboard?.writeText(resetPassword)}><Copy size={13} /></button>
+                    <button type="button" className="admin-action-btn" title="Copy password" aria-label="Copy password" onClick={() => void copyResetPassword()}><Copy size={13} /></button>
                   </div>
+                  {copyStatus && <p className="admin-muted" role="status" aria-live="polite">{copyStatus}</p>}
                 </>
               ) : passwordMode === "set" ? (
                 <>

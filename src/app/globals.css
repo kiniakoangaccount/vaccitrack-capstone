@@ -535,7 +535,7 @@ button { cursor: pointer; }
 .leaflet-map-search { flex: 1; min-width: 220px; }
 .leaflet-map-search input { width: 100%; max-width: 320px; }
 .leaflet-map-toolbar select { min-width: 150px; padding: 6px 9px; color: #607168; background: #fff; border: 1px solid var(--line); border-radius: 5px; font: inherit; font-size: 14px; }
-.leaflet-map-toggles { display: inline-flex; gap: 6px; }
+.leaflet-map-toggles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .leaflet-map-legend { position: absolute; z-index: 500; top: 104px; right: 12px; display: grid; gap: 6px; min-width: 112px; padding: 9px 10px; color: #607168; background: rgba(255, 255, 255, .96); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 14px rgba(23, 49, 38, .10); font-size: 12px; }.leaflet-map-legend span { display: flex; align-items: center; gap: 7px; }.leaflet-map-legend i { width: 9px; height: 9px; border-radius: 50%; }.leaflet-map-legend .species-key { border: 1px solid #315b4a; background: #edf3ef; }
 .leaflet-toggle { padding: 6px 12px; font-size: 17px; }
 .leaflet-map-canvas { flex: 1; min-height: 0; }
@@ -1036,8 +1036,8 @@ form input[type="radio"] { accent-color: var(--green); }
   .leaflet-map-search { grid-column: 1 / -1; min-width: 0; }
   .leaflet-map-search input { max-width: none; min-height: 42px; font-size: 16px; }
   .leaflet-map-toolbar select { width: 100%; min-width: 0; min-height: 42px; padding: 7px 8px; font-size: 14px; }
-  .leaflet-map-toggles { grid-column: 1 / -1; display: flex; }
-  .leaflet-toggle { min-height: 42px; flex: 1; font-size: 15px; }
+  .leaflet-map-toggles { grid-column: 1 / -1; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .leaflet-toggle { min-width: 0; min-height: 42px; padding: 6px 4px; font-size: 13px; line-height: 1.2; }
   .leaflet-map-note { font-size: 13px !important; line-height: 1.4; }
   .leaflet-popup { left: 8px; right: 8px; bottom: 8px; max-height: 45%; overflow-y: auto; gap: 8px 12px; padding: 10px 12px; font-size: 14px; }
   .leaflet-popup-close { min-width: 40px; min-height: 40px; }

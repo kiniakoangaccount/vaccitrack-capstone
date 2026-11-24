@@ -42,7 +42,9 @@ export function proxy(request: NextRequest) {
 
   response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
   response.headers.set("Cache-Control", "private, no-store");
-  response.headers.set("Referrer-Policy", "no-referrer");
+  // OSM's web tile servers require a Referer header. strict-origin sends only
+  // this site's origin, avoiding the hidden admin path while satisfying that.
+  response.headers.set("Referrer-Policy", "strict-origin");
   return response;
 }
 

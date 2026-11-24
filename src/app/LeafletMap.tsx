@@ -114,6 +114,7 @@ export default function LeafletMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const markersLayer = useRef<L.MarkerClusterGroup | null>(null);
+  const individualMarkersLayer = useRef<L.LayerGroup | null>(null);
   const heatLayer = useRef<L.LayerGroup | null>(null);
   const purokLayer = useRef<L.LayerGroup | null>(null);
   const [showHeat, setShowHeat] = useState(true);
@@ -182,6 +183,7 @@ export default function LeafletMap({
 
     heatLayer.current = L.layerGroup().addTo(map);
     purokLayer.current = L.layerGroup().addTo(map);
+    individualMarkersLayer.current = L.layerGroup().addTo(map);
     markersLayer.current = L.markerClusterGroup({
       showCoverageOnHover: false,
       maxClusterRadius: 28,
@@ -238,6 +240,7 @@ export default function LeafletMap({
       map.remove();
       mapInstance.current = null;
       markersLayer.current = null;
+      individualMarkersLayer.current = null;
       heatLayer.current = null;
       purokLayer.current = null;
     };
@@ -264,10 +267,12 @@ export default function LeafletMap({
   // Animal markers + heatmap
   useEffect(() => {
     const cluster = markersLayer.current;
+    const individualMarkers = individualMarkersLayer.current;
     const heat = heatLayer.current;
-    if (!mapInstance.current || !cluster || !heat) return;
+    if (!mapInstance.current || !cluster || !individualMarkers || !heat) return;
 
     cluster.clearLayers();
+    individualMarkers.clearLayers();
     heat.clearLayers();
 
     const term = mapSearch.trim().toLowerCase();
@@ -314,8 +319,12 @@ export default function LeafletMap({
         }).addTo(heat);
       }
     }
-    cluster.addLayers(markers);
-  }, [placed, showHeat, mapSearch, speciesFilter, classificationFilter, statusFilter, purokFilter]);
+    if (showClusters) {
+      cluster.addLayers(markers);
+    } else {
+      markers.forEach((marker) => individualMarkers.addLayer(marker));
+    }
+  }, [placed, showHeat, showClusters, mapSearch, speciesFilter, classificationFilter, statusFilter, purokFilter]);
 
   const selectedPlaced = selectedId === null ? null : (placed.find((p) => p.animal.id === selectedId) ?? null);
   const selectedAnimal = selectedPlaced?.animal ?? null;
@@ -353,8 +362,9 @@ export default function LeafletMap({
           {puroks.map((purok) => <option key={purok.id} value={purok.name}>{purok.name}</option>)}
         </select>}
         <div className="leaflet-map-toggles">
-          {!pickMode && <button type="button" className={`leaflet-toggle${showHeat ? " active" : ""}`} onClick={() => setShowHeat(!showHeat)}>Heatmap</button>}
-          {!pickMode && <button type="button" className={`leaflet-toggle${showClusters ? " active" : ""}`} onClick={() => setShowClusters(!showClusters)}>Clusters</button>}
+          {!pickMode && <button type="button" aria-pressed={showHeat} className={`leaflet-toggle${showHeat ? " active" : ""}`} onClick={() => setShowHeat(!showHeat)}>Heatmap</button>}
+          {!pickMode && <button type="button" aria-pressed={showClusters} className={`leaflet-toggle${showClusters ? " active" : ""}`} onClick={() => setShowClusters(!showClusters)}>Clusters</button>}
+          {!pickMode && <button type="button" aria-pressed={showPuroks} className={`leaflet-toggle${showPuroks ? " active" : ""}`} onClick={() => setShowPuroks(!showPuroks)}>Purok zones</button>}
         </div>
       </div>
       {(unplacedCount > 0 || approximateCount > 0) && (

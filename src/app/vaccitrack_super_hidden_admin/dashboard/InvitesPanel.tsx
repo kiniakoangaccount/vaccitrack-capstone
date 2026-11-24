@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { UserPlus, Copy, Trash2, Loader2 } from "lucide-react";
 import { createStaffInvite, revokeStaffInvite, type StaffInvite } from "./crud-actions";
 import AdminConfirmDialog from "./AdminConfirmDialog";
+import { copyTextToClipboard } from "./clipboard";
 
 const ROLE_LABELS: Record<string, string> = {
   bhw: "Barangay Health Worker",
@@ -13,6 +14,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
   const [role, setRole] = useState<"bhw" | "admin">("bhw");
   const [generatedLink, setGeneratedLink] = useState("");
+  const [copyStatus, setCopyStatus] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
   const [confirmGenerate, setConfirmGenerate] = useState(false);
@@ -21,6 +23,7 @@ export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
   function generate() {
     setErrorMsg("");
     setGeneratedLink("");
+    setCopyStatus("");
     startTransition(async () => {
       const { token, error } = await createStaffInvite(role);
       if (error || !token) { setErrorMsg(error ?? "Could not create the invite link."); return; }
@@ -32,6 +35,15 @@ export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
     startTransition(async () => {
       await revokeStaffInvite(id);
     });
+  }
+
+  async function copyInviteLink() {
+    try {
+      await copyTextToClipboard(generatedLink);
+      setCopyStatus("Invite link copied.");
+    } catch {
+      setCopyStatus("Could not copy the invite link. Select and copy it manually.");
+    }
   }
 
   return (
@@ -52,8 +64,9 @@ export default function InvitesPanel({ invites }: { invites: StaffInvite[] }) {
         {generatedLink && (
           <div className="admin-generated-password" style={{ marginTop: 12 }}>
             <code>{generatedLink}</code>
-            <button type="button" className="admin-action-btn" title="Copy" onClick={() => navigator.clipboard?.writeText(generatedLink)}><Copy size={13} /></button>
+            <button type="button" className="admin-action-btn" title="Copy invite link" aria-label="Copy invite link" onClick={() => void copyInviteLink()}><Copy size={13} /></button>
           </div>
+          {copyStatus && <p className="admin-muted" role="status" aria-live="polite">{copyStatus}</p>}
         )}
         {errorMsg && <p className="admin-form-error">{errorMsg}</p>}
       </div>
