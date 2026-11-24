@@ -91,7 +91,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 button, input { font: inherit; }
 button { cursor: pointer; }
 .app-shell { min-height: 100vh; display: flex; }
-.sidebar { width: 250px; background: #eef1e5; border-right: 1px solid #ded6c4; display: flex; flex-direction: column; padding: 25px 14px 16px; flex-shrink: 0; }
+.sidebar { position: sticky; top: 0; width: 250px; height: 100vh; height: 100dvh; overflow-y: auto; overscroll-behavior: contain; align-self: flex-start; background: #eef1e5; border-right: 1px solid #ded6c4; display: flex; flex-direction: column; padding: 25px 14px 16px; flex-shrink: 0; }
 .brand { display: flex; gap: 10px; align-items: center; padding: 0 12px; color: #19392d; font-family: var(--font-display), sans-serif; font-size: 29px; font-weight: 700; letter-spacing: -.5px; }
 .brand-mark { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 10px; color: #fff; background: var(--green); }
 .workspace { display: flex; align-items: center; gap: 7px; margin: 35px 7px 27px; padding: 9px 10px; color: #486258; border: 1px solid #d6e1d8; border-radius: 7px; font-size: 17px; font-weight: 600; }
@@ -207,7 +207,7 @@ button { cursor: pointer; }
 
 /* ── Admin dashboard shell ───────────────────────────────────────────── */
 .admin-shell { min-height: 100vh; display: flex; background: var(--paper); }
-.admin-sidebar { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; padding: 24px 14px 18px; background: #1a2e24; border-right: 1px solid #0f1f18; }
+.admin-sidebar { position: sticky; top: 0; height: 100vh; height: 100dvh; overflow-y: auto; overscroll-behavior: contain; align-self: flex-start; width: 240px; flex-shrink: 0; display: flex; flex-direction: column; padding: 24px 14px 18px; background: #1a2e24; border-right: 1px solid #0f1f18; }
 .admin-sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 0 10px; margin-bottom: 32px; color: #e2ece5; font-family: var(--font-display), sans-serif; font-size: 27px; font-weight: 700; letter-spacing: -.4px; }
 .admin-sidebar-brand .brand-mark { background: #3d9e72; color: #fff; }
 .admin-sidebar-label { padding: 0 10px; margin-bottom: 8px; color: #4d7060; font-size: 13px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; }
@@ -1056,6 +1056,8 @@ form input[type="radio"] { accent-color: var(--green); }
 .create-account-heading p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
 .create-account-modal { width: min(100%, 620px); }
 .create-account-trigger { width: fit-content; }
+.admin-user-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.admin-user-heading > div { min-width: 0; }
 .create-account-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
 .create-account-form label { display: grid; gap: 5px; color: #52645a; font-size: 14px; font-weight: 650; }
 .create-account-form input, .create-account-form select { width: 100%; min-height: 42px; padding: 9px 11px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
@@ -1070,6 +1072,8 @@ form input[type="radio"] { accent-color: var(--green); }
   .admin-purok-form { grid-template-columns: 1fr; }
   .admin-purok-form .admin-row-actions { grid-column: auto; }
   .create-account-form { grid-template-columns: 1fr; }
+  .admin-user-heading { align-items: stretch; flex-direction: column; }
+  .admin-user-heading .create-account-trigger { width: 100%; justify-content: center; }
   .risk-purok-modal { max-height: calc(100dvh - 20px); }
   .risk-purok-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .risk-purok-summary strong { font-size: 19px; }

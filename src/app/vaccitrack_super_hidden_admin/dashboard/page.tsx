@@ -312,13 +312,15 @@ export default async function AdminDashboardPage({
           {/* ── USERS ── */}
           {tab === "users" && (
             <>
-              <div className="admin-page-heading">
-                <p className="eyebrow">USER MANAGEMENT</p>
-                <h1>All user accounts</h1>
-                <p className="heading-sub">Edit role and status, or permanently delete any account.</p>
+              <div className="admin-page-heading admin-user-heading">
+                <div>
+                  <p className="eyebrow">USER MANAGEMENT</p>
+                  <h1>All user accounts</h1>
+                  <p className="heading-sub">Edit role and status, or permanently delete any account.</p>
+                </div>
+                {supaCfg && <CreateUserAccountForm createAccount={createSuperAdminUser} />}
               </div>
               {!supaCfg ? <NotConfigured /> : <>
-                <CreateUserAccountForm createAccount={createSuperAdminUser} />
                 <UsersPanel profiles={profiles} />
               </>}
             </>
