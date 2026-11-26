@@ -1044,9 +1044,20 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   }, [animalRecords, query, registryFilters]);
   // Reset to page 1 whenever the filtered set changes
   useEffect(() => { setRegistryPage(0); }, [filteredRegistryAnimals]);
+  const planningDateRange = (() => {
+    const from = todayLocalIso();
+    const cutoff = new Date(`${from}T00:00:00`);
+    cutoff.setDate(cutoff.getDate() + 90);
+    return { from, to: todayLocalIso(cutoff) };
+  })();
   const planningAnimals = useMemo(
-    () => animalRecords.filter((animal) => planningLocation === "All" || animal.purok.toLocaleLowerCase().includes(planningLocation.toLocaleLowerCase())),
-    [animalRecords, planningLocation],
+    () => animalRecords.filter((animal) => {
+      const matchesPurok = planningLocation === "All" || animal.purok.toLocaleLowerCase().includes(planningLocation.toLocaleLowerCase());
+      const isExpired = animal.status === "Expired";
+      const dueWithinWindow = Boolean(animal.nextDueDate && animal.nextDueDate >= planningDateRange.from && animal.nextDueDate <= planningDateRange.to);
+      return matchesPurok && (isExpired || dueWithinWindow);
+    }),
+    [animalRecords, planningLocation, planningDateRange.from, planningDateRange.to],
   );
   const activeRegistryFilterCount = Object.values(registryFilters).filter((value) => value !== "All").length;
 
@@ -1518,7 +1529,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       setIsSaving(false);
       return;
     }
-    const nextDueDate = form.nextDue || null;
+    const nextDueDate = form.nextDue || (form.vaccineDate ? addMonthsToDateIso(form.vaccineDate, 12) : null);
     const vaccinated = Boolean(form.vaccineDate);
     const fallbackRecord: Animal = {
       id: `local-${Date.now()}`,
@@ -1556,7 +1567,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
 
       const { data, error } = await supabase
         .from("animals")
-        .insert({ name: fallbackRecord.name, species: form.species, classification: form.classification, neutered: form.neutered === "Neutered", breed: form.breed.trim() || null, age: form.age ? Number(form.age) : null, sex: form.sex || null, color: form.color.trim() || null, owner_name: fallbackRecord.owner, contact_number: form.contact, impound_area: form.impoundArea.trim() || null, purok_id: purok.id, vaccinated, vaccine_date: form.vaccineDate || null, vaccine_type: form.vaccineType || null, next_due_date: form.nextDue || null, latitude: form.latitude ? Number(form.latitude) : null, longitude: form.longitude ? Number(form.longitude) : null, notes: form.notes.trim() || null, pound_status: fallbackRecord.poundStatus, user_id: isClient && authUser ? authUser.id : null })
+        .insert({ name: fallbackRecord.name, species: form.species, classification: form.classification, neutered: form.neutered === "Neutered", breed: form.breed.trim() || null, age: form.age ? Number(form.age) : null, sex: form.sex || null, color: form.color.trim() || null, owner_name: fallbackRecord.owner, contact_number: form.contact, impound_area: form.impoundArea.trim() || null, purok_id: purok.id, vaccinated, vaccine_date: form.vaccineDate || null, vaccine_type: form.vaccineType || null, next_due_date: nextDueDate, latitude: form.latitude ? Number(form.latitude) : null, longitude: form.longitude ? Number(form.longitude) : null, notes: form.notes.trim() || null, pound_status: fallbackRecord.poundStatus, user_id: isClient && authUser ? authUser.id : null })
         .select("id")
         .single();
       if (error) {
@@ -1687,7 +1698,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                 </div>
               )}
             </div>)}
-            {activeTab === "Planning" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PROGRAM PLANNING</p><h2>Vaccination plan</h2><p>Prioritize expired vaccinations and upcoming vaccination drives.</p></div><span className="module-chip"><CalendarDays size={14} /> 90-day view</span></div><div className="registry-filter-controls planning-location-filter"><LocationSearch label="Location" value={planningLocation} options={riskPurokNames} allLabel="All locations" placeholder="Search locations..." onChange={setPlanningLocation} /></div><div className="planning-grid"><div className="planning-list"><h3>Needs immediate action</h3>{planningAnimals.filter((animal) => animal.status === "Expired").map((animal) => <div className="planning-row" key={`overdue-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}{planningAnimals.filter((animal) => animal.status === "Expired").length === 0 && <p className="module-muted"><CheckCircle2 size={16} /> No expired vaccinations.</p>}</div><div className="planning-list"><h3>Upcoming vaccinations</h3>{planningAnimals.filter((animal) => animal.status === "Due soon").map((animal) => <div className="planning-row" key={`due-${animal.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}</div></div></div> : <RoleBlocked role={userRole} message="Vaccination planning is only available for staff accounts (admin, bhw)." />)}
+            {activeTab === "Planning" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PROGRAM PLANNING</p><h2>Vaccination plan</h2><p>Prioritize expired vaccinations and upcoming vaccination drives.</p></div><span className="module-chip"><CalendarDays size={14} /> 90-day scheduling window</span></div><div className="registry-filter-controls planning-location-filter"><LocationSearch label="Location" value={planningLocation} options={riskPurokNames} allLabel="All locations" placeholder="Search locations..." onChange={setPlanningLocation} /></div><div className="planning-grid"><div className="planning-list"><h3>Needs immediate action</h3>{planningAnimals.filter((animal) => animal.status === "Expired").map((animal) => <div className="planning-row" key={`overdue-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}{planningAnimals.filter((animal) => animal.status === "Expired").length === 0 && <p className="module-muted"><CheckCircle2 size={16} /> No expired vaccinations.</p>}</div><div className="planning-list"><h3>Vaccinations due within 90 days</h3>{planningAnimals.filter((animal) => animal.status !== "Expired").map((animal) => <div className="planning-row" key={`due-${animal.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}</div></div></div> : <RoleBlocked role={userRole} message="Vaccination planning is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Appointments" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">CLINIC WORKFLOW</p><h2>Vaccination appointments</h2><p>Schedule upcoming vaccination visits and assign them to a BHW or admin staff member.</p></div></div><form className="feedback-form" onSubmit={submitAppointment}><label>Animal<select required value={appointmentForm.animalId} onChange={(event) => setAppointmentForm({ ...appointmentForm, animalId: event.target.value })}><option value="">Select an animal needing vaccination</option>{schedulableAnimals.map((animal) => <option key={animal.id} value={animal.id}>{animal.name} — {animal.owner} ({animal.purok})</option>)}</select></label><label>Assign to<select required value={appointmentForm.assignedTo} onChange={(event) => setAppointmentForm({ ...appointmentForm, assignedTo: event.target.value })}><option value="">Select staff</option>{teamMembers.map((member) => <option key={member.id} value={member.id}>{member.fullName} ({member.role})</option>)}</select></label><label>Scheduled date<input required type="date" min={todayLocalIso()} value={appointmentForm.scheduledDate} onChange={(event) => setAppointmentForm({ ...appointmentForm, scheduledDate: event.target.value })} /></label><label>Notes <small>(optional)</small><textarea rows={3} value={appointmentForm.notes} onChange={(event) => setAppointmentForm({ ...appointmentForm, notes: event.target.value })} /></label>{appointmentError && <p className="form-error">{appointmentError}</p>}<button className="primary-button" type="submit"><CalendarClock size={16} /> Schedule appointment</button></form><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Owner</th><th>Assigned to</th><th>Scheduled date</th><th>Status</th></tr></thead><tbody>{appointments.map((appointment) => <tr key={`appt-${appointment.id}`}><td>{appointment.animalName}</td><td>{appointment.ownerName}</td><td>{appointment.assignedName}</td><td>{formatVaccineDate(appointment.scheduledDate)}</td><td><select className="pound-status-select" value={appointment.status} onChange={(event) => void changeAppointmentStatus(appointment.id, event.target.value as AppointmentStatus)}><option>Scheduled</option><option>Completed</option><option>Missed</option><option>Cancelled</option></select></td></tr>)}</tbody></table>{appointments.length === 0 && <div className="empty-state">No appointments scheduled yet.</div>}</div></div> : <RoleBlocked role={userRole} message="Appointments are only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Reports" && (isStaff ? (
               <div className="module-content report-module">
@@ -1942,7 +1953,7 @@ function AppointmentManager({ animals, teamMembers }: { animals: Animal[]; teamM
           </select>
         </label>
         <label>Assigned staff
-          <select value={staffId} onChange={(event) => setStaffId(event.target.value)}>
+          <select required value={staffId} onChange={(event) => setStaffId(event.target.value)}>
             <option value="">Unassigned</option>
             {teamMembers.filter((member) => member.status === "active").map((member) => <option key={member.id} value={member.id}>{member.fullName} ({member.role})</option>)}
           </select>
@@ -1974,7 +1985,7 @@ function AppointmentManager({ animals, teamMembers }: { animals: Animal[]; teamM
               <span className={`appointment-status appointment-${appointment.status.toLowerCase()}`}>{appointment.status}</span>
               {appointment.status !== "Completed" && appointment.status !== "Cancelled" && <>
                 <button type="button" className="secondary-button" disabled={busy} onClick={() => changeStatus(appointment, "Scheduled")}>Confirm</button>
-                <button type="button" className="secondary-button" disabled={busy} onClick={async () => { const value = window.prompt("Enter the new date and time", appointment.scheduledDate.slice(0, 16)); if (!value) return; setBusy(true); setError(""); setSuccess(""); const result = await updateAppointmentStatus(appointment.id, "Scheduled"); setBusy(false); if (result.error) { setError(result.error); return; } setSuccess("Appointment rescheduled and the owner notified."); await refreshAppointments(); }}>Reschedule</button>
+                <button type="button" className="secondary-button" disabled={busy} onClick={async () => { const value = window.prompt("Enter the new appointment date (YYYY-MM-DD)", appointment.scheduledDate.slice(0, 10)); if (!value) return; const newDate = value.trim().slice(0, 10); setBusy(true); setError(""); setSuccess(""); const result = await updateAppointmentStatus(appointment.id, "Scheduled", newDate); setBusy(false); if (result.error) { setError(result.error); return; } setSuccess("Appointment rescheduled; the owner and assigned staff were notified."); await refreshAppointments(); }}>Reschedule</button>
                 <button type="button" className="primary-button" disabled={busy} onClick={() => changeStatus(appointment, "Completed")}>Complete</button>
                 <button type="button" className="danger-button" disabled={busy} onClick={() => changeStatus(appointment, "Cancelled")}>Cancel</button>
               </>}

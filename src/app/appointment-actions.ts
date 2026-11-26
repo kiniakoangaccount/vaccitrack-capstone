@@ -3,6 +3,8 @@
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
+import { insertInAppNotifications, type InAppNotification } from "@/lib/in-app-notifications";
+import { todayLocalIso } from "@/lib/dates";
 
 export type AppointmentStatus = "Scheduled" | "Completed" | "Cancelled" | "Missed";
 
@@ -32,6 +34,82 @@ async function requireStaff() {
   }
 
   return { db, userId: user.id } as const;
+}
+
+function formatAppointmentDate(date: string) {
+  return new Date(`${date.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-PH", {
+    timeZone: "UTC",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+async function notifyAppointmentParticipants(
+  db: NonNullable<ReturnType<typeof createAdminClient>>,
+  input: {
+    appointmentId: number;
+    animalName: string;
+    ownerId: string | null;
+    assignedTo: string;
+    actorId: string;
+    scheduledDate: string;
+    status: AppointmentStatus;
+    updatedAt: string;
+    rescheduled: boolean;
+    created: boolean;
+  },
+) {
+  const { data: admins } = await db.from("profiles").select("id").eq("role", "admin").eq("status", "active");
+  const date = formatAppointmentDate(input.scheduledDate);
+  const eventKey = `${input.appointmentId}:${input.updatedAt}`;
+  const notifications: InAppNotification[] = [];
+
+  if (input.ownerId) {
+    const title = input.created
+      ? "Vaccination appointment scheduled"
+      : input.rescheduled ? "Vaccination appointment rescheduled" : "Vaccination appointment updated";
+    const message = input.created
+      ? `${input.animalName}'s vaccination appointment is scheduled for ${date}.`
+      : input.rescheduled
+      ? `${input.animalName}'s vaccination appointment has been rescheduled to ${date}.`
+      : `${input.animalName}'s vaccination appointment is ${input.status.toLowerCase()} for ${date}.`;
+    notifications.push({
+      user_id: input.ownerId,
+      title,
+      message,
+      type: input.status === "Cancelled" || input.status === "Missed" ? "warning" : "info",
+      dedupe_key: `appointment:${eventKey}:owner`,
+    });
+  }
+
+  if (input.assignedTo !== input.actorId) {
+    notifications.push({
+      user_id: input.assignedTo,
+      title: input.created ? "New vaccination appointment assigned" : input.rescheduled ? "Assigned appointment rescheduled" : "Assigned appointment updated",
+      message: input.created
+        ? `${input.animalName}'s vaccination appointment is scheduled for ${date}.`
+        : `${input.animalName}'s vaccination appointment is ${input.status.toLowerCase()} for ${date}.`,
+      type: input.status === "Cancelled" || input.status === "Missed" ? "warning" : "info",
+      dedupe_key: `appointment:${eventKey}:assignee`,
+    });
+  }
+
+  for (const admin of admins ?? []) {
+    if (admin.id === input.actorId || admin.id === input.ownerId || admin.id === input.assignedTo) continue;
+    notifications.push({
+      user_id: admin.id,
+      title: input.created ? "New vaccination appointment" : input.rescheduled ? "Vaccination appointment rescheduled" : "Vaccination appointment updated",
+      message: input.created
+        ? `${input.animalName}'s vaccination appointment is scheduled for ${date}.`
+        : `${input.animalName}'s appointment is ${input.status.toLowerCase()} for ${date}.`,
+      type: input.status === "Cancelled" || input.status === "Missed" ? "warning" : "info",
+      dedupe_key: `appointment:${eventKey}:admin:${admin.id}`,
+    });
+  }
+
+  const errors = await insertInAppNotifications(db, notifications);
+  if (errors.length) console.error("Could not save appointment notifications:", errors.join("; "));
 }
 
 // Staff (admin, bhw) schedule a vaccination visit for an animal and assign it
@@ -87,6 +165,15 @@ export async function createAppointment(payload: {
   if ("error" in result) return { error: result.error };
   const { db, userId } = result;
 
+  if (payload.scheduledDate < todayLocalIso()) return { error: "Appointment date cannot be in the past." };
+
+  const { data: animal, error: animalError } = await db.from("animals")
+    .select("id, name, user_id")
+    .eq("id", payload.animalId)
+    .maybeSingle();
+  if (animalError) return { error: animalError.message };
+  if (!animal) return { error: "Animal record not found." };
+
   const { data: assignee } = await db.from("profiles").select("role").eq("id", payload.assignedTo).maybeSingle();
   if (!assignee || !["admin", "bhw"].includes(assignee.role)) {
     return { error: "Appointments can only be assigned to admin or BHW staff accounts." };
@@ -105,18 +192,75 @@ export async function createAppointment(payload: {
     .single();
   if (error) return { error: error.message };
 
+  await notifyAppointmentParticipants(db, {
+    appointmentId: data.id,
+    animalName: animal.name,
+    ownerId: animal.user_id,
+    assignedTo: payload.assignedTo,
+    actorId: userId,
+    scheduledDate: payload.scheduledDate,
+    status: "Scheduled",
+    updatedAt: `${payload.scheduledDate}:${data.id}`,
+    rescheduled: false,
+    created: true,
+  });
+
   await logAudit(db, { userId, action: "INSERT", tableName: "appointments", recordId: data.id, notes: `Appointment scheduled for ${payload.scheduledDate}.` });
 
   return { id: data.id };
 }
 
-export async function updateAppointmentStatus(id: number, status: AppointmentStatus): Promise<{ error?: string }> {
+export async function updateAppointmentStatus(id: number, status: AppointmentStatus, scheduledDate?: string): Promise<{ error?: string }> {
   const result = await requireStaff();
   if ("error" in result) return { error: result.error };
   const { db, userId } = result;
 
-  const { error } = await db.from("appointments").update({ status }).eq("id", id);
+  if (scheduledDate && scheduledDate < todayLocalIso()) return { error: "Appointment date cannot be in the past." };
+
+  const { data: appointment, error: appointmentError } = await db.from("appointments")
+    .select("id, animal_id, assigned_to, scheduled_date, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (appointmentError) return { error: appointmentError.message };
+  if (!appointment) return { error: "Appointment not found." };
+
+  const nextDate = scheduledDate ?? appointment.scheduled_date;
+  const rescheduled = nextDate !== appointment.scheduled_date;
+  if (appointment.status === status && !rescheduled) return {};
+
+  const { data: animal, error: animalError } = await db.from("animals")
+    .select("id, name, user_id")
+    .eq("id", appointment.animal_id)
+    .maybeSingle();
+  if (animalError) return { error: animalError.message };
+
+  const { data: updated, error } = await db.from("appointments")
+    .update({ status, ...(rescheduled ? { scheduled_date: nextDate } : {}) })
+    .eq("id", id)
+    .select("updated_at")
+    .single();
   if (error) return { error: error.message };
-  await logAudit(db, { userId, action: "UPDATE", tableName: "appointments", recordId: id, notes: `Appointment status changed to "${status}".` });
+
+  const { error: staleReminderError } = await db.from("notifications")
+    .update({ is_read: true })
+    .eq("is_read", false)
+    .like("dedupe_key", `appointment-reminder:${id}:%`);
+  if (staleReminderError) console.error("Could not clear stale appointment reminders:", staleReminderError.message);
+
+  if (animal) {
+    await notifyAppointmentParticipants(db, {
+      appointmentId: id,
+      animalName: animal.name,
+      ownerId: animal.user_id,
+      assignedTo: appointment.assigned_to,
+      actorId: userId,
+      scheduledDate: nextDate,
+      status,
+      updatedAt: updated.updated_at,
+      rescheduled,
+      created: false,
+    });
+  }
+  await logAudit(db, { userId, action: "UPDATE", tableName: "appointments", recordId: id, notes: rescheduled ? `Appointment rescheduled to ${nextDate} and status changed to "${status}".` : `Appointment status changed to "${status}".` });
   return {};
 }

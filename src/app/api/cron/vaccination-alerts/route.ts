@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { sendSms, normalizePhilippineNumber } from "@/lib/sms";
 import { getManilaDateIso } from "@/lib/dates";
+import { insertInAppNotification } from "@/lib/in-app-notifications";
 
 export const maxDuration = 60;
 
@@ -44,6 +45,13 @@ type FailedAlert = {
   channel: ChannelName;
   reminder_type: ReminderType;
   status: "failed" | "pending";
+};
+
+type AppointmentReminder = {
+  id: number;
+  animal_id: number;
+  assigned_to: string;
+  scheduled_date: string;
 };
 
 type ReminderJob = {
@@ -198,7 +206,7 @@ async function loadAnimalsForDueDate(db: AdminDb, dueDate: string): Promise<{ an
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await db.from("animals")
       .select("id, name, next_due_date, user_id, contact_number, vaccine_type")
-      .eq("vaccinated", true)
+      .or("vaccinated.eq.true,vaccine_date.not.is.null")
       .eq("next_due_date", dueDate)
       .not("user_id", "is", null)
       .order("id", { ascending: true })
@@ -216,7 +224,7 @@ async function loadOverdueAnimals(db: AdminDb, todayDate: string): Promise<{ ani
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await db.from("animals")
       .select("id, name, next_due_date, user_id, contact_number, vaccine_type")
-      .eq("vaccinated", true)
+      .or("vaccinated.eq.true,vaccine_date.not.is.null")
       .lt("next_due_date", todayDate)
       .not("user_id", "is", null)
       .order("id", { ascending: true })
@@ -227,6 +235,41 @@ async function loadOverdueAnimals(db: AdminDb, todayDate: string): Promise<{ ani
     if (rows.length < PAGE_SIZE) break;
   }
   return { animals };
+}
+
+async function loadStaffScheduleSummary(db: AdminDb, todayDate: string, throughDate: string) {
+  const [dueResult, expiredResult, staffResult] = await Promise.all([
+    db.from("animals").select("id", { count: "exact", head: true })
+      .or("vaccinated.eq.true,vaccine_date.not.is.null").gte("next_due_date", todayDate).lte("next_due_date", throughDate),
+    db.from("animals").select("id", { count: "exact", head: true })
+      .or("vaccinated.eq.true,vaccine_date.not.is.null").lt("next_due_date", todayDate),
+    db.from("profiles").select("id, role").eq("status", "active").in("role", ["admin", "bhw", "viewer"]),
+  ]);
+  const error = dueResult.error ?? expiredResult.error ?? staffResult.error;
+  if (error) return { dueWithin30Days: 0, expired: 0, staff: [], error: error.message };
+  return {
+    dueWithin30Days: dueResult.count ?? 0,
+    expired: expiredResult.count ?? 0,
+    staff: staffResult.data ?? [],
+    error: undefined,
+  };
+}
+
+async function loadAppointmentsForDate(db: AdminDb, date: string): Promise<{ appointments?: AppointmentReminder[]; error?: string }> {
+  const appointments: AppointmentReminder[] = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await db.from("appointments")
+      .select("id, animal_id, assigned_to, scheduled_date")
+      .eq("status", "Scheduled")
+      .eq("scheduled_date", date)
+      .order("id", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (error) return { error: error.message };
+    const rows = (data ?? []) as AppointmentReminder[];
+    appointments.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
+  return { appointments };
 }
 
 async function loadFailedAlerts(db: AdminDb): Promise<{ alerts?: FailedAlert[]; error?: string }> {
@@ -253,7 +296,7 @@ async function loadAnimalsById(db: AdminDb, ids: number[]): Promise<{ animals?: 
   for (let offset = 0; offset < ids.length; offset += 200) {
     const { data, error } = await db.from("animals")
       .select("id, name, next_due_date, user_id, contact_number, vaccine_type")
-      .eq("vaccinated", true)
+      .or("vaccinated.eq.true,vaccine_date.not.is.null")
       .in("id", ids.slice(offset, offset + 200))
       .not("user_id", "is", null);
     if (error) return { error: error.message };
@@ -292,14 +335,27 @@ export async function GET(request: Request) {
   if (!db) return NextResponse.json({ error: "Supabase service configuration is incomplete." }, { status: 503 });
 
   const todayDate = getManilaDateIso(0);
-  const [{ animals: d7Animals, error: d7Error }, { animals: d1Animals, error: d1Error }, { animals: overdueAnimals, error: overdueError }, { alerts: failedAlerts, error: failedError }] = await Promise.all([
+  const [
+    { animals: d30Animals, error: d30Error },
+    { animals: d7Animals, error: d7Error },
+    { animals: d1Animals, error: d1Error },
+    { animals: overdueAnimals, error: overdueError },
+    { alerts: failedAlerts, error: failedError },
+    staffScheduleSummary,
+    { appointments: appointmentsToday, error: appointmentsTodayError },
+    { appointments: appointmentsTomorrow, error: appointmentsTomorrowError },
+  ] = await Promise.all([
+    loadAnimalsForDueDate(db, getManilaDateIso(30)),
     loadAnimalsForDueDate(db, getManilaDateIso(7)),
     loadAnimalsForDueDate(db, getManilaDateIso(1)),
     loadOverdueAnimals(db, todayDate),
     loadFailedAlerts(db),
+    loadStaffScheduleSummary(db, todayDate, getManilaDateIso(30)),
+    loadAppointmentsForDate(db, todayDate),
+    loadAppointmentsForDate(db, getManilaDateIso(1)),
   ]);
-  if (d7Error || d1Error || overdueError || failedError) {
-    return NextResponse.json({ error: d7Error ?? d1Error ?? overdueError ?? failedError }, { status: 500 });
+  if (d30Error || d7Error || d1Error || overdueError || failedError || staffScheduleSummary.error || appointmentsTodayError || appointmentsTomorrowError) {
+    return NextResponse.json({ error: d30Error ?? d7Error ?? d1Error ?? overdueError ?? failedError ?? staffScheduleSummary.error ?? appointmentsTodayError ?? appointmentsTomorrowError }, { status: 500 });
   }
 
   const targetsByKey = new Map<string, AlertTarget>();
@@ -320,7 +376,10 @@ export async function GET(request: Request) {
   }
 
   const targets = [...targetsByKey.values()];
-  const userIds = [...new Set(targets.map((target) => target.animal.user_id))];
+  const userIds = [...new Set([
+    ...targets.map((target) => target.animal.user_id),
+    ...(d30Animals ?? []).map((animal) => animal.user_id),
+  ])];
   const { profiles, error: profileError } = await loadProfiles(db, userIds);
   if (profileError) return NextResponse.json({ error: profileError }, { status: 500 });
   const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
@@ -457,6 +516,61 @@ export async function GET(request: Request) {
   }
 
   if (!dryRun) {
+    const appointmentsToRemind = [
+      ...(appointmentsToday ?? []).map((appointment) => ({ appointment, when: "today" as const, dateKey: todayDate })),
+      ...(appointmentsTomorrow ?? []).map((appointment) => ({ appointment, when: "tomorrow" as const, dateKey: getManilaDateIso(1) })),
+    ];
+    const appointmentAnimalIds = [...new Set(appointmentsToRemind.map(({ appointment }) => appointment.animal_id))];
+    if (appointmentsToRemind.length > 0) {
+      const { data: reminderAnimals, error: reminderAnimalsError } = await db.from("animals")
+        .select("id, name, user_id")
+        .in("id", appointmentAnimalIds);
+      if (reminderAnimalsError) failures.push(`Could not load animals for appointment reminders: ${reminderAnimalsError.message}`);
+      else {
+        const animalsById = new Map((reminderAnimals ?? []).map((animal) => [animal.id, animal]));
+        for (const { appointment, when, dateKey } of appointmentsToRemind) {
+          const animal = animalsById.get(appointment.animal_id);
+          if (!animal) continue;
+          const title = when === "today" ? "Vaccination appointment today" : "Vaccination appointment tomorrow";
+          const notices = [
+            ...(animal.user_id ? [{
+              user_id: animal.user_id,
+              title,
+              message: `${animal.name}'s vaccination appointment is ${when}, ${formatDate(dateKey)}.`,
+              type: "info" as const,
+              dedupe_key: `appointment-reminder:${appointment.id}:${dateKey}:${animal.user_id}`,
+            }] : []),
+            ...(appointment.assigned_to ? [{
+              user_id: appointment.assigned_to,
+              title,
+              message: `${animal.name}'s vaccination visit is ${when}, ${formatDate(dateKey)}.`,
+              type: "warning" as const,
+              dedupe_key: `appointment-reminder:${appointment.id}:${dateKey}:${appointment.assigned_to}`,
+            }] : []),
+          ];
+          const errors = await Promise.all(notices.map((notice) => insertInAppNotification(db, notice)));
+          for (const result of errors) if (result.error) failures.push(`${animal.name}: could not save appointment reminder: ${result.error}`);
+        }
+      }
+    }
+
+    for (const animal of d30Animals ?? []) {
+      const language = profileLanguage(profileById.get(animal.user_id)?.preferred_language);
+      const messages: Record<Language, string> = {
+        en: `${animal.name}'s vaccination is due in 30 days, on ${formatDate(animal.next_due_date)}. Plan a visit with the barangay health team.`,
+        tl: `Takda ang bakuna ni ${animal.name} sa loob ng 30 araw, sa ${formatDate(animal.next_due_date)}. Magplano ng pagbisita sa health team ng barangay.`,
+        hil: `Takna na ang bakuna ni ${animal.name} sa sulod sang 30 ka adlaw, sa ${formatDate(animal.next_due_date)}. Magplano sang pagbisita sa health team sang barangay.`,
+      };
+      const result = await insertInAppNotification(db, {
+        user_id: animal.user_id,
+        title: "Vaccination due in 30 days",
+        message: messages[language],
+        type: "warning",
+        dedupe_key: `auto:${animal.id}:${animal.next_due_date}:D30`,
+      });
+      if (result.error) failures.push(`${animal.name}: could not save 30-day in-app notification: ${result.error}`);
+    }
+
     for (const target of targets.filter((entry) => entry.scheduled)) {
       const profile = profileById.get(target.animal.user_id);
       const language = profileLanguage(profile?.preferred_language);
@@ -467,7 +581,7 @@ export async function GET(request: Request) {
           ? "Vaccination due tomorrow"
           : "Vaccination due in 7 days";
       const dedupeKey = target.reminderType === "OVERDUE"
-        ? `overdue:${target.animal.user_id}:${target.dueDate}`
+        ? `overdue:${target.animal.user_id}:${target.animal.id}:${target.dueDate}`
         : `auto:${target.animal.id}:${target.dueDate}:${target.reminderType}`;
       const { error } = await db.from("notifications").insert({
         user_id: target.animal.user_id,
@@ -477,6 +591,21 @@ export async function GET(request: Request) {
         dedupe_key: dedupeKey,
       });
       if (error && error.code !== "23505") failures.push(`${target.animal.name}: could not save in-app notification: ${error.message}`);
+    }
+
+    const dueCount = staffScheduleSummary.dueWithin30Days;
+    const expiredCount = staffScheduleSummary.expired;
+    if (dueCount > 0 || expiredCount > 0) {
+      for (const staff of staffScheduleSummary.staff) {
+        const result = await insertInAppNotification(db, {
+          user_id: staff.id,
+          title: "Vaccination schedule update",
+          message: `${dueCount} animal${dueCount === 1 ? " is" : "s are"} due within 30 days; ${expiredCount} vaccination${expiredCount === 1 ? " is" : "s are"} expired. ${staff.role === "viewer" ? "Ask an admin or BHW to review the schedule." : "Open Vaccination Planning to review."}`,
+          type: expiredCount > 0 ? "danger" : "warning",
+          dedupe_key: `staff-vaccination-summary:${todayDate}:${staff.id}`,
+        });
+        if (result.error) failures.push(`${staff.role}: could not save in-app schedule summary: ${result.error}`);
+      }
     }
   }
 
@@ -488,6 +617,10 @@ export async function GET(request: Request) {
     retries: targets.filter((target) => !target.scheduled).length,
     sent,
     smsSent: summaries.sms.sent,
+    inAppDueIn30Days: staffScheduleSummary.dueWithin30Days,
+    inAppExpired: staffScheduleSummary.expired,
+    appointmentsToday: (appointmentsToday ?? []).length,
+    appointmentsTomorrow: (appointmentsTomorrow ?? []).length,
     skipped: summaries.sms.skipped,
     channels: summaries,
     warnings,
