@@ -39,7 +39,7 @@ async function requireStaff() {
 async function requireAdmin() {
   const result = await requireStaff();
   if ("error" in result) return result;
-  if (result.role !== "admin") return { error: "Only admin accounts can schedule appointments." } as const;
+  if (result.role !== "admin") return { error: "Only admin accounts can schedule or update appointments." } as const;
   return result;
 }
 
@@ -220,7 +220,7 @@ export async function createAppointment(payload: {
 }
 
 export async function updateAppointmentStatus(id: number, status: AppointmentStatus, scheduledDate?: string): Promise<{ error?: string }> {
-  const result = await requireStaff();
+  const result = await requireAdmin();
   if ("error" in result) return { error: result.error };
   const { db, userId } = result;
 
@@ -232,10 +232,6 @@ export async function updateAppointmentStatus(id: number, status: AppointmentSta
     .maybeSingle();
   if (appointmentError) return { error: appointmentError.message };
   if (!appointment) return { error: "Appointment not found." };
-  if (result.role === "bhw" && appointment.assigned_to !== userId) {
-    return { error: "BHW accounts can update only appointments assigned to them." };
-  }
-
   const nextDate = scheduledDate ?? appointment.scheduled_date;
   const rescheduled = nextDate !== appointment.scheduled_date;
   if (appointment.status === status && !rescheduled) return {};
