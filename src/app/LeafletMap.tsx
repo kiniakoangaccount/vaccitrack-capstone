@@ -137,7 +137,7 @@ export default function LeafletMap({
   const [speciesFilter, setSpeciesFilter] = useState("All");
   const [classificationFilter, setClassificationFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [purokFilter, setPurokFilter] = useState("All");
+  const [purokFilter, setPurokFilter] = useState("");
   const [mapSearch, setMapSearch] = useState("");
   const [selectedId, setSelectedId] = useState<MapAnimal["id"] | null>(null);
 
@@ -298,7 +298,7 @@ export default function LeafletMap({
       const matchesSpecies = speciesFilter === "All" || animal.species === speciesFilter;
       const matchesClassification = classificationFilter === "All" || classification === classificationFilter;
       const matchesStatus = statusFilter === "All" || vaccinationCategory(animal) === statusFilter;
-      const matchesPurok = purokFilter === "All" || animal.purok === purokFilter;
+      const matchesPurok = !purokFilter.trim() || animal.purok.toLocaleLowerCase().includes(purokFilter.trim().toLocaleLowerCase());
       return matchesSearch && matchesSpecies && matchesClassification && matchesStatus && matchesPurok;
     });
 
@@ -377,10 +377,9 @@ export default function LeafletMap({
           <option value="Expired">Expired</option>
           <option value="Unvaccinated">Unvaccinated</option>
         </select>}
-        {!pickMode && <select aria-label="Filter by purok or service area" value={purokFilter} onChange={(event) => setPurokFilter(event.target.value)}>
-          <option value="All">All puroks</option>
-          {puroks.map((purok) => <option key={purok.id} value={purok.name}>{purok.name}</option>)}
-        </select>}
+        {!pickMode && <div className="leaflet-map-search leaflet-purok-search">
+          <input aria-label="Search puroks" placeholder="Search purok..." value={purokFilter} onChange={(event) => setPurokFilter(event.target.value)} />
+        </div>}
         <div className="leaflet-map-toggles">
           {!pickMode && <button type="button" aria-pressed={showHeat} className={`leaflet-toggle${showHeat ? " active" : ""}`} onClick={() => setShowHeat(!showHeat)}>Heatmap</button>}
           {!pickMode && <button type="button" aria-pressed={showClusters} className={`leaflet-toggle${showClusters ? " active" : ""}`} onClick={() => setShowClusters(!showClusters)}>Clusters</button>}
