@@ -592,8 +592,8 @@ begin
     insert into public.notifications (user_id, title, message, type, dedupe_key)
     values (
       v_owner,
-      'Vaccination overdue',
-      format('%s''s vaccination was due on %s. Please schedule a follow-up.', v_name, to_char(v_due, 'Mon DD, YYYY')),
+      'Expired vaccination',
+      format('%s''s vaccination expired on %s. Please schedule a follow-up.', v_name, to_char(v_due, 'Mon DD, YYYY')),
       'danger',
       format('overdue:%s:%s', v_owner, v_due)
     )
@@ -639,6 +639,12 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'puroks'
   ) then
     alter publication supabase_realtime add table public.puroks;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications'
+  ) then
+    alter publication supabase_realtime add table public.notifications;
   end if;
 end $$;
 

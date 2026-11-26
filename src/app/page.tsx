@@ -321,12 +321,14 @@ function buildPurokRiskRows(animals: Animal[], purokNames: string[]) {
     const vaccinated = records.filter(isCurrentVaccinated).length;
     const dueSoon = records.filter((animal) => animal.status === "Due soon").length;
     const overdue = records.filter(isExpiredVaccination).length;
+    const atRisk = unvaccinated + overdue;
     const notScheduled = records.filter((animal) => !animal.nextDueDate).length;
     const unvaccinatedRate = records.length ? Math.round((unvaccinated / records.length) * 100) : 0;
+    const atRiskRate = records.length ? Math.round((atRisk / records.length) * 100) : 0;
     const coverageRate = records.length ? Math.round((vaccinated / records.length) * 100) : 0;
     const gapToTarget = Math.max(0, Math.ceil(records.length * 0.7) - vaccinated);
-    const risk = records.length === 0 ? "NO DATA" : unvaccinated * 2 > records.length ? "HIGH" : unvaccinated * 10 > records.length * 3 ? "MODERATE" : "LOW";
-    return { purok: purokName, total: records.length, vaccinated, unvaccinated, dueSoon, overdue, notScheduled, gapToTarget, coverageRate, unvaccinatedRate, risk };
+    const risk = records.length === 0 ? "NO DATA" : atRisk * 2 > records.length ? "HIGH" : atRisk * 10 > records.length * 3 ? "MODERATE" : "LOW";
+    return { purok: purokName, total: records.length, vaccinated, unvaccinated, overdue, atRisk, dueSoon, notScheduled, gapToTarget, coverageRate, unvaccinatedRate, atRiskRate, risk };
   });
 }
 
@@ -771,6 +773,11 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
         { event: "*", schema: "public", table: "puroks" },
         () => { void refreshLiveData(); },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${authUser.id}` },
+        () => { void refreshLiveData(); },
+      )
       .subscribe();
 
     return () => {
@@ -1075,8 +1082,8 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     overdue: animalRecords.filter(isExpiredVaccination).length,
     dueSoon: animalRecords.filter((animal) => animal.status === "Due soon").length,
     notScheduled: animalRecords.filter((animal) => !animal.nextDueDate).length,
-    aboveUnvaccinatedTarget: riskRows.filter((row) => row.total > 0 && row.unvaccinated * 10 > row.total * 3).length,
-    highUnvaccinated: riskRows.filter((row) => row.risk === "HIGH").length,
+    aboveRiskTarget: riskRows.filter((row) => row.total > 0 && row.atRisk * 10 > row.total * 3).length,
+    highRiskPuroks: riskRows.filter((row) => row.risk === "HIGH").length,
   }), [animalRecords, riskRows]);
 
   const schedulableAnimals = useMemo(() => animalRecords.filter((animal) => animal.status === "Expired" || animal.status === "Due soon"), [animalRecords]);
@@ -1178,8 +1185,8 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
         metrics: [
           { label: "Records in range", value: reportSummary.total },
           { label: "Vaccinated", value: reportSummary.vaccinated },
-          { label: "Never vaccinated", value: reportSummary.unvaccinated },
           { label: "Expired", value: reportSummary.expired },
+          { label: "Unvaccinated", value: reportSummary.unvaccinated },
           { label: "In impound", value: reportSummary.impounded },
         ],
         tables: [
@@ -1231,8 +1238,8 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
         tables: [
           {
             title: "Coverage by purok",
-            headers: ["Purok", "Animals", "Vaccinated", "Never vaccinated", "Expired", "Coverage", "Risk level"],
-            rows: reportRiskRows.map((row) => [row.purok, row.total, row.vaccinated, row.unvaccinated, row.overdue, `${row.coverageRate}%`, row.risk]),
+            headers: ["Purok", "Animals", "Vaccinated", "Expired", "Unvaccinated", "Coverage", "Risk level"],
+            rows: reportRiskRows.map((row) => [row.purok, row.total, row.vaccinated, row.overdue, row.unvaccinated, `${row.coverageRate}%`, row.risk]),
             emptyMessage: "No purok coverage data is available.",
           },
           {
@@ -1762,19 +1769,19 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
             {activeTab === "Risk" && (isStaff ? <div className="module-content">
               <div className="module-intro">
                 <div><p className="eyebrow">DECISION SUPPORT</p><h2>Risk analysis by purok</h2><p>Compare current vaccinations, expired records, and animals that have never been vaccinated.</p></div>
-                <span className="module-chip"><ShieldCheck size={14} /> 30% maximum unvaccinated</span>
+                <span className="module-chip"><ShieldCheck size={14} /> 30% maximum at-risk share</span>
               </div>
               <div className="risk-summary" aria-label="Barangay risk summary">
                 <article><strong>{riskSummary.totalAnimals}</strong><span>Registered animals</span></article>
                 <article className="risk-summary-high"><strong>{riskSummary.vaccinated}</strong><span>Vaccinated within one year</span></article>
-                <article className="risk-summary-alert"><strong>{riskSummary.unvaccinated}</strong><span>Never vaccinated</span></article>
                 <article className="risk-summary-alert"><strong>{riskSummary.overdue}</strong><span>Expired vaccinations</span></article>
+                <article className="risk-summary-alert"><strong>{riskSummary.unvaccinated}</strong><span>Unvaccinated (never vaccinated)</span></article>
                 <article><strong>{riskSummary.dueSoon}</strong><span>Due within 30 days</span></article>
                 <article><strong>{riskSummary.notScheduled}</strong><span>Without a due date</span></article>
-                <article className="risk-summary-alert"><strong>{riskSummary.aboveUnvaccinatedTarget}</strong><span>Puroks above 30% unvaccinated</span></article>
-                <article className="risk-summary-high"><strong>{riskSummary.highUnvaccinated}</strong><span>Puroks above 50% unvaccinated</span></article>
+                <article className="risk-summary-alert"><strong>{riskSummary.aboveRiskTarget}</strong><span>Puroks above 30% at-risk share</span></article>
+                <article className="risk-summary-high"><strong>{riskSummary.highRiskPuroks}</strong><span>Puroks above 50% at-risk share</span></article>
               </div>
-              <p className="risk-explainer">Never vaccinated means no vaccination history. Expired means the last recorded vaccination was more than one year ago. Vaccinated includes records due within the next 30 days. Risk levels are based on never-vaccinated share; the 70% coverage target counts current vaccinations. Select a purok card to view its animal records.</p>
+              <p className="risk-explainer"><strong>Risk calculation:</strong> At-risk share = (unvaccinated + expired) ÷ registered animals. Unvaccinated means no vaccination history; expired means the last recorded vaccination was more than one year ago. A purok is moderate when more than 30% are at risk and high when more than 50% are at risk. The separate 70% coverage target counts animals vaccinated within one year, including those due in the next 30 days. Select a purok card to view its animal records.</p>
               <div className="risk-filter-bar">
                 <span className="risk-filter-label">Filter by risk level:</span>
                 {(["All", "HIGH", "MODERATE", "LOW", "NO DATA"] as const).map((level) => (
@@ -1795,10 +1802,10 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
               <div className="risk-grid">{filteredRiskRows.map((row) => <article className={`risk-card risk-card-clickable risk-${row.risk.toLowerCase().replace(" ", "-")}`} key={row.purok} role="button" tabIndex={0} aria-haspopup="dialog" aria-expanded={selectedRiskPurok === row.purok} aria-label={`View all records for ${row.purok}`} onClick={() => setSelectedRiskPurok(row.purok)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedRiskPurok(row.purok); } }}>
                 <div className="risk-card-head"><h3>{row.purok}</h3><span>{row.risk === "NO DATA" ? "NO DATA" : `${row.risk} RISK`}</span></div>
                 {row.total === 0 ? <p className="risk-no-records">No registered animals in this purok yet.</p> : <>
-                  <div className="risk-count"><strong>{row.unvaccinatedRate}%</strong><small>{row.unvaccinated} of {row.total} never vaccinated</small></div>
-                  <div className="progress risk-progress" role="progressbar" aria-label={`${row.purok} unvaccinated rate`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={row.unvaccinatedRate}><span style={{ width: `${row.unvaccinatedRate}%` }} /></div>
-                  <p className="risk-gap">{row.gapToTarget > 0 ? `Vaccinate ${row.gapToTarget} more animal${row.gapToTarget === 1 ? "" : "s"} to reach the 70% coverage target.` : "Never-vaccinated share is within the 30% target."}</p>
-                  <dl className="risk-details"><div><dt>Vaccinated</dt><dd>{row.vaccinated}</dd></div><div><dt>Never vaccinated</dt><dd>{row.unvaccinated}</dd></div><div><dt>Expired</dt><dd>{row.overdue}</dd></div><div><dt>Due within 30 days</dt><dd>{row.dueSoon}</dd></div><div><dt>No due date</dt><dd>{row.notScheduled}</dd></div></dl>
+                  <div className="risk-count"><strong>{row.atRiskRate}%</strong><small>{row.atRisk} of {row.total} are unvaccinated or expired</small></div>
+                  <div className="progress risk-progress" role="progressbar" aria-label={`${row.purok} at-risk share`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={row.atRiskRate}><span style={{ width: `${row.atRiskRate}%` }} /></div>
+                  <p className="risk-gap">{row.gapToTarget > 0 ? `Vaccinate ${row.gapToTarget} more animal${row.gapToTarget === 1 ? "" : "s"} to reach the 70% coverage target.` : "At-risk share is within the 30% target."}</p>
+                  <dl className="risk-details"><div><dt>Vaccinated</dt><dd>{row.vaccinated}</dd></div><div><dt>Expired</dt><dd>{row.overdue}</dd></div><div><dt>Unvaccinated (never vaccinated)</dt><dd>{row.unvaccinated}</dd></div><div><dt>Due within 30 days</dt><dd>{row.dueSoon}</dd></div><div><dt>No due date</dt><dd>{row.notScheduled}</dd></div></dl>
                 </>}
               </article>)}</div>
               {selectedRiskPurok && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setSelectedRiskPurok(null)}>
@@ -1807,9 +1814,9 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                   {selectedRiskRow && <div className="risk-summary risk-purok-summary">
                     <article><strong>{selectedRiskRow.total}</strong><span>Registered animals</span></article>
                     <article className="risk-summary-high"><strong>{selectedRiskRow.vaccinated}</strong><span>Vaccinated</span></article>
-                    <article className="risk-summary-alert"><strong>{selectedRiskRow.unvaccinated} ({selectedRiskRow.unvaccinatedRate}%)</strong><span>Never vaccinated</span></article>
-                    <article><strong>{selectedRiskRow.dueSoon}</strong><span>Due within 30 days</span></article>
                     <article className="risk-summary-high"><strong>{selectedRiskRow.overdue}</strong><span>Expired</span></article>
+                    <article className="risk-summary-alert"><strong>{selectedRiskRow.unvaccinated} ({selectedRiskRow.unvaccinatedRate}%)</strong><span>Unvaccinated (never vaccinated)</span></article>
+                    <article><strong>{selectedRiskRow.dueSoon}</strong><span>Due within 30 days</span></article>
                   </div>}
                   <div className="table-wrap risk-purok-table"><table><thead><tr><th>Animal</th><th>Species / type</th><th>Owner / contact</th><th>Vaccination status</th><th>Vaccine</th><th>Last / next vaccination</th></tr></thead><tbody>{selectedRiskAnimals.map((animal) => <tr key={`purok-${selectedRiskPurok}-${animal.id}`}>
                     <td><strong>{animal.name}</strong></td><td>{animal.species} · {animal.classification ?? "Pet"}</td><td>{animal.owner}<small>{animal.contact || "No contact recorded"}</small></td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td><td>{animal.vaccineType || "Not recorded"}</td><td>Last: {formatVaccineDate(animal.vaccineDate)}<small>Next: {animal.nextDue}</small></td>
@@ -1837,9 +1844,9 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
           <div className="stat-grid">
             <article className="stat-card"><div className="stat-top"><span className="stat-icon blue"><PawPrint size={18} /></span><span className="trend neutral">Total</span></div><p className="stat-number">{dashboardStats.registered}</p><p className="stat-label">Registered animals</p><div className="stat-foot">Current registry</div></article>
             <article className="stat-card"><div className="stat-top"><span className="stat-icon green"><Syringe size={18} /></span><span className="trend up">Protected</span></div><p className="stat-number">{dashboardStats.vaccinated}</p><p className="stat-label">Vaccinated animals</p><div className="stat-foot">{dashboardStats.registered ? Math.round((dashboardStats.vaccinated / dashboardStats.registered) * 100) : 0}% of total registry</div></article>
-            <article className="stat-card"><div className="stat-top"><span className="stat-icon red"><ShieldCheck size={18} /></span><span className="trend danger">Needs follow-up</span></div><p className="stat-number">{dashboardStats.unvaccinated}</p><p className="stat-label">Never vaccinated animals</p><div className="stat-foot">{dashboardStats.registered ? Math.round((dashboardStats.unvaccinated / dashboardStats.registered) * 100) : 0}% of total registry</div></article>
-            <article className="stat-card"><div className="stat-top"><span className="stat-icon amber"><CalendarDays size={18} /></span><span className="trend neutral">This month</span></div><p className="stat-number">{dashboardStats.dueSoon}</p><p className="stat-label">Due for vaccination</p><div className="stat-foot">Needs scheduling</div></article>
             <article className="stat-card"><div className="stat-top"><span className="stat-icon red"><Bell size={18} /></span><span className="trend danger">Needs action</span></div><p className="stat-number">{dashboardStats.overdue}</p><p className="stat-label">Expired vaccinations</p><div className="stat-foot">Review registry</div></article>
+            <article className="stat-card"><div className="stat-top"><span className="stat-icon red"><ShieldCheck size={18} /></span><span className="trend danger">Needs follow-up</span></div><p className="stat-number">{dashboardStats.unvaccinated}</p><p className="stat-label">Unvaccinated animals</p><div className="stat-foot">{dashboardStats.registered ? Math.round((dashboardStats.unvaccinated / dashboardStats.registered) * 100) : 0}% of total registry</div></article>
+            <article className="stat-card"><div className="stat-top"><span className="stat-icon amber"><CalendarDays size={18} /></span><span className="trend neutral">This month</span></div><p className="stat-number">{dashboardStats.dueSoon}</p><p className="stat-label">Due for vaccination</p><div className="stat-foot">Needs scheduling</div></article>
           </div>
 
           {isStaff && <div className="section-grid dashboard-insights-grid"><section className="panel dashboard-insight-panel"><div className="panel-heading"><div><h2>Upcoming appointments</h2><p>Scheduled visits from the live appointment list</p></div><button className="text-button" onClick={() => setActiveTab("Appointments")}>View all →</button></div>{dashboardAppointments.length === 0 ? <p className="module-muted"><CalendarClock size={16} /> No upcoming appointments scheduled.</p> : <div className="purok-list">{dashboardAppointments.map((appointment) => <div className="planning-row" key={`dashboard-appt-${appointment.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{appointment.animalName}</strong><small>{appointment.ownerName} · Assigned to {appointment.assignedName}</small></span><em>{formatVaccineDate(appointment.scheduledDate)}</em></div>)}</div>}</section><section className="panel dashboard-insight-panel"><div className="panel-heading"><div><h2>Never vaccinated by purok</h2><p>Highest never-vaccinated share, based on registered animals</p></div><button className="text-button" onClick={() => setActiveTab("Risk")}>View risk →</button></div>{dashboardRiskRows.length === 0 ? <p className="module-muted">No purok data available.</p> : <div className="purok-list">{dashboardRiskRows.map((row) => <div className="coverage-row dashboard-risk-row" key={row.purok}><div className="coverage-meta"><span>{row.purok}</span><strong>{row.unvaccinated} / {row.total} <em>{row.unvaccinatedRate}%</em></strong></div><div className="progress"><span style={{ width: `${row.unvaccinatedRate}%` }} /></div></div>)}</div>}</section></div>}
