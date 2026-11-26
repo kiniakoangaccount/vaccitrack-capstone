@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Search } from "lucide-react";
 import L from "leaflet";
 import "leaflet.markercluster";
 import "leaflet/dist/leaflet.css";
@@ -377,8 +378,13 @@ export default function LeafletMap({
           <option value="Expired">Expired</option>
           <option value="Unvaccinated">Unvaccinated</option>
         </select>}
-        {!pickMode && <div className="leaflet-map-search leaflet-purok-search">
-          <input aria-label="Search puroks" placeholder="Search purok..." value={purokFilter} onChange={(event) => setPurokFilter(event.target.value)} />
+        {!pickMode && <div className="leaflet-purok-filter risk-filter-bar">
+          <label className="risk-filter-label" htmlFor="map-purok-search">Search by purok:</label>
+          <div className="leaflet-purok-search-control">
+            <Search size={15} aria-hidden="true" />
+            <input id="map-purok-search" type="search" placeholder="Type a purok name..." value={purokFilter} onChange={(event) => setPurokFilter(event.target.value)} />
+            <span className="risk-filter-count" aria-label={`${puroks.filter((purok) => purok.name.toLocaleLowerCase().includes(purokFilter.trim().toLocaleLowerCase())).length} puroks match`}>{puroks.filter((purok) => purok.name.toLocaleLowerCase().includes(purokFilter.trim().toLocaleLowerCase())).length}</span>
+          </div>
         </div>}
         <div className="leaflet-map-toggles">
           {!pickMode && <button type="button" aria-pressed={showHeat} className={`leaflet-toggle${showHeat ? " active" : ""}`} onClick={() => setShowHeat(!showHeat)}>Heatmap</button>}
