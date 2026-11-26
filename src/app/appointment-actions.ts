@@ -36,7 +36,7 @@ async function requireStaff() {
 
 // Staff (admin, bhw) schedule a vaccination visit for an animal and assign it
 // to a specific staff member, so follow-up work is tracked instead of only
-// living in the derived Overdue/Due-soon lists on the Planning tab.
+// living in the derived Expired/Due-soon lists on the Planning tab.
 export async function getAppointments(): Promise<{ items?: AppointmentItem[]; error?: string }> {
   const result = await requireStaff();
   if ("error" in result) return { error: result.error };

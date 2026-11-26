@@ -73,7 +73,7 @@ const REMINDER_TEXT: Record<Language, Record<ReminderType, string>> = {
   en: {
     D7: "Hello {owner}. {animal}'s {vaccine} vaccination is due on {date}. Please visit {clinic} to schedule a vaccination.",
     D1: "Hello {owner}. Reminder: {animal}'s {vaccine} vaccination is due tomorrow, {date}. Please visit {clinic}.",
-    OVERDUE: "Hello {owner}. {animal}'s {vaccine} vaccination was due on {date} and is now overdue. Please visit {clinic}.",
+    OVERDUE: "Hello {owner}. {animal}'s {vaccine} vaccination expired on {date}. Please visit {clinic}.",
   },
   tl: {
     D7: "Kumusta, {owner}. Takda sa {date} ang bakunang {vaccine} ni {animal}. Mangyaring bumisita sa {clinic} para magpa-iskedyul ng bakuna.",
@@ -462,7 +462,7 @@ export async function GET(request: Request) {
       const language = profileLanguage(profile?.preferred_language);
       const message = buildMessage(target, profile, language);
       const title = target.reminderType === "OVERDUE"
-        ? "Overdue vaccination"
+        ? "Expired vaccination"
         : target.reminderType === "D1"
           ? "Vaccination due tomorrow"
           : "Vaccination due in 7 days";
