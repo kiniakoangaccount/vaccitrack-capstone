@@ -43,6 +43,7 @@ import { getNotificationTab } from "@/app/_features/notifications/notification-n
 import { queueVaccinationReminders } from "@/app/_features/notifications/reminder-actions";
 import { updatePoundStatus, type PoundStatus } from "@/app/_features/animals/pound-actions";
 import { SmsComposer } from "@/app/_components/workspace/SmsComposer";
+import AnimalFilterBuilder from "@/app/_components/workspace/AnimalFilterBuilder";
 import { getTeamMembers, type TeamMember } from "@/app/_features/team/team-actions";
 import { getFeedbackList, updateFeedbackStatus, type FeedbackItem } from "@/app/_features/feedback/feedback-actions";
 import { createAppointment, getAppointments, updateAppointmentStatus, type AppointmentItem, type AppointmentStatus } from "@/app/_features/appointments/appointment-actions";
@@ -744,7 +745,6 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     }),
     [animalRecords, planningLocation, planningDateRange.from, planningDateRange.to],
   );
-  const activeRegistryFilterCount = Object.values(registryFilters).filter((value) => value !== "All").length;
 
   const REGISTRY_PAGE_SIZE = 15;
   const registryPageCount = Math.max(1, Math.ceil(filteredRegistryAnimals.length / REGISTRY_PAGE_SIZE));
@@ -804,7 +804,6 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       : locations.filter((location) => location.toLocaleLowerCase().includes(reportFilters.location.toLocaleLowerCase()));
   }, [riskPurokNames, filteredReportAnimals, reportFilters.location]);
   const reportRiskRows = useMemo(() => buildPurokRiskRows(filteredReportAnimals, reportPurokNames), [filteredReportAnimals, reportPurokNames]);
-  const activeReportFilterCount = Object.values(reportFilters).filter((value) => value !== "All").length;
 
   const reportSummary = {
     total: reportAnimals.length,
@@ -1376,14 +1375,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                 <div className="module-actions"><button className="secondary-button" onClick={handleExportCsv} disabled={isExporting} data-loading={isExporting ? "true" : undefined} aria-busy={isExporting}><FileText size={15} /> {isExporting ? "Exporting..." : isClient ? "Export my report" : "Export CSV"}</button>{canManageAnimals && <button className="primary-button" onClick={() => setShowRegister(true)}><Plus size={17} /> New record</button>}</div>
               </div>
               <PurokSuggestionSearch className="wide-search" ariaLabel="Search all animals" placeholder="Search name, civilian, purok, or species..." value={query} options={riskPurokNames} onChange={setQuery} />
-              <div className="registry-filter-controls" aria-label="Filter animal registry">
-                <label>Breed<select value={registryFilters.breed} onChange={(event) => setRegistryFilters({ ...registryFilters, breed: event.target.value })}><option value="All">All breeds</option>{animalFilterOptions.breeds.map((breed) => <option key={breed} value={breed}>{breed}</option>)}</select></label>
-                <label>Species<select value={registryFilters.species} onChange={(event) => setRegistryFilters({ ...registryFilters, species: event.target.value })}><option value="All">All species</option><option value="Dog">Dogs</option><option value="Cat">Cats</option></select></label>
-                <label>Owner (pets)<select value={registryFilters.owner} onChange={(event) => setRegistryFilters({ ...registryFilters, owner: event.target.value })}><option value="All">All owners</option>{animalFilterOptions.owners.map(([owner, count]) => <option key={owner} value={owner}>{owner} ({count} {count === 1 ? "pet" : "pets"})</option>)}</select></label>
-                <LocationSearch label="Location / purok" value={registryFilters.location} options={riskPurokNames} allLabel="All locations" placeholder="Search locations..." onChange={(location) => setRegistryFilters({ ...registryFilters, location })} />
-                <label>Classification<select value={registryFilters.classification} onChange={(event) => setRegistryFilters({ ...registryFilters, classification: event.target.value })}><option value="All">Pets and strays</option><option value="Pet">Pets</option><option value="Stray">Strays</option></select></label>
-                {activeRegistryFilterCount > 0 && <button type="button" className="secondary-button registry-clear-filters" onClick={() => setRegistryFilters({ breed: "All", species: "All", owner: "All", location: "All", classification: "All" })}>Clear filters ({activeRegistryFilterCount})</button>}
-              </div>
+              <AnimalFilterBuilder filters={registryFilters} onChange={setRegistryFilters} breeds={animalFilterOptions.breeds} owners={animalFilterOptions.owners} locations={riskPurokNames} />
               <p className="registry-filter-count" role="status" aria-live="polite">Showing {filteredRegistryAnimals.length} of {animalRecords.length} animals{query.trim() ? " matching the search and selected filters." : " matching the selected filters."}</p>
               <div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th></tr></thead><tbody>{pagedRegistryAnimals.map((animal) => <tr key={`module-${animal.id}`} className="row-clickable" onClick={() => openAnimalDetail(animal)}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "â€”"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredRegistryAnimals.length === 0 && <div className="empty-state">No animal records match the search and filters.</div>}</div>
               {registryPageCount > 1 && (
@@ -1435,13 +1427,8 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                 <div className="report-controls no-print">
                   <label>Vaccination report from<input type="date" value={reportRange.from} onChange={(event) => setReportRange({ ...reportRange, from: event.target.value })} /></label>
                   <label>To<input type="date" min={reportRange.from} value={reportRange.to} onChange={(event) => setReportRange({ ...reportRange, to: event.target.value })} /></label>
-                  <label>Breed<select value={reportFilters.breed} onChange={(event) => setReportFilters({ ...reportFilters, breed: event.target.value })}><option value="All">All breeds</option>{animalFilterOptions.breeds.map((breed) => <option key={breed} value={breed}>{breed}</option>)}</select></label>
-                  <label>Species<select value={reportFilters.species} onChange={(event) => setReportFilters({ ...reportFilters, species: event.target.value })}><option value="All">All species</option><option value="Dog">Dogs</option><option value="Cat">Cats</option></select></label>
-                  <label>Owner (pets)<select value={reportFilters.owner} onChange={(event) => setReportFilters({ ...reportFilters, owner: event.target.value })}><option value="All">All owners</option>{animalFilterOptions.owners.map(([owner, count]) => <option key={owner} value={owner}>{owner} ({count} {count === 1 ? "pet" : "pets"})</option>)}</select></label>
-                  <LocationSearch label="Location / purok" value={reportFilters.location} options={riskPurokNames} allLabel="All locations" placeholder="Search locations..." onChange={(location) => setReportFilters({ ...reportFilters, location })} />
-                  <label>Classification<select value={reportFilters.classification} onChange={(event) => setReportFilters({ ...reportFilters, classification: event.target.value })}><option value="All">Pets and strays</option><option value="Pet">Pets</option><option value="Stray">Strays</option></select></label>
-                  {activeReportFilterCount > 0 && <button type="button" className="secondary-button report-clear-filters" onClick={() => setReportFilters({ breed: "All", species: "All", owner: "All", location: "All", classification: "All" })}>Clear filters ({activeReportFilterCount})</button>}
                 </div>
+                <div className="no-print report-animal-filters"><AnimalFilterBuilder filters={reportFilters} onChange={setReportFilters} breeds={animalFilterOptions.breeds} owners={animalFilterOptions.owners} locations={riskPurokNames} /></div>
                 <p className="report-filter-count no-print" role="status" aria-live="polite">Showing {filteredReportAnimals.length} of {animalRecords.length} animals matching the selected filters. Owner selection includes all pets registered to that owner.</p>
                 {reportRange.to < reportRange.from && (activeReportTab === "all" || activeReportTab === "vaccinations") && <p className="form-error">The end date must be on or after the start date.</p>}
                 <div className="report-current-view">
