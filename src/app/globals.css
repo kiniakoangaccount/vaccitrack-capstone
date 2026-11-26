@@ -1041,6 +1041,8 @@ form input[type="radio"] { accent-color: var(--green); }
 .registry-filter-controls select { width: 100%; min-width: 0; min-height: 42px; padding: 8px 10px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 5px; font: inherit; font-size: 15px; }
 .registry-filter-controls .registry-clear-filters { min-height: 42px; }
 .registry-filter-count { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+.registry-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 18px 0 4px; }
+.registry-pagination-label { color: #607168; font-size: 14px; font-weight: 600; }
 @media (max-width: 520px) {
   .risk-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .risk-card { padding: 13px; }
