@@ -64,11 +64,23 @@ function markerHtml(color: string, species: string, approximate: boolean): strin
   return `<span style="background:${color};border-radius:50%;display:grid;place-items:center;width:26px;height:26px;box-sizing:border-box;${ring}">${speciesMarkerSvg(species)}</span>`;
 }
 
-function clusterHtml(count: number): string {
-  return `<span style="background:#2f8065;color:#fff;border:3px solid #fff;border-radius:50%;display:grid;place-items:center;width:36px;height:36px;box-sizing:border-box;font-weight:700;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.35);">${count}</span>`;
+function clusterHtml(colors: string[]): string {
+  const colorCounts = new Map<string, number>();
+  for (const color of colors) colorCounts.set(color, (colorCounts.get(color) ?? 0) + 1);
+  let position = 0;
+  const segments = Array.from(colorCounts, ([color, count]) => {
+    const start = (position / colors.length) * 100;
+    position += count;
+    const end = (position / colors.length) * 100;
+    return `${color} ${start}% ${end}%`;
+  });
+  const count = colors.length;
+  return `<span style="background:conic-gradient(${segments.join(",")});border:3px solid #fff;border-radius:50%;display:grid;place-items:center;width:36px;height:36px;box-sizing:border-box;box-shadow:0 1px 4px rgba(0,0,0,.35);"><span style="background:#fff;color:#294438;border-radius:50%;display:grid;place-items:center;width:23px;height:23px;font-weight:800;font-size:12px;">${count}</span></span>`;
 }
 
 type MapVaccinationCategory = "Vaccinated" | "Expiring soon" | "Expired" | "Unvaccinated";
+type HeatPoint = { lat: number; lng: number; color: string };
+const clusterMarkerColors = new WeakMap<L.Marker, string>();
 
 function vaccinationCategory(animal: MapAnimal): MapVaccinationCategory {
   if (animal.status === "Expired") return "Expired";
@@ -83,6 +95,52 @@ function statusColor(category: MapVaccinationCategory): string {
     case "Expired": return "#f28c28";
     case "Unvaccinated": return "#d64545";
   }
+}
+
+function heatColor(animal: MapAnimal): string {
+  const category = vaccinationCategory(animal);
+  if (category === "Unvaccinated") return "#d64545";
+  if (category === "Expired") return "#f4c542";
+  return "#2f9e66";
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const value = hex.replace("#", "");
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function drawHeatmap(map: L.Map, canvas: HTMLCanvasElement, points: HeatPoint[]) {
+  const size = map.getSize();
+  const pixelRatio = Math.max(window.devicePixelRatio || 1, 1);
+  const topLeft = map.containerPointToLayerPoint([0, 0]);
+  L.DomUtil.setPosition(canvas, topLeft);
+  canvas.width = Math.round(size.x * pixelRatio);
+  canvas.height = Math.round(size.y * pixelRatio);
+  canvas.style.width = `${size.x}px`;
+  canvas.style.height = `${size.y}px`;
+
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  context.scale(pixelRatio, pixelRatio);
+  context.clearRect(0, 0, size.x, size.y);
+  context.globalCompositeOperation = "screen";
+
+  const radius = 58;
+  for (const point of points) {
+    const location = map.latLngToLayerPoint([point.lat, point.lng]).subtract(topLeft);
+    const gradient = context.createRadialGradient(location.x, location.y, 0, location.x, location.y, radius);
+    gradient.addColorStop(0, hexToRgba(point.color, 0.58));
+    gradient.addColorStop(0.38, hexToRgba(point.color, 0.3));
+    gradient.addColorStop(1, hexToRgba(point.color, 0));
+    context.fillStyle = gradient;
+    context.beginPath();
+    context.arc(location.x, location.y, radius, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.globalCompositeOperation = "source-over";
 }
 
 function statusClass(category: MapVaccinationCategory): string {
@@ -130,11 +188,10 @@ export default function LeafletMap({
   const mapInstance = useRef<L.Map | null>(null);
   const markersLayer = useRef<L.MarkerClusterGroup | null>(null);
   const individualMarkersLayer = useRef<L.LayerGroup | null>(null);
-  const heatLayer = useRef<L.LayerGroup | null>(null);
-  const purokLayer = useRef<L.LayerGroup | null>(null);
+  const heatCanvas = useRef<HTMLCanvasElement | null>(null);
+  const heatPoints = useRef<HeatPoint[]>([]);
   const [showHeat, setShowHeat] = useState(true);
   const [showClusters, setShowClusters] = useState(true);
-  const [showPuroks, setShowPuroks] = useState(false);
   const [speciesFilter, setSpeciesFilter] = useState("All");
   const [classificationFilter, setClassificationFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -198,20 +255,28 @@ export default function LeafletMap({
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
 
-    heatLayer.current = L.layerGroup().addTo(map);
-    purokLayer.current = L.layerGroup().addTo(map);
+    const heatCanvasElement = L.DomUtil.create("canvas", "vaccitrack-heat-canvas");
+    heatCanvasElement.setAttribute("aria-hidden", "true");
+    map.getPanes().overlayPane.appendChild(heatCanvasElement);
+    heatCanvas.current = heatCanvasElement;
+    const redrawHeat = () => {
+      if (heatCanvas.current) drawHeatmap(map, heatCanvas.current, heatPoints.current);
+    };
+    map.on("moveend zoomend resize", redrawHeat);
     individualMarkersLayer.current = L.layerGroup().addTo(map);
     markersLayer.current = L.markerClusterGroup({
       showCoverageOnHover: false,
       maxClusterRadius: 28,
       spiderfyOnMaxZoom: true,
-      iconCreateFunction: (cluster) =>
-        L.divIcon({
+      iconCreateFunction: (cluster) => {
+        const colors = cluster.getAllChildMarkers().map((marker) => clusterMarkerColors.get(marker) ?? "#2f8065");
+        return L.divIcon({
           className: "animal-cluster",
-          html: clusterHtml(cluster.getChildCount()),
+          html: clusterHtml(colors),
           iconSize: [36, 36],
           iconAnchor: [18, 18],
-        }),
+        });
+      },
     }).addTo(map);
 
     mapInstance.current = map;
@@ -258,8 +323,8 @@ export default function LeafletMap({
       mapInstance.current = null;
       markersLayer.current = null;
       individualMarkersLayer.current = null;
-      heatLayer.current = null;
-      purokLayer.current = null;
+      heatCanvas.current = null;
+      heatPoints.current = [];
     };
   }, []);
 
@@ -268,29 +333,17 @@ export default function LeafletMap({
     if (map) map.getContainer().style.cursor = pickMode ? "crosshair" : "";
   }, [pickMode]);
 
-  // Purok zone circles
-  useEffect(() => {
-    if (!mapInstance.current || !purokLayer.current) return;
-    purokLayer.current.clearLayers();
-    if (!showPuroks) return;
-
-    for (const p of puroks) {
-      L.circle([p.latitude, p.longitude], { radius: 180, color: "#2f8065", weight: 2, fillColor: "#2f806520", fillOpacity: 0.15 })
-        .addTo(purokLayer.current)
-        .bindTooltip(`<strong>${escapeHtml(p.name)}</strong>`);
-    }
-  }, [puroks, showPuroks]);
-
-  // Animal markers + heatmap
+  // Animal markers + blended vaccination-status heatmap
   useEffect(() => {
     const cluster = markersLayer.current;
     const individualMarkers = individualMarkersLayer.current;
-    const heat = heatLayer.current;
-    if (!mapInstance.current || !cluster || !individualMarkers || !heat) return;
+    const map = mapInstance.current;
+    const canvas = heatCanvas.current;
+    if (!map || !cluster || !individualMarkers || !canvas) return;
 
     cluster.clearLayers();
     individualMarkers.clearLayers();
-    heat.clearLayers();
+    canvas.style.display = showHeat ? "block" : "none";
 
     const term = mapSearch.trim().toLowerCase();
     const visible = placed.filter(({ animal: animal }) => {
@@ -304,6 +357,7 @@ export default function LeafletMap({
     });
 
     const markers: L.Marker[] = [];
+    const visibleHeatPoints: HeatPoint[] = [];
     for (const { animal, lat, lng, approximate } of visible) {
       const category = vaccinationCategory(animal);
       const color = statusColor(category);
@@ -323,6 +377,7 @@ export default function LeafletMap({
           iconAnchor: [13, 13],
         }),
       }).bindTooltip(tooltip, { direction: "top" });
+      clusterMarkerColors.set(marker, color);
 
       marker.on("click", () => {
         setSelectedId(animal.id);
@@ -330,16 +385,10 @@ export default function LeafletMap({
       });
       markers.push(marker);
 
-      if (showHeat) {
-        L.circle([lat, lng], {
-          radius: 90,
-          color: "transparent",
-          weight: 0,
-          fillColor: color,
-          fillOpacity: 0.12,
-        }).addTo(heat);
-      }
+      if (showHeat) visibleHeatPoints.push({ lat, lng, color: heatColor(animal) });
     }
+    heatPoints.current = visibleHeatPoints;
+    if (showHeat) drawHeatmap(map, canvas, visibleHeatPoints);
     if (showClusters) {
       cluster.addLayers(markers);
     } else {
@@ -375,9 +424,13 @@ export default function LeafletMap({
         <div className="leaflet-map-toggles">
           {!pickMode && <button type="button" aria-pressed={showHeat} className={`leaflet-toggle${showHeat ? " active" : ""}`} onClick={() => setShowHeat(!showHeat)}>Heatmap</button>}
           {!pickMode && <button type="button" aria-pressed={showClusters} className={`leaflet-toggle${showClusters ? " active" : ""}`} onClick={() => setShowClusters(!showClusters)}>Clusters</button>}
-          {!pickMode && <button type="button" aria-pressed={showPuroks} className={`leaflet-toggle${showPuroks ? " active" : ""}`} onClick={() => setShowPuroks(!showPuroks)}>Purok zones</button>}
         </div>
       </div>
+      {!pickMode && showHeat && <div className="leaflet-heatmap-legend" aria-label="Heatmap color legend">
+        <div className="leaflet-heatmap-labels"><span>Current / due soon</span><span>Expired</span><span>Never vaccinated</span></div>
+        <span className="leaflet-heatmap-gradient" aria-hidden="true" />
+        <small>Overlapping colors blend to show nearby records.</small>
+      </div>}
       {(unplacedCount > 0 || approximateCount > 0) && (
         <div className="leaflet-map-note" role="status" style={{ padding: "6px 10px", fontSize: "0.85rem" }}>
           {approximateCount > 0 &&
