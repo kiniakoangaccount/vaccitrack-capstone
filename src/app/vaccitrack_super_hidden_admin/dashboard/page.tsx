@@ -20,7 +20,7 @@ import { SmsComposer } from "@/app/SmsComposer";
 import AdminMapPanel from "./AdminMapPanel";
 import PuroksPanel from "./PuroksPanel";
 import type { ManagedPurok } from "./purok-actions";
-import { purokOptions, getAnimalStatus } from "@/lib/map-data";
+import { purokOptions, getAnimalStatus, getVaccinationDueDate } from "@/lib/map-data";
 import type { MapAnimal } from "../../LeafletMap";
 
 type Tab = "overview" | "users" | "pending" | "feedback" | "audit" | "invites" | "map" | "puroks" | "sms" | "messages";
@@ -133,9 +133,9 @@ export default async function AdminDashboardPage({
       owner: r.owner_name,
       purok: Array.isArray(r.puroks) ? r.puroks[0]?.name ?? "Unassigned" : r.puroks?.name ?? "Unassigned",
       vaccinated: r.vaccinated,
-      status: getAnimalStatus(r.vaccinated, r.next_due_date),
+      status: getAnimalStatus(r.vaccinated, getVaccinationDueDate(r.vaccine_date, r.next_due_date), new Date(), r.vaccine_date),
       vaccineDate: r.vaccine_date,
-      nextDueDate: r.next_due_date,
+      nextDueDate: getVaccinationDueDate(r.vaccine_date, r.next_due_date),
       vaccineType: r.vaccine_type ?? undefined,
       breed: r.breed ?? undefined,
       age: r.age,

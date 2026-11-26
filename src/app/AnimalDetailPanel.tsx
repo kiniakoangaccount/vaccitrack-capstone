@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Cat, CheckCircle2, Dog, Edit2, MapPin, Plus, Save, Syringe, Trash2, X } from "lucide-react";
 import { addVaccinationRecord } from "./vaccination-actions";
 import { deleteAnimalRecord, updateAnimalRecord, type AnimalEditFields } from "./animal-actions";
-import { todayLocalIso } from "@/lib/dates";
+import { addMonthsToDateIso, todayLocalIso } from "@/lib/dates";
 import { capitalizeFirstLetter } from "@/lib/animal-names";
 import ConfirmDialog from "./ConfirmDialog";
 
@@ -182,7 +182,7 @@ export default function AnimalDetailPanel({
             <dl className="animal-vaccination-status">
               <div>
                 <dt>Vaccination status</dt>
-                <dd><span className={`status ${animal.vaccinated && animal.status === "Vaccinated" ? "status-good" : animal.status === "Expired" ? "status-overdue" : animal.status === "Due soon" ? "status-warn" : "status-neutral"}`}><i />{animal.status}</span></dd>
+                <dd><span className={`status ${animal.status === "Vaccinated" ? "status-good" : animal.status === "Expired" ? "status-overdue" : animal.status === "Due soon" ? "status-warn" : "status-neutral"}`}><i />{animal.status}</span></dd>
               </div>
               <div>
                 <dt>Last vaccinated</dt>
@@ -282,7 +282,7 @@ export default function AnimalDetailPanel({
             {showAddForm && (
               <div className="booster-form">
                 <label>Vaccination date
-                  <input type="date" max={todayLocalIso()} value={vaccineDate} onChange={(e) => setVaccineDate(e.target.value)} />
+                  <input type="date" max={todayLocalIso()} value={vaccineDate} onChange={(e) => { const date = e.target.value; setVaccineDate(date); setNextDueDate(date ? addMonthsToDateIso(date, 12) : ""); }} />
                 </label>
                 <label>Next due date
                   <input type="date" min={vaccineDate || undefined} value={nextDueDate} onChange={(e) => setNextDueDate(e.target.value)} />

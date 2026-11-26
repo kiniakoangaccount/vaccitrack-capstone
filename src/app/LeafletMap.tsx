@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import LocationSearch from "./LocationSearch";
+import PurokSuggestionSearch from "./PurokSuggestionSearch";
 import L from "leaflet";
 import "leaflet.markercluster";
 import "leaflet/dist/leaflet.css";
@@ -70,10 +71,9 @@ function clusterHtml(count: number): string {
 type MapVaccinationCategory = "Vaccinated" | "Expiring soon" | "Expired" | "Unvaccinated";
 
 function vaccinationCategory(animal: MapAnimal): MapVaccinationCategory {
-  if (!animal.vaccinated) return "Unvaccinated";
   if (animal.status === "Expired") return "Expired";
   if (animal.status === "Due soon") return "Expiring soon";
-  return "Vaccinated";
+  return animal.status === "Vaccinated" ? "Vaccinated" : "Unvaccinated";
 }
 
 function statusColor(category: MapVaccinationCategory): string {
@@ -353,14 +353,7 @@ export default function LeafletMap({
   return (
     <div className="leaflet-map-wrap">
       <div className="leaflet-map-toolbar">
-        <div className="leaflet-map-search">
-          <input
-            aria-label="Search map"
-            placeholder="Search animals on map..."
-            value={mapSearch}
-            onChange={(e) => setMapSearch(e.target.value)}
-          />
-        </div>
+        <PurokSuggestionSearch className="map-purok-suggestions" ariaLabel="Search map" placeholder="Search animals or puroks on map..." value={mapSearch} options={puroks.map((purok) => purok.name)} onChange={setMapSearch} />
         {!pickMode && <select aria-label="Filter by species" value={speciesFilter} onChange={(event) => setSpeciesFilter(event.target.value)}>
           <option value="All">All species</option>
           <option value="Dog">Dogs</option>

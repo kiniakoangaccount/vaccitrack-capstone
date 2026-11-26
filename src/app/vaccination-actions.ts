@@ -2,7 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
-import { getManilaDateIso } from "@/lib/dates";
+import { addMonthsToDateIso, getManilaDateIso } from "@/lib/dates";
 import { logAudit } from "@/lib/audit";
 
 export async function addVaccinationRecord(
@@ -31,12 +31,14 @@ export async function addVaccinationRecord(
     return { error: "Vaccination date cannot be in the future." };
   }
 
+  const nextDueDate = payload.nextDueDate || addMonthsToDateIso(payload.vaccineDate, 12);
+
   const { data, error } = await db
     .from("vaccination_history")
     .insert({
       animal_id: animalId,
       vaccine_date: payload.vaccineDate,
-      next_due_date: payload.nextDueDate || null,
+      next_due_date: nextDueDate,
       vaccine_type: payload.vaccineType || null,
       administered_by: payload.administeredBy || null,
       notes: payload.notes || null,
@@ -55,7 +57,7 @@ export async function addVaccinationRecord(
     const { error: animalError } = await db.from("animals").update({
       vaccinated: true,
       vaccine_date: payload.vaccineDate,
-      next_due_date: payload.nextDueDate || null,
+      next_due_date: nextDueDate,
       vaccine_type: payload.vaccineType || null,
     }).eq("id", animalId);
     if (animalError) return { error: animalError.message };

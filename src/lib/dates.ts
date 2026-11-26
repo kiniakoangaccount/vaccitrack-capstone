@@ -11,6 +11,17 @@ export function todayLocalIso(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+export function addMonthsToDateIso(dateIso: string, months: number): string {
+  const [year, month, day] = dateIso.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day || !Number.isFinite(months)) return dateIso;
+  const targetMonth = new Date(Date.UTC(year, month - 1 + months, 1));
+  const targetYear = targetMonth.getUTCFullYear();
+  const targetMonthIndex = targetMonth.getUTCMonth();
+  const lastDay = new Date(Date.UTC(targetYear, targetMonthIndex + 1, 0)).getUTCDate();
+  const targetDay = Math.min(day, lastDay);
+  return `${targetYear}-${String(targetMonthIndex + 1).padStart(2, "0")}-${String(targetDay).padStart(2, "0")}`;
+}
+
 // Server-side equivalent: Vercel functions run in UTC regardless of where
 // the request came from, so "today" there has to be pinned explicitly to
 // the barangay's own timezone rather than the server's.

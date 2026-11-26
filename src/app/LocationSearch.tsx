@@ -40,10 +40,8 @@ export default function LocationSearch({
     [options, normalizedQuery],
   );
   const suggestions = useMemo(() => {
-    const matches = matchingLocations.slice(0, 8).map((location) => ({ value: location, label: location }));
-    if (allLabel && !normalizedQuery) matches.unshift({ value: "All", label: allLabel });
-    return matches;
-  }, [allLabel, matchingLocations, normalizedQuery]);
+    return normalizedQuery ? matchingLocations.slice(0, 8).map((location) => ({ value: location, label: location })) : [];
+  }, [matchingLocations, normalizedQuery]);
 
   useEffect(() => {
     setQuery(value === "All" ? "" : value);

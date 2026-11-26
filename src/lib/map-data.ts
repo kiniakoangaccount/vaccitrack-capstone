@@ -1,4 +1,6 @@
-export type AnimalStatus = "Vaccinated" | "Due soon" | "Expired" | "Not scheduled";
+import { addMonthsToDateIso } from "./dates";
+
+export type AnimalStatus = "Vaccinated" | "Due soon" | "Expired" | "Unvaccinated";
 
 // Nominatim's bounded search uses a rectangular viewbox. This padded box
 // covers the known Estefania purok centers and nearby addresses.
@@ -92,15 +94,25 @@ export const purokOptions = [
   { id: 55, name: "Villamar", latitude: 10.6818868, longitude: 122.9858753 },
 ];
 
-export function getAnimalStatus(vaccinated: boolean, nextDueDate: string | null, today = new Date()): AnimalStatus {
-  if (!nextDueDate) return "Not scheduled";
+export function getVaccinationDueDate(vaccineDate: string | null, nextDueDate: string | null): string | null {
+  if (!vaccineDate) return nextDueDate;
+  const annualDueDate = addMonthsToDateIso(vaccineDate, 12);
+  const legacySixMonthDate = addMonthsToDateIso(vaccineDate, 6);
+  return !nextDueDate || nextDueDate === legacySixMonthDate ? annualDueDate : nextDueDate;
+}
 
-  const dueDate = new Date(`${nextDueDate.slice(0, 10)}T00:00:00`);
-  if (Number.isNaN(dueDate.getTime())) return "Not scheduled";
+export function getAnimalStatus(vaccinated: boolean, nextDueDate: string | null, today = new Date(), vaccineDate: string | null = null): AnimalStatus {
+  const hasVaccinationHistory = vaccinated || Boolean(vaccineDate);
+  if (!hasVaccinationHistory) return "Unvaccinated";
+  const effectiveDueDate = getVaccinationDueDate(vaccineDate, nextDueDate);
+  if (!effectiveDueDate) return "Vaccinated";
+
+  const dueDate = new Date(`${effectiveDueDate.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(dueDate.getTime())) return "Vaccinated";
 
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const daysUntilDue = Math.round((dueDate.getTime() - todayMidnight.getTime()) / 86400000);
   if (daysUntilDue < 0) return "Expired";
   if (daysUntilDue <= 30) return "Due soon";
-  return vaccinated ? "Vaccinated" : "Not scheduled";
+  return "Vaccinated";
 }
