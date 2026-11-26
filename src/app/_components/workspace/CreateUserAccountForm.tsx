@@ -67,7 +67,7 @@ export default function CreateUserAccountForm({ createAccount }: { createAccount
             <p className="create-account-note">Administrator accounts have full access to staff tools. Passwords are not sent by email or SMS.</p>
             {error && <p className="form-error" role="alert">{error}</p>}
             {success && <p className="create-account-success" role="status" aria-live="polite">{success}</p>}
-            <button className="primary-button" type="submit" disabled={pending}>{pending ? "Creating account…" : "Create account"}</button>
+            <button className="primary-button" type="submit" disabled={pending} data-loading={pending ? "true" : undefined} aria-busy={pending}>{pending ? "Creating account…" : "Create account"}</button>
           </form>
         </section>
       </div>}

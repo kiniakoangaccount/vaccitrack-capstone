@@ -212,7 +212,7 @@ export function SmsComposer() {
           <div className="sms-composer-actions">
             <button className="secondary-button" type="button" onClick={() => setPreview(null)} disabled={busy}>Edit</button>
             {preview.count > 0 && (
-              <button className="primary-button" type="button" onClick={() => void sendMessage()} disabled={busy}>
+              <button className="primary-button" type="button" onClick={() => void sendMessage()} disabled={busy} data-loading={busy ? "true" : undefined} aria-busy={busy}>
                 <Send size={15} /> {busy ? "Sending..." : `Send to ${preview.count}`}
               </button>
             )}
@@ -222,7 +222,7 @@ export function SmsComposer() {
 
       {!preview && (
         <button
-          className="primary-button sms-review-button"
+          className="primary-button sms-review-button" aria-busy={busy}
           type="button"
           onClick={() => void reviewRecipients()}
           disabled={busy || loadingRecipients || Boolean(loadError) || !message.trim() || (mode === "individual" && !recipientId)}

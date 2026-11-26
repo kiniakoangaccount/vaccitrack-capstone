@@ -126,7 +126,7 @@ export default function ProfilePage() {
                   <input className="account-input" name="contact" defaultValue={profile.contact} inputMode="numeric" pattern="[0-9+]{7,15}" required />
                 </label>
                 <div className="account-actions">
-                  <button className="primary-button" type="submit" disabled={saving}><User size={15} /> Save changes</button>
+                  <button className="primary-button" type="submit" disabled={saving} data-loading={saving ? "true" : undefined} aria-busy={saving}><User size={15} /> Save changes</button>
                   <button className="secondary-button" type="reset" disabled={saving}>Cancel</button>
                 </div>
               </form>
@@ -168,7 +168,7 @@ export default function ProfilePage() {
                 </label>
                 <p className="account-help">SMS reminders require a valid mobile number.</p>
                 <div className="account-actions">
-                  <button className="primary-button" type="submit" disabled={preferencesSaving}>
+                  <button className="primary-button" type="submit" disabled={preferencesSaving} data-loading={preferencesSaving ? "true" : undefined} aria-busy={preferencesSaving}>
                     <Bell size={15} /> Save reminder preferences
                   </button>
                 </div>
@@ -215,7 +215,7 @@ export default function ProfilePage() {
                       <input className="account-input" inputMode="numeric" maxLength={6} value={usernameCode} onChange={(e) => setUsernameCode(e.target.value.replace(/\D/g, ""))} required placeholder="6-digit code" />
                     </label>
                     <div className="account-actions">
-                      <button className="primary-button" type="submit" disabled={usernameBusy || usernameCode.length !== 6}><Key size={15} /> Confirm change</button>
+                      <button className="primary-button" type="submit" disabled={usernameBusy || usernameCode.length !== 6} data-loading={usernameBusy ? "true" : undefined} aria-busy={usernameBusy}><Key size={15} /> Confirm change</button>
                       <button className="secondary-button" type="button" disabled={usernameBusy} onClick={() => sendCode("username_change")}>Resend code</button>
                     </div>
                   </>
@@ -267,7 +267,7 @@ export default function ProfilePage() {
                       <input className="account-input" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="Re-enter new password" />
                     </label>
                     <div className="account-actions">
-                      <button className="primary-button" type="submit" disabled={passwordBusy || passwordCode.length !== 6 || !newPassword || !confirmPassword}><Key size={15} /> Update password</button>
+                      <button className="primary-button" type="submit" disabled={passwordBusy || passwordCode.length !== 6 || !newPassword || !confirmPassword} data-loading={passwordBusy ? "true" : undefined} aria-busy={passwordBusy}><Key size={15} /> Update password</button>
                       <button className="secondary-button" type="button" disabled={passwordBusy} onClick={() => sendCode("password_change")}>Resend code</button>
                     </div>
                   </>

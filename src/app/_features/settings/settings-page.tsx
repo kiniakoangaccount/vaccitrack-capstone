@@ -175,7 +175,7 @@ function PurokManager({ canManage }: { canManage: boolean }) {
           <input className="account-input" placeholder="Longitude (optional)" inputMode="decimal" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} />
         </div>
         <div className="settings-actions">
-          <button className="primary-button" type="submit" disabled={saving || !form.name.trim()}><Save size={14} /> {editing ? "Update" : "Add"} purok</button>
+          <button className="primary-button" type="submit" disabled={saving || !form.name.trim()} data-loading={saving ? "true" : undefined} aria-busy={saving}><Save size={14} /> {editing ? "Update" : "Add"} purok</button>
           {editing && <button className="secondary-button" type="button" onClick={() => { setEditing(null); setForm({ name: "", latitude: "", longitude: "" }); }}>Cancel</button>}
         </div>
       </form> : <p className="module-muted" style={{ margin: "14px 0" }}>Only administrators can add, edit, or remove purok areas.</p>}
@@ -279,7 +279,7 @@ function VaccineManager() {
           </select>
         </div>
         <div className="settings-actions">
-          <button className="primary-button" type="submit" disabled={saving || !form.name.trim()}><Save size={14} /> {editing ? "Update" : "Add"} vaccine</button>
+          <button className="primary-button" type="submit" disabled={saving || !form.name.trim()} data-loading={saving ? "true" : undefined} aria-busy={saving}><Save size={14} /> {editing ? "Update" : "Add"} vaccine</button>
           {editing && <button className="secondary-button" type="button" onClick={() => { setEditing(null); setForm({ name: "", species: "Both" }); }}>Cancel</button>}
         </div>
       </form>

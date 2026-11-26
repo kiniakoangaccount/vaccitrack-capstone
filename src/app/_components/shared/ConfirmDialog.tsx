@@ -44,7 +44,7 @@ export default function ConfirmDialog({
           <button type="button" className="secondary-button" onClick={onCancel} disabled={busy}>
             {cancelLabel}
           </button>
-          <button type="button" className={`primary-button${danger ? " danger-button" : ""}`} onClick={onConfirm} disabled={busy}>
+          <button type="button" className={`primary-button${danger ? " danger-button" : ""}`} onClick={onConfirm} disabled={busy} data-loading={busy ? "true" : undefined} aria-busy={busy}>
             {busy ? "Working..." : confirmLabel}
           </button>
         </div>

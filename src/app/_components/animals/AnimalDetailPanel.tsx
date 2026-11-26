@@ -243,7 +243,7 @@ export default function AnimalDetailPanel({
                 {editError && <p className="form-error">{editError}</p>}
                 <div className="booster-actions">
                   <button className="secondary-button" onClick={() => setShowEditForm(false)} disabled={isEditSaving}>Cancel</button>
-                  <button className="primary-button" onClick={submitEdit} disabled={isEditSaving}>
+                  <button className="primary-button" onClick={submitEdit} disabled={isEditSaving} data-loading={isEditSaving ? "true" : undefined} aria-busy={isEditSaving}>
                     <Save size={14} /> {isEditSaving ? "Saving..." : "Save changes"}
                   </button>
                 </div>
@@ -302,7 +302,7 @@ export default function AnimalDetailPanel({
                 {error && <p className="form-error">{error}</p>}
                 <div className="booster-actions">
                   <button className="secondary-button" onClick={() => setShowAddForm(false)}>Cancel</button>
-                  <button className="primary-button" onClick={submitRecord} disabled={isSaving}>
+                  <button className="primary-button" onClick={submitRecord} disabled={isSaving} data-loading={isSaving ? "true" : undefined} aria-busy={isSaving}>
                     <Syringe size={14} /> {isSaving ? "Saving..." : "Record vaccination"}
                   </button>
                 </div>
