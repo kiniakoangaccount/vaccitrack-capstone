@@ -135,7 +135,7 @@ type Animal = {
   owner: string;
   purok: string;
   vaccinated: boolean;
-  status: "Vaccinated" | "Due soon" | "Overdue" | "Not scheduled";
+  status: "Vaccinated" | "Due soon" | "Expired" | "Not scheduled";
   vaccineDate?: string | null;
   nextDueDate: string | null;
   nextDue: string;
@@ -250,7 +250,7 @@ function firstVaccineFor(species: string): string {
 const statusStyles: Record<Animal["status"], string> = {
   Vaccinated: "status-good",
   "Due soon": "status-warn",
-  Overdue: "status-danger",
+  Expired: "status-overdue",
   "Not scheduled": "status-neutral",
 };
 
@@ -290,7 +290,7 @@ function buildCoverageBreakdown(animals: Animal[], keyFn: (animal: Animal) => st
     const key = keyFn(animal);
     const entry = totals.get(key) ?? { total: 0, vaccinated: 0 };
     entry.total += 1;
-    if (animal.vaccinated) entry.vaccinated += 1;
+    if (animal.status === "Vaccinated") entry.vaccinated += 1;
     totals.set(key, entry);
   }
   const keys = order ? order.filter((key) => totals.has(key)) : Array.from(totals.keys()).sort();
@@ -304,12 +304,12 @@ function buildPurokRiskRows(animals: Animal[], purokNames: string[]) {
   return purokNames.map((purokName) => {
     const records = animals.filter((animal) => animal.purok === purokName);
     const unvaccinated = records.filter((animal) => !animal.vaccinated).length;
-    const vaccinated = records.length - unvaccinated;
+    const vaccinated = records.filter((animal) => animal.status === "Vaccinated").length;
     const dueSoon = records.filter((animal) => animal.status === "Due soon").length;
-    const overdue = records.filter((animal) => animal.status === "Overdue").length;
+    const overdue = records.filter((animal) => animal.status === "Expired").length;
     const notScheduled = records.filter((animal) => animal.status === "Not scheduled").length;
     const unvaccinatedRate = records.length ? Math.round((unvaccinated / records.length) * 100) : 0;
-    const coverageRate = records.length ? 100 - unvaccinatedRate : 0;
+    const coverageRate = records.length ? Math.round((vaccinated / records.length) * 100) : 0;
     const maxUnvaccinatedAtTarget = records.length - Math.ceil(records.length * 0.7);
     const gapToTarget = Math.max(0, unvaccinated - maxUnvaccinatedAtTarget);
     const risk = records.length === 0 ? "NO DATA" : unvaccinated * 2 > records.length ? "HIGH" : unvaccinated * 10 > records.length * 3 ? "MODERATE" : "LOW";
@@ -973,7 +973,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   async function queueReminders() {
     setBulkSentState(false);
     const eligibleIds = reportAnimals
-      .filter((animal) => (animal.status === "Due soon" || animal.status === "Overdue") && typeof animal.id === "number")
+      .filter((animal) => (animal.status === "Due soon" || animal.status === "Expired") && typeof animal.id === "number")
       .map((animal) => animal.id as number);
     const result = await queueVaccinationReminders(eligibleIds, bulkMessage);
     if (result.error) {
@@ -988,7 +988,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       setBulkSentState(false);
       return;
     }
-    const eligibleCount = reportAnimals.filter((animal) => (animal.status === "Due soon" || animal.status === "Overdue") && animal.contact).length;
+    const eligibleCount = reportAnimals.filter((animal) => (animal.status === "Due soon" || animal.status === "Expired") && animal.contact).length;
     setConfirmDialog({
       title: "Send bulk reminder",
       message: `Send this reminder to ${eligibleCount} contact${eligibleCount === 1 ? "" : "s"}? This cannot be undone.`,
@@ -1035,17 +1035,17 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   );
   const activeRegistryFilterCount = Object.values(registryFilters).filter((value) => value !== "All").length;
 
-  const REGISTRY_PAGE_SIZE = 20;
+  const REGISTRY_PAGE_SIZE = 15;
   const registryPageCount = Math.max(1, Math.ceil(filteredRegistryAnimals.length / REGISTRY_PAGE_SIZE));
   const registryPageSafe = Math.min(registryPage, registryPageCount - 1);
   const pagedRegistryAnimals = filteredRegistryAnimals.slice(registryPageSafe * REGISTRY_PAGE_SIZE, (registryPageSafe + 1) * REGISTRY_PAGE_SIZE);
 
   const dashboardStats = useMemo(() => ({
     registered: animalRecords.length,
-    vaccinated: animalRecords.filter((animal) => animal.vaccinated).length,
+    vaccinated: animalRecords.filter((animal) => animal.status === "Vaccinated").length,
     unvaccinated: animalRecords.filter((animal) => !animal.vaccinated).length,
     dueSoon: animalRecords.filter((animal) => animal.status === "Due soon").length,
-    overdue: animalRecords.filter((animal) => animal.status === "Overdue").length,
+    overdue: animalRecords.filter((animal) => animal.status === "Expired").length,
   }), [animalRecords]);
 
   const riskRows = useMemo(() => buildPurokRiskRows(animalRecords, riskPurokNames), [animalRecords, riskPurokNames]);
@@ -1062,14 +1062,14 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
 
   const riskSummary = useMemo(() => ({
     totalAnimals: animalRecords.length,
-    overdue: animalRecords.filter((animal) => animal.status === "Overdue").length,
+    overdue: animalRecords.filter((animal) => animal.status === "Expired").length,
     dueSoon: animalRecords.filter((animal) => animal.status === "Due soon").length,
     notScheduled: animalRecords.filter((animal) => animal.status === "Not scheduled").length,
     aboveUnvaccinatedTarget: riskRows.filter((row) => row.total > 0 && row.unvaccinated * 10 > row.total * 3).length,
     highUnvaccinated: riskRows.filter((row) => row.risk === "HIGH").length,
   }), [animalRecords, riskRows]);
 
-  const schedulableAnimals = useMemo(() => animalRecords.filter((animal) => animal.status === "Overdue" || animal.status === "Due soon"), [animalRecords]);
+  const schedulableAnimals = useMemo(() => animalRecords.filter((animal) => animal.status === "Expired" || animal.status === "Due soon"), [animalRecords]);
 
   const vaccineOptions = useMemo(() => {
     const extra = customVaccines.filter((custom) => !VACCINE_DATA.some((vaccine) => vaccine.name.toLowerCase() === custom.name.toLowerCase()));
@@ -1093,7 +1093,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const reportSummary = {
     total: reportAnimals.length,
     vaccinated: reportAnimals.filter((animal) => animal.vaccinated).length,
-    expiring: reportAnimals.filter((animal) => animal.status === "Due soon" || animal.status === "Overdue").length,
+    expiring: reportAnimals.filter((animal) => animal.status === "Due soon" || animal.status === "Expired").length,
     impounded: reportAnimals.filter((animal) => animal.impoundArea).length,
   };
 
@@ -1164,7 +1164,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
         metrics: [
           { label: "Records in range", value: reportSummary.total },
           { label: "Vaccinated", value: reportSummary.vaccinated },
-          { label: "Due soon / overdue", value: reportSummary.expiring },
+          { label: "Due soon / expired", value: reportSummary.expiring },
           { label: "In impound", value: reportSummary.impounded },
         ],
         tables: [
@@ -1652,7 +1652,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                 </div>
               )}
             </div>)}
-            {activeTab === "Planning" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PROGRAM PLANNING</p><h2>Vaccination plan</h2><p>Prioritize overdue animals and upcoming vaccination drives.</p></div><span className="module-chip"><CalendarDays size={14} /> 90-day view</span></div><div className="registry-filter-controls planning-location-filter"><label>Location<select aria-label="Filter vaccination plan by location" value={planningLocation} onChange={(event) => setPlanningLocation(event.target.value)}><option value="All">All locations</option>{animalFilterOptions.locations.map((location) => <option key={location} value={location}>{location}</option>)}</select></label></div><div className="planning-grid"><div className="planning-list"><h3>Needs immediate action</h3>{planningAnimals.filter((animal) => animal.status === "Overdue").map((animal) => <div className="planning-row" key={`overdue-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}{planningAnimals.filter((animal) => animal.status === "Overdue").length === 0 && <p className="module-muted"><CheckCircle2 size={16} /> No overdue vaccinations.</p>}</div><div className="planning-list"><h3>Upcoming vaccinations</h3>{planningAnimals.filter((animal) => animal.status === "Due soon").map((animal) => <div className="planning-row" key={`due-${animal.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}</div></div></div> : <RoleBlocked role={userRole} message="Vaccination planning is only available for staff accounts (admin, bhw)." />)}
+            {activeTab === "Planning" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PROGRAM PLANNING</p><h2>Vaccination plan</h2><p>Prioritize overdue animals and upcoming vaccination drives.</p></div><span className="module-chip"><CalendarDays size={14} /> 90-day view</span></div><div className="registry-filter-controls planning-location-filter"><label>Location<select aria-label="Filter vaccination plan by location" value={planningLocation} onChange={(event) => setPlanningLocation(event.target.value)}><option value="All">All locations</option>{animalFilterOptions.locations.map((location) => <option key={location} value={location}>{location}</option>)}</select></label></div><div className="planning-grid"><div className="planning-list"><h3>Needs immediate action</h3>{planningAnimals.filter((animal) => animal.status === "Expired").map((animal) => <div className="planning-row" key={`overdue-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}{planningAnimals.filter((animal) => animal.status === "Expired").length === 0 && <p className="module-muted"><CheckCircle2 size={16} /> No expired vaccinations.</p>}</div><div className="planning-list"><h3>Upcoming vaccinations</h3>{planningAnimals.filter((animal) => animal.status === "Due soon").map((animal) => <div className="planning-row" key={`due-${animal.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}</div></div></div> : <RoleBlocked role={userRole} message="Vaccination planning is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Appointments" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">CLINIC WORKFLOW</p><h2>Vaccination appointments</h2><p>Schedule upcoming vaccination visits and assign them to a BHW or admin staff member.</p></div></div><form className="feedback-form" onSubmit={submitAppointment}><label>Animal<select required value={appointmentForm.animalId} onChange={(event) => setAppointmentForm({ ...appointmentForm, animalId: event.target.value })}><option value="">Select an animal needing vaccination</option>{schedulableAnimals.map((animal) => <option key={animal.id} value={animal.id}>{animal.name} — {animal.owner} ({animal.purok})</option>)}</select></label><label>Assign to<select required value={appointmentForm.assignedTo} onChange={(event) => setAppointmentForm({ ...appointmentForm, assignedTo: event.target.value })}><option value="">Select staff</option>{teamMembers.map((member) => <option key={member.id} value={member.id}>{member.fullName} ({member.role})</option>)}</select></label><label>Scheduled date<input required type="date" min={todayLocalIso()} value={appointmentForm.scheduledDate} onChange={(event) => setAppointmentForm({ ...appointmentForm, scheduledDate: event.target.value })} /></label><label>Notes <small>(optional)</small><textarea rows={3} value={appointmentForm.notes} onChange={(event) => setAppointmentForm({ ...appointmentForm, notes: event.target.value })} /></label>{appointmentError && <p className="form-error">{appointmentError}</p>}<button className="primary-button" type="submit"><CalendarClock size={16} /> Schedule appointment</button></form><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Owner</th><th>Assigned to</th><th>Scheduled date</th><th>Status</th></tr></thead><tbody>{appointments.map((appointment) => <tr key={`appt-${appointment.id}`}><td>{appointment.animalName}</td><td>{appointment.ownerName}</td><td>{appointment.assignedName}</td><td>{formatVaccineDate(appointment.scheduledDate)}</td><td><select className="pound-status-select" value={appointment.status} onChange={(event) => void changeAppointmentStatus(appointment.id, event.target.value as AppointmentStatus)}><option>Scheduled</option><option>Completed</option><option>Missed</option><option>Cancelled</option></select></td></tr>)}</tbody></table>{appointments.length === 0 && <div className="empty-state">No appointments scheduled yet.</div>}</div></div> : <RoleBlocked role={userRole} message="Appointments are only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Reports" && (isStaff ? (
               <div className="module-content report-module">
@@ -1709,7 +1709,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                   <div className="planning-grid no-print">
                     <div className="planning-list">
                       <h3>Expiry detection</h3>
-                      {reportAnimals.filter((animal) => animal.status === "Due soon" || animal.status === "Overdue").map((animal) => (
+                      {reportAnimals.filter((animal) => animal.status === "Due soon" || animal.status === "Expired").map((animal) => (
                         <div className="planning-row" key={`expiry-${animal.id}`}>
                           <span className="planning-icon danger"><Bell size={15} /></span>
                           <span><strong>{animal.name} — {animal.owner}</strong><small>{animal.contact || "No contact recorded"} · {animal.nextDue}</small></span>
@@ -1719,7 +1719,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                     </div>
                     <form className="planning-list" onSubmit={(event) => { event.preventDefault(); setBulkSent(true); }}>
                       <h3>Send reminder to many</h3>
-                      <p className="heading-sub">Recipients: {reportAnimals.filter((animal) => (animal.status === "Due soon" || animal.status === "Overdue") && animal.contact).length} valid contacts</p>
+                      <p className="heading-sub">Recipients: {reportAnimals.filter((animal) => (animal.status === "Due soon" || animal.status === "Expired") && animal.contact).length} valid contacts</p>
                       <textarea required rows={4} value={bulkMessage} onChange={(event) => setBulkMessage(event.target.value)} />
                       {bulkSent && <p className="module-muted"><CheckCircle2 size={15} /> Reminder queue prepared for valid contacts.</p>}
                       <button className="primary-button" type="submit"><Send size={15} /> Queue reminders</button>
@@ -1738,13 +1738,13 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
               </div>
               <div className="risk-summary" aria-label="Barangay risk summary">
                 <article><strong>{riskSummary.totalAnimals}</strong><span>Registered animals</span></article>
-                <article className="risk-summary-alert"><strong>{riskSummary.overdue}</strong><span>Overdue vaccinations</span></article>
+                <article className="risk-summary-alert"><strong>{riskSummary.overdue}</strong><span>Expired vaccinations</span></article>
                 <article><strong>{riskSummary.dueSoon}</strong><span>Due within 30 days</span></article>
                 <article><strong>{riskSummary.notScheduled}</strong><span>Without a due date</span></article>
                 <article className="risk-summary-alert"><strong>{riskSummary.aboveUnvaccinatedTarget}</strong><span>Puroks above 30% unvaccinated</span></article>
                 <article className="risk-summary-high"><strong>{riskSummary.highUnvaccinated}</strong><span>Puroks above 50% unvaccinated</span></article>
               </div>
-              <p className="risk-explainer">Unvaccinated rate = unvaccinated animals ÷ registered animals. High risk means more than 50% unvaccinated; Moderate means more than 30% and up to 50%; Low means 30% or less. The 70% vaccination target is met when no more than 30% are unvaccinated. Due soon and overdue counts are shown separately because those animals may have a previous vaccination record. Select a purok card to view all its animal records.</p>
+              <p className="risk-explainer">Unvaccinated rate = unvaccinated animals ÷ registered animals. High risk means more than 50% unvaccinated; Moderate means more than 30% and up to 50%; Low means 30% or less. The 70% vaccination target is met when no more than 30% are unvaccinated. Due soon and expired counts are shown separately because those animals may have a previous vaccination record. Select a purok card to view all its animal records.</p>
               <div className="risk-filter-bar">
                 <span className="risk-filter-label">Filter by risk level:</span>
                 {(["All", "HIGH", "MODERATE", "LOW", "NO DATA"] as const).map((level) => (
@@ -1768,7 +1768,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                   <div className="risk-count"><strong>{row.unvaccinatedRate}%</strong><small>{row.unvaccinated} of {row.total} unvaccinated</small></div>
                   <div className="progress risk-progress" role="progressbar" aria-label={`${row.purok} unvaccinated rate`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={row.unvaccinatedRate}><span style={{ width: `${row.unvaccinatedRate}%` }} /></div>
                   <p className="risk-gap">{row.gapToTarget > 0 ? `Vaccinate ${row.gapToTarget} more animal${row.gapToTarget === 1 ? "" : "s"} to reach the 70% coverage target.` : "Unvaccinated rate is within the 30% target."}</p>
-                  <dl className="risk-details"><div><dt>Overdue</dt><dd>{row.overdue}</dd></div><div><dt>Due within 30 days</dt><dd>{row.dueSoon}</dd></div><div><dt>No due date</dt><dd>{row.notScheduled}</dd></div></dl>
+                  <dl className="risk-details"><div><dt>Expired</dt><dd>{row.overdue}</dd></div><div><dt>Due within 30 days</dt><dd>{row.dueSoon}</dd></div><div><dt>No due date</dt><dd>{row.notScheduled}</dd></div></dl>
                 </>}
               </article>)}</div>
               {selectedRiskPurok && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setSelectedRiskPurok(null)}>
@@ -1778,7 +1778,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                     <article><strong>{selectedRiskRow.total}</strong><span>Registered animals</span></article>
                     <article className="risk-summary-alert"><strong>{selectedRiskRow.unvaccinated} ({selectedRiskRow.unvaccinatedRate}%)</strong><span>Unvaccinated</span></article>
                     <article><strong>{selectedRiskRow.dueSoon}</strong><span>Due within 30 days</span></article>
-                    <article className="risk-summary-high"><strong>{selectedRiskRow.overdue}</strong><span>Overdue</span></article>
+                    <article className="risk-summary-high"><strong>{selectedRiskRow.overdue}</strong><span>Expired</span></article>
                   </div>}
                   <div className="table-wrap risk-purok-table"><table><thead><tr><th>Animal</th><th>Species / type</th><th>Owner / contact</th><th>Vaccination status</th><th>Vaccine</th><th>Last / next vaccination</th></tr></thead><tbody>{selectedRiskAnimals.map((animal) => <tr key={`purok-${selectedRiskPurok}-${animal.id}`}>
                     <td><strong>{animal.name}</strong></td><td>{animal.species} · {animal.classification ?? "Pet"}</td><td>{animal.owner}<small>{animal.contact || "No contact recorded"}</small></td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td><td>{animal.vaccineType || "Not recorded"}</td><td>Last: {formatVaccineDate(animal.vaccineDate)}<small>Next: {animal.nextDue}</small></td>
@@ -1789,7 +1789,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
             {activeTab === "Map" && (isStaff ? <div className="module-content">
               <div className="module-intro"><div><p className="eyebrow">GEOSPATIAL COVERAGE</p><h2>Barangay coverage map</h2><p>Use purok-level records to plan field visits and vaccination drives.</p></div><span className="module-chip"><MapPin size={14} /> {purokOptions.length} puroks monitored</span></div>
               <LeafletMap animals={animalRecords.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species, classification: animal.classification ?? "Pet", owner: animal.owner, purok: animal.purok, vaccinated: animal.vaccinated, status: animal.status, vaccineDate: animal.vaccineDate, nextDueDate: animal.nextDueDate, vaccineType: animal.vaccineType, breed: animal.breed, age: animal.age, contact: animal.contact, latitude: animal.latitude, longitude: animal.longitude }))} puroks={purokOptions} onAnimalSelect={(animalId) => { const animal = animalRecords.find((record) => String(record.id) === String(animalId)); if (animal) void openAnimalDetail(animal); }} />
-              <div className="map-legend" role="list" aria-label="Vaccination status legend"><span role="listitem"><i className="map-status-dot vaccinated" /> Vaccinated</span><span role="listitem"><i className="map-status-dot expiring" /> Expiring soon</span><span role="listitem"><i className="map-status-dot overdue" /> Overdue</span><span role="listitem"><i className="map-status-dot unvaccinated" /> Unvaccinated</span></div>
+              <div className="map-legend" role="list" aria-label="Vaccination status legend"><span role="listitem"><i className="map-status-dot vaccinated" /> Vaccinated</span><span role="listitem"><i className="map-status-dot expiring" /> Expiring soon</span><span role="listitem"><i className="map-status-dot overdue" /> Expired</span><span role="listitem"><i className="map-status-dot unvaccinated" /> Unvaccinated</span></div>
             </div> : <RoleBlocked role={userRole} message="Coverage map is only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Pound" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">STRAY &amp; POUND</p><h2>Stray dog directory</h2><p>Track impounded and stray animals through intake, observation, and outcome.</p></div><span className="module-chip"><HomeIcon size={14} /> {strayAnimals.length} strays</span></div><div className="pound-filters"><div className="search-box"><Search size={16} /><input aria-label="Search strays" placeholder="Search name, purok, or impound area..." value={poundQuery} onChange={(event) => setPoundQuery(event.target.value)} /></div><select value={poundStatusFilter} onChange={(event) => setPoundStatusFilter(event.target.value as PoundStatus | "All")}><option value="All">All statuses</option>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></div>{poundError && <p className="form-error">{poundError}</p>}{strayAnimals.length === 0 ? <div className="empty-state">No stray animals match the current filters.</div> : <div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th><th>Pound status</th></tr></thead><tbody>{strayAnimals.map((animal) => <tr key={`pound-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td><td><select className="pound-status-select" value={animal.poundStatus ?? "Under Observation"} onChange={(event) => changePoundStatus(animal.id, event.target.value as PoundStatus)}>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></td></tr>)}</tbody></table></div>}</div> : <RoleBlocked role={userRole} message="Stray and pound records are only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Feedback" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Client feedback</h2><p>Feedback submitted by clients, for admin and BHW review.</p></div></div>{feedbackListError && <p className="form-error">{feedbackListError}</p>}{feedbackItems.length === 0 ? <div className="empty-state">No feedback submitted yet.</div> : <div className="table-wrap module-table"><table><thead><tr><th>From</th><th>Category</th><th>Message</th><th>Received</th><th>Status</th></tr></thead><tbody>{feedbackItems.map((item) => <tr key={`feedback-${item.id}`}><td>{item.senderName}</td><td>{item.category}</td><td>{item.message}</td><td>{new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</td><td><select className="pound-status-select" value={item.status} onChange={(event) => void changeFeedbackStatus(item.id, event.target.value as "New" | "Reviewed" | "Resolved")}><option>New</option><option>Reviewed</option><option>Resolved</option></select></td></tr>)}</tbody></table></div>}</div> : isClient ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Feedback and suggestions</h2><p>Send notes to the barangay animal health team.</p></div></div>{feedbackSent ? <div className="feedback-success"><CheckCircle2 size={22} /><div><strong>Feedback submitted</strong><p>Thank you. Your message has been recorded for review.</p></div><button className="secondary-button" onClick={() => setFeedbackSent(false)}>Send another</button></div> : <form className="feedback-form" onSubmit={submitFeedback}><label>Category<select value={feedbackCategory} onChange={(event) => setFeedbackCategory(event.target.value)}><option>Suggestion</option><option>Complaint</option><option>Compliment</option></select></label><label>Message<textarea required rows={5} placeholder="Tell us how to improve our service." value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} /></label><button className="primary-button" type="submit"><MessageSquare size={16} /> Submit feedback</button></form>}</div> : <RoleBlocked role={userRole} message="Feedback is only available for client and staff accounts (admin, bhw)." />)}
@@ -1807,7 +1807,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
             <article className="stat-card"><div className="stat-top"><span className="stat-icon blue"><PawPrint size={18} /></span><span className="trend neutral">Total</span></div><p className="stat-number">{dashboardStats.registered}</p><p className="stat-label">Registered animals</p><div className="stat-foot">Current registry</div></article>
             <article className="stat-card"><div className="stat-top"><span className="stat-icon red"><ShieldCheck size={18} /></span><span className="trend danger">Needs follow-up</span></div><p className="stat-number">{dashboardStats.unvaccinated}</p><p className="stat-label">Unvaccinated animals</p><div className="stat-foot">{dashboardStats.registered ? Math.round((dashboardStats.unvaccinated / dashboardStats.registered) * 100) : 0}% of total registry</div></article>
             <article className="stat-card"><div className="stat-top"><span className="stat-icon amber"><CalendarDays size={18} /></span><span className="trend neutral">This month</span></div><p className="stat-number">{dashboardStats.dueSoon}</p><p className="stat-label">Due for vaccination</p><div className="stat-foot">Needs scheduling</div></article>
-            <article className="stat-card"><div className="stat-top"><span className="stat-icon red"><Bell size={18} /></span><span className="trend danger">Needs action</span></div><p className="stat-number">{dashboardStats.overdue}</p><p className="stat-label">Overdue vaccinations</p><div className="stat-foot">Review registry</div></article>
+            <article className="stat-card"><div className="stat-top"><span className="stat-icon red"><Bell size={18} /></span><span className="trend danger">Needs action</span></div><p className="stat-number">{dashboardStats.overdue}</p><p className="stat-label">Expired vaccinations</p><div className="stat-foot">Review registry</div></article>
           </div>
 
           {isStaff && <div className="section-grid dashboard-insights-grid"><section className="panel dashboard-insight-panel"><div className="panel-heading"><div><h2>Upcoming appointments</h2><p>Scheduled visits from the live appointment list</p></div><button className="text-button" onClick={() => setActiveTab("Appointments")}>View all →</button></div>{dashboardAppointments.length === 0 ? <p className="module-muted"><CalendarClock size={16} /> No upcoming appointments scheduled.</p> : <div className="purok-list">{dashboardAppointments.map((appointment) => <div className="planning-row" key={`dashboard-appt-${appointment.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{appointment.animalName}</strong><small>{appointment.ownerName} · Assigned to {appointment.assignedName}</small></span><em>{formatVaccineDate(appointment.scheduledDate)}</em></div>)}</div>}</section><section className="panel dashboard-insight-panel"><div className="panel-heading"><div><h2>Unvaccinated by purok</h2><p>Highest unvaccinated share, based on registered animals</p></div><button className="text-button" onClick={() => setActiveTab("Risk")}>View risk →</button></div>{dashboardRiskRows.length === 0 ? <p className="module-muted">No purok data available.</p> : <div className="purok-list">{dashboardRiskRows.map((row) => <div className="coverage-row dashboard-risk-row" key={row.purok}><div className="coverage-meta"><span>{row.purok}</span><strong>{row.unvaccinated} / {row.total} <em>{row.unvaccinatedRate}%</em></strong></div><div className="progress"><span style={{ width: `${row.unvaccinatedRate}%` }} /></div></div>)}</div>}</section></div>}

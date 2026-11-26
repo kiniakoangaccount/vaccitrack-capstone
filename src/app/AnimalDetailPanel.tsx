@@ -182,7 +182,7 @@ export default function AnimalDetailPanel({
             <dl className="animal-vaccination-status">
               <div>
                 <dt>Vaccination status</dt>
-                <dd><span className={`status ${animal.vaccinated ? "status-good" : animal.status === "Overdue" ? "status-danger" : "status-warn"}`}><i />{animal.status}</span></dd>
+                <dd><span className={`status ${animal.vaccinated && animal.status === "Vaccinated" ? "status-good" : animal.status === "Expired" ? "status-overdue" : animal.status === "Due soon" ? "status-warn" : "status-neutral"}`}><i />{animal.status}</span></dd>
               </div>
               <div>
                 <dt>Last vaccinated</dt>

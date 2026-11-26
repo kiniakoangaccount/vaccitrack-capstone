@@ -1,4 +1,4 @@
-export type AnimalStatus = "Vaccinated" | "Due soon" | "Overdue" | "Not scheduled";
+export type AnimalStatus = "Vaccinated" | "Due soon" | "Expired" | "Not scheduled";
 
 // Nominatim's bounded search uses a rectangular viewbox. This padded box
 // covers the known Estefania purok centers and nearby addresses.
@@ -100,7 +100,7 @@ export function getAnimalStatus(vaccinated: boolean, nextDueDate: string | null,
 
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const daysUntilDue = Math.round((dueDate.getTime() - todayMidnight.getTime()) / 86400000);
-  if (daysUntilDue < 0) return "Overdue";
+  if (daysUntilDue < 0) return "Expired";
   if (daysUntilDue <= 30) return "Due soon";
   return vaccinated ? "Vaccinated" : "Not scheduled";
 }

@@ -66,11 +66,11 @@ function clusterHtml(count: number): string {
   return `<span style="background:#2f8065;color:#fff;border:3px solid #fff;border-radius:50%;display:grid;place-items:center;width:36px;height:36px;box-sizing:border-box;font-weight:700;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.35);">${count}</span>`;
 }
 
-type MapVaccinationCategory = "Vaccinated" | "Expiring soon" | "Overdue" | "Unvaccinated";
+type MapVaccinationCategory = "Vaccinated" | "Expiring soon" | "Expired" | "Unvaccinated";
 
 function vaccinationCategory(animal: MapAnimal): MapVaccinationCategory {
   if (!animal.vaccinated) return "Unvaccinated";
-  if (animal.status === "Overdue") return "Overdue";
+  if (animal.status === "Expired") return "Expired";
   if (animal.status === "Due soon") return "Expiring soon";
   return "Vaccinated";
 }
@@ -79,7 +79,7 @@ function statusColor(category: MapVaccinationCategory): string {
   switch (category) {
     case "Vaccinated": return "#2f8065";
     case "Expiring soon": return "#f2c94c";
-    case "Overdue": return "#f28c28";
+    case "Expired": return "#f28c28";
     case "Unvaccinated": return "#d64545";
   }
 }
@@ -88,7 +88,7 @@ function statusClass(category: MapVaccinationCategory): string {
   switch (category) {
     case "Vaccinated": return "status-good";
     case "Expiring soon": return "status-warn";
-    case "Overdue": return "status-overdue";
+    case "Expired": return "status-overdue";
     case "Unvaccinated": return "status-danger";
   }
 }
@@ -374,7 +374,7 @@ export default function LeafletMap({
           <option value="All">All statuses</option>
           <option value="Vaccinated">Vaccinated</option>
           <option value="Expiring soon">Expiring soon</option>
-          <option value="Overdue">Overdue</option>
+          <option value="Expired">Expired</option>
           <option value="Unvaccinated">Unvaccinated</option>
         </select>}
         {!pickMode && <select aria-label="Filter by purok or service area" value={purokFilter} onChange={(event) => setPurokFilter(event.target.value)}>
