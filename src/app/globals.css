@@ -1021,6 +1021,16 @@ form input[type="radio"] { accent-color: var(--green); }
 .risk-high .risk-progress span { background: #d64545; }
 .risk-moderate .risk-progress span { background: #d99d40; }
 .risk-low .risk-progress span { background: #57a875; }
+.risk-filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 20px; }
+.risk-filter-label { color: #607168; font-size: 14px; font-weight: 700; }
+.risk-filter-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 20px; background: #fbfdfb; color: #607168; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease; }
+.risk-filter-btn:hover, .risk-filter-btn:focus-visible { background: #edf4ef; border-color: #8fb7a0; outline: none; }
+.risk-filter-btn-active { background: #344b40 !important; border-color: #344b40 !important; color: #fff !important; }
+.risk-filter-btn-high.risk-filter-btn-active { background: #b96057 !important; border-color: #b96057 !important; }
+.risk-filter-btn-moderate.risk-filter-btn-active { background: #ad7c31 !important; border-color: #ad7c31 !important; }
+.risk-filter-btn-low.risk-filter-btn-active { background: #3d8b5e !important; border-color: #3d8b5e !important; }
+.risk-filter-btn-no-data.risk-filter-btn-active { background: #607168 !important; border-color: #607168 !important; }
+.risk-filter-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: rgba(0,0,0,.08); font-size: 12px; font-weight: 700; }
 .report-controls { align-items: end; }
 .report-controls label { flex: 1 1 165px; min-width: 155px; }
 .report-controls select { width: 100%; min-height: 42px; padding: 9px 10px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 5px; font: inherit; font-size: 16px; }

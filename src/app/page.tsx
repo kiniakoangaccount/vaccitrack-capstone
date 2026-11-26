@@ -545,6 +545,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
   const [showRegister, setShowRegister] = useState(false);
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
   const [selectedRiskPurok, setSelectedRiskPurok] = useState<string | null>(null);
+  const [riskLevelFilter, setRiskLevelFilter] = useState<"All" | "HIGH" | "MODERATE" | "LOW" | "NO DATA">("All");
   const [vaccinationHistory, setVaccinationHistory] = useState<VaccinationHistoryRow[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -1041,6 +1042,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
 
   const riskRows = useMemo(() => buildPurokRiskRows(animalRecords, riskPurokNames), [animalRecords, riskPurokNames]);
   const dashboardRiskRows = useMemo(() => [...riskRows].sort((a, b) => b.unvaccinatedRate - a.unvaccinatedRate || b.unvaccinated - a.unvaccinated).slice(0, 5), [riskRows]);
+  const filteredRiskRows = useMemo(() => riskLevelFilter === "All" ? riskRows : riskRows.filter((row) => row.risk === riskLevelFilter), [riskRows, riskLevelFilter]);
   const dashboardAppointments = useMemo(() => {
     const today = todayLocalIso();
     return appointments
@@ -1728,7 +1730,24 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                 <article className="risk-summary-high"><strong>{riskSummary.highUnvaccinated}</strong><span>Puroks above 50% unvaccinated</span></article>
               </div>
               <p className="risk-explainer">Unvaccinated rate = unvaccinated animals ÷ registered animals. High risk means more than 50% unvaccinated; Moderate means more than 30% and up to 50%; Low means 30% or less. The 70% vaccination target is met when no more than 30% are unvaccinated. Due soon and overdue counts are shown separately because those animals may have a previous vaccination record. Select a purok card to view all its animal records.</p>
-              <div className="risk-grid">{riskRows.map((row) => <article className={`risk-card risk-card-clickable risk-${row.risk.toLowerCase().replace(" ", "-")}`} key={row.purok} role="button" tabIndex={0} aria-haspopup="dialog" aria-expanded={selectedRiskPurok === row.purok} aria-label={`View all records for ${row.purok}`} onClick={() => setSelectedRiskPurok(row.purok)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedRiskPurok(row.purok); } }}>
+              <div className="risk-filter-bar">
+                <span className="risk-filter-label">Filter by risk level:</span>
+                {(["All", "HIGH", "MODERATE", "LOW", "NO DATA"] as const).map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    className={`risk-filter-btn risk-filter-btn-${level.toLowerCase().replace(" ", "-")}${riskLevelFilter === level ? " risk-filter-btn-active" : ""}`}
+                    onClick={() => setRiskLevelFilter(level)}
+                  >
+                    {level === "All" ? "All puroks" : level === "NO DATA" ? "No data" : `${level.charAt(0)}${level.slice(1).toLowerCase()} risk`}
+                    <span className="risk-filter-count">
+                      {level === "All" ? riskRows.length : riskRows.filter((r) => r.risk === level).length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {filteredRiskRows.length === 0 && <div className="empty-state">No puroks match the selected risk level.</div>}
+              <div className="risk-grid">{filteredRiskRows.map((row) => <article className={`risk-card risk-card-clickable risk-${row.risk.toLowerCase().replace(" ", "-")}`} key={row.purok} role="button" tabIndex={0} aria-haspopup="dialog" aria-expanded={selectedRiskPurok === row.purok} aria-label={`View all records for ${row.purok}`} onClick={() => setSelectedRiskPurok(row.purok)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedRiskPurok(row.purok); } }}>
                 <div className="risk-card-head"><h3>{row.purok}</h3><span>{row.risk === "NO DATA" ? "NO DATA" : `${row.risk} RISK`}</span></div>
                 {row.total === 0 ? <p className="risk-no-records">No registered animals in this purok yet.</p> : <>
                   <div className="risk-count"><strong>{row.unvaccinatedRate}%</strong><small>{row.unvaccinated} of {row.total} unvaccinated</small></div>
