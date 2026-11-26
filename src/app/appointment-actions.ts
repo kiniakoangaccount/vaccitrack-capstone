@@ -33,7 +33,14 @@ async function requireStaff() {
     return { error: "Only staff accounts (admin, bhw) can manage appointments." } as const;
   }
 
-  return { db, userId: user.id } as const;
+  return { db, userId: user.id, role: caller.role as "admin" | "bhw" } as const;
+}
+
+async function requireAdmin() {
+  const result = await requireStaff();
+  if ("error" in result) return result;
+  if (result.role !== "admin") return { error: "Only admin accounts can schedule appointments." } as const;
+  return result;
 }
 
 function formatAppointmentDate(date: string) {
@@ -83,7 +90,7 @@ async function notifyAppointmentParticipants(
     });
   }
 
-  if (input.assignedTo !== input.actorId) {
+  {
     notifications.push({
       user_id: input.assignedTo,
       title: input.created ? "New vaccination appointment assigned" : input.rescheduled ? "Assigned appointment rescheduled" : "Assigned appointment updated",
@@ -118,12 +125,14 @@ async function notifyAppointmentParticipants(
 export async function getAppointments(): Promise<{ items?: AppointmentItem[]; error?: string }> {
   const result = await requireStaff();
   if ("error" in result) return { error: result.error };
-  const { db } = result;
+  const { db, userId, role } = result;
 
-  const { data, error } = await db
+  let query = db
     .from("appointments")
     .select("id, animal_id, assigned_to, scheduled_date, status, notes, created_at")
     .order("scheduled_date", { ascending: true });
+  if (role === "bhw") query = query.eq("assigned_to", userId);
+  const { data, error } = await query;
   if (error) return { error: error.message };
 
   const rows = data ?? [];
@@ -161,7 +170,7 @@ export async function createAppointment(payload: {
   scheduledDate: string;
   notes?: string;
 }): Promise<{ error?: string; id?: number }> {
-  const result = await requireStaff();
+  const result = await requireAdmin();
   if ("error" in result) return { error: result.error };
   const { db, userId } = result;
 
@@ -223,6 +232,9 @@ export async function updateAppointmentStatus(id: number, status: AppointmentSta
     .maybeSingle();
   if (appointmentError) return { error: appointmentError.message };
   if (!appointment) return { error: "Appointment not found." };
+  if (result.role === "bhw" && appointment.assigned_to !== userId) {
+    return { error: "BHW accounts can update only appointments assigned to them." };
+  }
 
   const nextDate = scheduledDate ?? appointment.scheduled_date;
   const rescheduled = nextDate !== appointment.scheduled_date;

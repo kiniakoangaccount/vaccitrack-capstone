@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
@@ -46,7 +46,6 @@ import { createAppointment, getAppointments, updateAppointmentStatus, type Appoi
 import LocationSearch from "./LocationSearch";
 import PurokSuggestionSearch from "./PurokSuggestionSearch";
 import { isWithinEstefaniaSearchArea, purokOptions, getAnimalStatus, getVaccinationDueDate } from "@/lib/map-data";
-import { DOG_BREEDS, CAT_BREEDS } from "@/lib/breed-data";
 import { capitalizeFirstLetter } from "@/lib/animal-names";
 import { VACCINE_DATA } from "@/lib/vaccine-data";
 import { addMonthsToDateIso, todayLocalIso } from "@/lib/dates";
@@ -58,6 +57,27 @@ import SkeletonBlock from "./Skeleton";
 import WorkspaceLoadingScreen from "./WorkspaceLoadingScreen";
 import CreateUserAccountForm from "./CreateUserAccountForm";
 import { createAdminManagedAccount } from "./user-account-actions";
+import { loadAnimalRecords, loadRiskPurokNames } from "./workspace-data";
+import {
+  ageGroupLabel,
+  AGE_GROUP_ORDER,
+  BREED_OPTIONS,
+  buildCoverageBreakdown,
+  buildPurokRiskRows,
+  firstVaccineFor,
+  formatDueDate,
+  formatVaccineDate,
+  hasVaccinationHistory,
+  isCurrentVaccinated,
+  isExpiredVaccination,
+  matchesAnimalFilters,
+  statusStyles,
+  summarizeReportDimension,
+} from "./animal-analytics";
+import { ReportExportMenu, ReportSectionView } from "./VaccinationReportComponents";
+import type { Animal, AnimalFilters, ReportData, ReportId, UserNotification } from "./workspace-types";
+
+const POUND_STATUSES: PoundStatus[] = ["Under Observation", "Up for Adoption", "Reclaimed"];
 
 function MapLoadingSkeleton() {
   return (
@@ -122,95 +142,8 @@ const AnimalDetailPanel = dynamic(() => import("./AnimalDetailPanel"), {
   loading: AnimalDetailLoadingSkeleton,
 });
 
-const POUND_STATUSES: PoundStatus[] = ["Under Observation", "Up for Adoption", "Reclaimed"];
-
-type Animal = {
-  id: number | string;
-  name: string;
-  species: "Dog" | "Cat";
-  classification?: "Pet" | "Stray";
-  neutered?: boolean;
-  breed?: string;
-  age?: number;
-  sex?: string;
-  color?: string;
-  owner: string;
-  purok: string;
-  vaccinated: boolean;
-  status: "Vaccinated" | "Due soon" | "Expired" | "Unvaccinated";
-  vaccineDate?: string | null;
-  nextDueDate: string | null;
-  nextDue: string;
-  contact: string;
-  impoundArea: string;
-  vaccineType?: string;
-  latitude?: number | null;
-  longitude?: number | null;
-  notes?: string;
-  imageReferences?: string[];
-  imageUrls?: string[];
-  imageLoadError?: string;
-  poundStatus?: PoundStatus | null;
-};
-
-type AnimalFilters = { breed: string; species: string; owner: string; location: string; classification: string };
-
-function matchesAnimalFilters(animal: Animal, filters: AnimalFilters): boolean {
-  const breed = animal.breed?.trim() || "Unspecified";
-  const owner = animal.owner.trim() || "Unspecified owner";
-  const location = animal.purok?.trim() || "Unassigned";
-  const classification = animal.classification ?? "Pet";
-  return (filters.breed === "All" || breed === filters.breed)
-    && (filters.species === "All" || animal.species === filters.species)
-    && (filters.owner === "All" || owner === filters.owner)
-    && (filters.location === "All" || location.toLocaleLowerCase().includes(filters.location.toLocaleLowerCase()))
-    && (filters.classification === "All" || classification === filters.classification);
-}
-
-type SupabaseAnimalRecord = {
-  id: number;
-  name: string;
-  species: Animal["species"];
-  classification?: Animal["classification"];
-  neutered?: boolean | null;
-  breed?: string | null;
-  age?: number | null;
-  sex?: string | null;
-  color?: string | null;
-  owner_name: string;
-  vaccinated: boolean;
-  vaccine_date: string | null;
-  next_due_date: string | null;
-  contact_number: string | null;
-  impound_area: string | null;
-  vaccine_type?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  notes?: string | null;
-  image_references?: string[] | null;
-  pound_status?: PoundStatus | null;
-  puroks: { name: string } | { name: string }[] | null;
-};
-
 type WorkspaceTab = "Overview" | "Registry" | "Planning" | "Appointments" | "Reports" | "Risk" | "Map" | "Pound" | "Feedback" | "Team" | "SMS" | "Audit";
-type ReportId = "animals" | "vaccinations" | "maps" | "pound";
 type ReportTabId = ReportId | "all";
-type ReportCell = string | number;
-
-interface ReportTableData {
-  title: string;
-  headers: string[];
-  rows: ReportCell[][];
-  emptyMessage: string;
-}
-
-interface ReportData {
-  id: ReportId;
-  title: string;
-  description: string;
-  metrics: { label: string; value: string | number }[];
-  tables: ReportTableData[];
-}
 
 // signIn() reloads the page on success to re-run the auth-check effect fresh.
 // That reload resets authMode back to its "landing" default before the effect
@@ -245,228 +178,6 @@ type SupabaseAuthResponse = { data: { user: { id: string } | null }; error: Supa
 type AccountStatus = "active" | "disabled" | "pending";
 
 
-function firstVaccineFor(species: string): string {
-  return VACCINE_DATA.find((vaccine) => vaccine.species === "Both" || vaccine.species === species)?.name ?? "";
-}
-
-const statusStyles: Record<Animal["status"], string> = {
-  Vaccinated: "status-good",
-  "Due soon": "status-warn",
-  Expired: "status-overdue",
-  Unvaccinated: "status-neutral",
-};
-
-function formatDueDate(nextDueDate: string | null) {
-  if (!nextDueDate) return "Not scheduled";
-  return new Date(`${nextDueDate}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-}
-
-function formatVaccineDate(vaccineDate?: string | null) {
-  if (!vaccineDate) return "Not vaccinated";
-  return new Date(`${vaccineDate}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-}
-
-function hasVaccinationHistory(animal: Pick<Animal, "vaccinated" | "vaccineDate">): boolean {
-  return animal.vaccinated || Boolean(animal.vaccineDate);
-}
-
-function isCurrentVaccinated(animal: Pick<Animal, "vaccinated" | "vaccineDate" | "status">): boolean {
-  return hasVaccinationHistory(animal) && (animal.status === "Vaccinated" || animal.status === "Due soon");
-}
-
-function isExpiredVaccination(animal: Pick<Animal, "vaccinated" | "vaccineDate" | "status">): boolean {
-  return hasVaccinationHistory(animal) && animal.status === "Expired";
-}
-
-const AGE_GROUP_ORDER = ["Under 1 year", "1–3 years", "3–7 years", "7+ years", "Unknown"];
-
-const BREED_OPTIONS = [...DOG_BREEDS.map((name) => ({ name, species: "Dog" })), ...CAT_BREEDS.map((name) => ({ name, species: "Cat" }))].map((breed, index) => ({ id: index + 1, name: breed.name, species: breed.species }));
-
-function ageGroupLabel(ageMonths?: number): string {
-  if (ageMonths === undefined || ageMonths === null) return "Unknown";
-  if (ageMonths < 12) return "Under 1 year";
-  if (ageMonths < 36) return "1–3 years";
-  if (ageMonths < 84) return "3–7 years";
-  return "7+ years";
-}
-
-// Groups animals by an arbitrary key (breed, age group, vaccine type, ...)
-// and reports vaccination coverage per group, reusing the same shape the
-// purok-based riskRows/Coverage rows already use.
-function summarizeReportDimension(animals: Animal[], keyFn: (animal: Animal) => string) {
-  const breakdown = buildCoverageBreakdown(animals, keyFn);
-  return breakdown.map((row) => ({ label: row.label, count: row.total, vaccinated: row.vaccinated, rate: row.rate }));
-}
-
-function buildCoverageBreakdown(animals: Animal[], keyFn: (animal: Animal) => string, order?: string[]) {
-  const totals = new Map<string, { total: number; vaccinated: number }>();
-  for (const animal of animals) {
-    const key = keyFn(animal);
-    const entry = totals.get(key) ?? { total: 0, vaccinated: 0 };
-    entry.total += 1;
-    if (isCurrentVaccinated(animal)) entry.vaccinated += 1;
-    totals.set(key, entry);
-  }
-  const keys = order ? order.filter((key) => totals.has(key)) : Array.from(totals.keys()).sort();
-  return keys.map((key) => {
-    const { total, vaccinated } = totals.get(key)!;
-    return { label: key, total, vaccinated, rate: total ? Math.round((vaccinated / total) * 100) : 0 };
-  });
-}
-
-function buildPurokRiskRows(animals: Animal[], purokNames: string[]) {
-  return purokNames.map((purokName) => {
-    const records = animals.filter((animal) => animal.purok === purokName);
-    const unvaccinated = records.filter((animal) => !hasVaccinationHistory(animal)).length;
-    const vaccinated = records.filter(isCurrentVaccinated).length;
-    const dueSoon = records.filter((animal) => animal.status === "Due soon").length;
-    const overdue = records.filter(isExpiredVaccination).length;
-    const atRisk = unvaccinated + overdue;
-    const notScheduled = records.filter((animal) => !animal.nextDueDate).length;
-    const unvaccinatedRate = records.length ? Math.round((unvaccinated / records.length) * 100) : 0;
-    const atRiskRate = records.length ? Math.round((atRisk / records.length) * 100) : 0;
-    const coverageRate = records.length ? Math.round((vaccinated / records.length) * 100) : 0;
-    const gapToTarget = Math.max(0, Math.ceil(records.length * 0.7) - vaccinated);
-    const risk = records.length === 0 ? "NO DATA" : atRisk * 2 > records.length ? "HIGH" : atRisk * 10 > records.length * 3 ? "MODERATE" : "LOW";
-    return { purok: purokName, total: records.length, vaccinated, unvaccinated, overdue, atRisk, dueSoon, notScheduled, gapToTarget, coverageRate, unvaccinatedRate, atRiskRate, risk };
-  });
-}
-
-function ReportSectionView({ report }: { report: ReportData }) {
-  return (
-    <section className="report-section">
-      <div className="report-section-heading">
-        <h3>{report.title}</h3>
-        <p>{report.description}</p>
-      </div>
-      <div className="report-grid">
-        {report.metrics.map((metric) => (
-          <article key={metric.label}><strong>{metric.value}</strong><span>{metric.label}</span></article>
-        ))}
-      </div>
-      {report.tables.map((table, tableIndex) => (
-        <div className="report-table-block" key={`${report.id}-${table.title}`}>
-          <h4>{table.title}</h4>
-          <div className="table-wrap module-table report-data-table">
-            <table>
-              <thead><tr>{table.headers.map((header) => <th key={header}>{header}</th>)}</tr></thead>
-              <tbody>
-                {table.rows.map((row, rowIndex) => (
-                  <tr key={`${report.id}-${tableIndex}-${rowIndex}`}>
-                    {row.map((cell, cellIndex) => <td key={`${rowIndex}-${cellIndex}`}>{cell}</td>)}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {table.rows.length === 0 && <div className="empty-state">{table.emptyMessage}</div>}
-          </div>
-        </div>
-      ))}
-    </section>
-  );
-}
-
-function ReportExportMenu({
-  reports,
-  selectedReportIds,
-  onSelectedReportIdsChange,
-  rangeInvalid,
-  onPrint,
-}: {
-  reports: ReportData[];
-  selectedReportIds: ReportId[];
-  onSelectedReportIdsChange: (reportIds: ReportId[]) => void;
-  rangeInvalid: boolean;
-  onPrint: () => void;
-}) {
-  const selectedReports = reports.filter((report) => selectedReportIds.includes(report.id));
-  const exportDisabled = selectedReports.length === 0 || (rangeInvalid && selectedReportIds.includes("vaccinations"));
-
-  function exportReport(format: string) {
-    if (!format || exportDisabled) return;
-    if (format === "pdf") {
-      onPrint();
-      return;
-    }
-    if (format !== "word" && format !== "excel") return;
-
-    const escapeHtml = (valueToEscape: string | number) => String(valueToEscape)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-    const reportHtml = selectedReports.map((report) => {
-      const metrics = report.metrics.map((metric) => `<tr><th>${escapeHtml(metric.label)}</th><td>${escapeHtml(metric.value)}</td></tr>`).join("");
-      const tables = report.tables.map((table) => {
-        const headers = table.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
-        const rows = table.rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("");
-        const emptyRow = `<tr><td colspan="${table.headers.length}">${escapeHtml(table.emptyMessage)}</td></tr>`;
-        return `<h3>${escapeHtml(table.title)}</h3><table><thead><tr>${headers}</tr></thead><tbody>${rows || emptyRow}</tbody></table>`;
-      }).join("");
-      return `<section><h2>${escapeHtml(report.title)}</h2><p>${escapeHtml(report.description)}</p><table><tbody>${metrics}</tbody></table>${tables}</section>`;
-    }).join("<hr>");
-    const title = selectedReports.length === 1 ? selectedReports[0].title : "Selected VacciTrack reports";
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>body{font-family:Arial,sans-serif;color:#20352b}h1{font-size:24px}h2{font-size:20px;margin-top:28px}h3{font-size:16px;margin-top:20px}p{color:#53685d}table{border-collapse:collapse;width:100%;margin:12px 0 18px}th,td{border:1px solid #cbd8cf;padding:7px;text-align:left}th{background:#edf4ee}section{page-break-inside:avoid}</style></head><body><h1>${escapeHtml(title)}</h1><p>Generated ${escapeHtml(new Date().toLocaleDateString())}</p>${reportHtml}</body></html>`;
-    const isWord = format === "word";
-    const blob = new Blob(["\ufeff", html], { type: isWord ? "application/msword;charset=utf-8" : "application/vnd.ms-excel;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `vaccitrack-${selectedReports.map((report) => report.id).join("-")}.${isWord ? "doc" : "xls"}`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <div className="report-export-controls no-print">
-      <details className="report-export-picker">
-        <summary>Reports to export ({selectedReports.length})</summary>
-        <div className="report-export-options">
-          <label>
-            <input
-              type="checkbox"
-              checked={selectedReports.length === reports.length}
-              onChange={(event) => onSelectedReportIdsChange(event.target.checked ? reports.map((report) => report.id) : [])}
-            />
-            All reports
-          </label>
-          {reports.map((report) => (
-            <label key={report.id}>
-              <input
-                type="checkbox"
-                checked={selectedReportIds.includes(report.id)}
-                onChange={(event) => onSelectedReportIdsChange(
-                  event.target.checked
-                    ? [...selectedReportIds, report.id]
-                    : selectedReportIds.filter((reportId) => reportId !== report.id),
-                )}
-              />
-              {report.title}
-            </label>
-          ))}
-        </div>
-      </details>
-      <select
-        className="secondary-button report-export-select"
-        aria-label="Export selected reports as"
-        defaultValue=""
-        disabled={exportDisabled}
-        onChange={(event) => {
-          exportReport(event.target.value);
-          event.target.value = "";
-        }}
-      >
-        <option value="" disabled>Export as</option>
-        <option value="pdf">PDF</option>
-        <option value="word">Word (.doc)</option>
-        <option value="excel">Excel (.xls)</option>
-      </select>
-    </div>
-  );
-}
-
 function formatTodayLabel(date = new Date()) {
   return date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "2-digit", year: "numeric" }).toUpperCase();
 }
@@ -476,72 +187,6 @@ function getTimeGreeting(date = new Date()) {
   if (hour < 12) return "Good morning";
   if (hour < 17) return "Good afternoon";
   return "Good evening";
-}
-
-export interface UserNotification {
-  id: number;
-  title: string;
-  message: string;
-  type: string;
-  is_read: boolean;
-  created_at: string;
-}
-
-// Shared by the initial load and the realtime refresh below, so both stay in
-// sync with exactly the same query/mapping instead of two copies drifting.
-async function loadAnimalRecords(
-  supabase: NonNullable<ReturnType<typeof createClient>>,
-  isClientRole: boolean,
-  ownerId: string
-): Promise<Animal[] | null> {
-  const today = new Date();
-  // Note: intentionally unbounded (no .limit()) — Registry, Map, and Risk
-  // analysis all need the complete animal set, not just recent additions.
-  const recentQuery = supabase.from("animals").select("id, name, species, classification, neutered, breed, age, sex, color, owner_name, contact_number, impound_area, vaccinated, vaccine_date, next_due_date, vaccine_type, latitude, longitude, notes, image_references, pound_status, puroks(name)").order("created_at", { ascending: false });
-  const recentResult = await (isClientRole ? recentQuery.eq("user_id", ownerId) : recentQuery);
-  if (recentResult.error) return null;
-
-  const records = (recentResult.data ?? []) as SupabaseAnimalRecord[];
-  return records.map((record) => {
-    const vaccineDate = record.vaccine_date ?? null;
-    const nextDueDate = getVaccinationDueDate(vaccineDate, record.next_due_date ?? null);
-    const vaccinated = Boolean(record.vaccinated);
-    return {
-      id: record.id,
-      name: record.name,
-      species: record.species,
-      classification: record.classification,
-      neutered: record.neutered ?? undefined,
-      breed: record.breed ?? undefined,
-      age: record.age ?? undefined,
-      sex: record.sex ?? undefined,
-      color: record.color ?? undefined,
-      owner: record.owner_name,
-      vaccinated,
-      vaccineDate,
-      purok: Array.isArray(record.puroks) ? record.puroks[0]?.name ?? "Unassigned" : record.puroks?.name ?? "Unassigned",
-      status: getAnimalStatus(vaccinated, nextDueDate, today, vaccineDate),
-      nextDueDate,
-      nextDue: formatDueDate(nextDueDate),
-      contact: record.contact_number ?? "",
-      impoundArea: record.impound_area ?? "",
-      vaccineType: record.vaccine_type ?? undefined,
-      latitude: record.latitude ?? undefined,
-      longitude: record.longitude ?? undefined,
-      notes: record.notes ?? undefined,
-      imageReferences: record.image_references ?? [],
-      poundStatus: record.pound_status ?? null,
-    } satisfies Animal;
-  });
-}
-
-async function loadRiskPurokNames(
-  supabase: NonNullable<ReturnType<typeof createClient>>,
-): Promise<string[] | null> {
-  const { data, error } = await supabase.from("puroks").select("name").order("name");
-  if (error) return null;
-  const rows = (data ?? []) as { name: string | null }[];
-  return rows.map((row) => row.name).filter((name): name is string => typeof name === "string" && Boolean(name.trim()));
 }
 
 export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?: "landing" | "signin" | "register" } = {}) {
@@ -644,7 +289,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       setIsPageTransitioning(false);
       if (nextMode === "landing") router.push("/", { scroll: false });
       else if (nextMode === "signin") router.push("/signin", { scroll: false });
-      // "forgot" has no dedicated bookmarkable route — it's only ever reached
+      // "forgot" has no dedicated bookmarkable route â€” it's only ever reached
       // via the sign-in screen's link, so just swap local state in place.
     }, 220);
   }
@@ -671,7 +316,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       justAttemptedSignIn = sessionStorage.getItem(POST_SIGNIN_FLAG) === "1";
       sessionStorage.removeItem(POST_SIGNIN_FLAG);
     } catch {
-      // sessionStorage can throw in private/locked-down browser contexts —
+      // sessionStorage can throw in private/locked-down browser contexts â€”
       // worst case we fall back to the pre-fix landing-page behavior.
     }
 
@@ -834,7 +479,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     };
   }, [authUser, isStaff]);
 
-  // Vaccines added via Settings → "Vaccines" supplement
+  // Vaccines added via Settings â†’ "Vaccines" supplement
   // the built-in, species-tagged vaccine list below.
   useEffect(() => {
     if (!authUser) return;
@@ -876,7 +521,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
     try {
       sessionStorage.setItem(POST_SIGNIN_FLAG, "1");
     } catch {
-      // Best-effort — see the comment on POST_SIGNIN_FLAG's declaration.
+      // Best-effort â€” see the comment on POST_SIGNIN_FLAG's declaration.
     }
     window.location.reload();
   }
@@ -930,7 +575,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
       return;
     }
     if (!/^[a-zA-Z0-9_.-]{3,80}$/.test(registrationForm.username)) {
-      setAuthError("Username must be 3–80 characters and use only letters, numbers, dots, underscores, or hyphens.");
+      setAuthError("Username must be 3â€“80 characters and use only letters, numbers, dots, underscores, or hyphens.");
       return;
     }
     if (!/^09\d{9}$/.test(registrationForm.contact)) {
@@ -1461,7 +1106,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
 
   if (supabaseConfigured && authChecked && !authUser) {
     if (authMode === "landing") return <Landing isTransitioning={isPageTransitioning} onSignIn={() => { setAuthError(""); switchAuthMode("signin"); }} />;
-    return <main className={`auth-shell ${isPageTransitioning ? "page-exit" : ""}`}><section className={`auth-card ${authMode === "register" ? "auth-card-register" : ""} page-enter`} key={`${authMode}-${registrationSent}`}><button className="auth-back" onClick={() => { setAuthError(""); switchAuthMode("landing"); }}>← Back to VacciTrack</button><div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>VacciTrack</span></div>{authMode === "signin" ? <><p className="eyebrow">ROLE-BASED ACCESS</p><h1>Sign in to VacciTrack</h1><form className="auth-form" onSubmit={signIn}><label>Username<input required type="text" autoComplete="username" placeholder="Username" value={authForm.username} onChange={(event) => setAuthForm({ ...authForm, username: event.target.value })} /></label><label>Password<div className="password-field"><input required type={showSigninPassword ? "text" : "password"} autoComplete="current-password" value={authForm.password} onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} /><button type="button" className="password-toggle" aria-label={showSigninPassword ? "Hide password" : "Show password"} onClick={() => setShowSigninPassword((current) => !current)}>{showSigninPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Sign in</button></form><button className="auth-switch" type="button" onClick={() => { setAuthError(""); switchAuthMode("forgot"); }}>Forgot password?</button><button className="auth-switch" onClick={() => { setAuthError(""); switchAuthMode("register"); }}>Create a civilian account</button></> : authMode === "forgot" ? <><p className="eyebrow">ACCOUNT RECOVERY</p><h1>Reset your password</h1>{forgotStep === "request" ? <form className="auth-form" onSubmit={sendForgotCode}><label>Username<input required type="text" value={forgotForm.identifier} onChange={(event) => setForgotForm({ ...forgotForm, identifier: event.target.value })} /></label>{forgotError && <p className="form-error">{forgotError}</p>}<button className="primary-button" type="submit" disabled={forgotBusy}>{forgotBusy ? "Sending..." : "Send reset code"}</button></form> : <form className="auth-form" onSubmit={submitForgotReset}><p className="heading-sub">Enter the code sent via SMS.</p><label>Verification code<input required value={forgotForm.code} onChange={(event) => setForgotForm({ ...forgotForm, code: event.target.value })} /></label><label>New password<div className="password-field"><input required minLength={8} type={showForgotPassword ? "text" : "password"} autoComplete="new-password" value={forgotForm.newPassword} onChange={(event) => setForgotForm({ ...forgotForm, newPassword: event.target.value })} /><button type="button" className="password-toggle" aria-label={showForgotPassword ? "Hide password" : "Show password"} onClick={() => setShowForgotPassword((current) => !current)}>{showForgotPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></label>{forgotError && <p className="form-error">{forgotError}</p>}<button className="primary-button" type="submit" disabled={forgotBusy}>{forgotBusy ? "Saving..." : "Reset password"}</button></form>}<button className="auth-switch" onClick={() => { setForgotError(""); setForgotStep("request"); setForgotForm({ identifier: "", code: "", newPassword: "" }); switchAuthMode("signin"); }}>Back to sign in</button></> : registrationSent ? <div className="confirmation"><CheckCircle2 size={30} /><h1>Registration submitted</h1><p>Your account has been created and is <strong>pending administrator approval</strong>. You will be able to sign in once an admin activates your account.</p><button className="primary-button" onClick={() => { setRegistrationSent(false); switchAuthMode("signin"); }}>Back to sign in</button></div> : <><p className="eyebrow">CIVILIAN ACCOUNT REQUEST</p><h1>Create your account</h1><p className="heading-sub">Public registration creates a civilian / pet-owner account. BHW, viewer, and administrator accounts are created by an administrator.</p><form className="auth-form" onSubmit={signUp}><label>Username<input required minLength={3} maxLength={80} value={registrationForm.username} onChange={(event) => setRegistrationForm({ ...registrationForm, username: event.target.value })} /></label><label>Full name<input required maxLength={120} value={registrationForm.fullName} onChange={(event) => setRegistrationForm({ ...registrationForm, fullName: event.target.value })} /></label><label>Contact number<input required inputMode="numeric" pattern="09[0-9]{9}" placeholder="09171234567" value={registrationForm.contact} onChange={(event) => setRegistrationForm({ ...registrationForm, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} /></label><label>Valid ID photo<input required type="file" accept="image/*" onChange={(event) => setIdImageFile(event.target.files?.[0] ?? null)} /></label><label>Password<div className="password-field"><input required minLength={8} type={showRegisterPassword ? "text" : "password"} autoComplete="new-password" value={registrationForm.password} onChange={(event) => setRegistrationForm({ ...registrationForm, password: event.target.value })} /><button type="button" className="password-toggle" aria-label={showRegisterPassword ? "Hide password" : "Show password"} onClick={() => setShowRegisterPassword((current) => !current)}>{showRegisterPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></label><p className="terms-intro">Please review our <button type="button" className="terms-link" onClick={() => setShowTermsModal(true)}>Terms and Conditions</button> before registering.</p><label className="terms-check"><input required type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span className="terms-check-copy">I have read and agree to <span className="terms-agreement-phrase">the <button type="button" className="terms-link" onClick={(event) => { event.stopPropagation(); setShowTermsModal(true); }}>Terms and Conditions</button></span>.</span></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Submit for verification</button></form><p className="auth-switch-row">Already have an account? <button type="button" className="auth-inline-link" onClick={() => { setAuthError(""); switchAuthMode("signin"); }}>Sign in</button></p></>}</section>{showTermsModal && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowTermsModal(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="terms-title"><div className="modal-heading"><div><p className="eyebrow">PLEASE READ</p><h2 id="terms-title">Terms and Conditions</h2></div><button className="icon-button" aria-label="Close Terms and Conditions" onClick={() => setShowTermsModal(false)}><X size={18} /></button></div><div className="terms-modal-body"><p>By registering, you confirm the information, contact number, and ID you submit are accurate, current, and belong to you. You are responsible for keeping your password confidential and for activity under your account.</p><p>This account is for registering your own animals and tracking their vaccination records. Civilian accounts are approved manually: your account stays pending, and may be rejected or later suspended, until an administrator verifies your ID and finds the submitted information accurate.</p><p>Data you provide — including owner, contact, animal, and location details — is used only for barangay animal health record-keeping, vaccination scheduling and outreach, and stray/pound tracking, and may be reviewed by BHW and administrator staff. Account actions may be logged for security and audit purposes.</p><p>Vaccination records kept here are for barangay monitoring only and do not replace an official veterinary certificate.</p></div><div className="modal-actions"><button type="button" className="primary-button" onClick={() => setShowTermsModal(false)}>Close</button></div></section></div>}</main>;
+    return <main className={`auth-shell ${isPageTransitioning ? "page-exit" : ""}`}><section className={`auth-card ${authMode === "register" ? "auth-card-register" : ""} page-enter`} key={`${authMode}-${registrationSent}`}><button className="auth-back" onClick={() => { setAuthError(""); switchAuthMode("landing"); }}>â† Back to VacciTrack</button><div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>VacciTrack</span></div>{authMode === "signin" ? <><p className="eyebrow">ROLE-BASED ACCESS</p><h1>Sign in to VacciTrack</h1><form className="auth-form" onSubmit={signIn}><label>Username<input required type="text" autoComplete="username" placeholder="Username" value={authForm.username} onChange={(event) => setAuthForm({ ...authForm, username: event.target.value })} /></label><label>Password<div className="password-field"><input required type={showSigninPassword ? "text" : "password"} autoComplete="current-password" value={authForm.password} onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} /><button type="button" className="password-toggle" aria-label={showSigninPassword ? "Hide password" : "Show password"} onClick={() => setShowSigninPassword((current) => !current)}>{showSigninPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Sign in</button></form><button className="auth-switch" type="button" onClick={() => { setAuthError(""); switchAuthMode("forgot"); }}>Forgot password?</button><button className="auth-switch" onClick={() => { setAuthError(""); switchAuthMode("register"); }}>Create a civilian account</button></> : authMode === "forgot" ? <><p className="eyebrow">ACCOUNT RECOVERY</p><h1>Reset your password</h1>{forgotStep === "request" ? <form className="auth-form" onSubmit={sendForgotCode}><label>Username<input required type="text" value={forgotForm.identifier} onChange={(event) => setForgotForm({ ...forgotForm, identifier: event.target.value })} /></label>{forgotError && <p className="form-error">{forgotError}</p>}<button className="primary-button" type="submit" disabled={forgotBusy}>{forgotBusy ? "Sending..." : "Send reset code"}</button></form> : <form className="auth-form" onSubmit={submitForgotReset}><p className="heading-sub">Enter the code sent via SMS.</p><label>Verification code<input required value={forgotForm.code} onChange={(event) => setForgotForm({ ...forgotForm, code: event.target.value })} /></label><label>New password<div className="password-field"><input required minLength={8} type={showForgotPassword ? "text" : "password"} autoComplete="new-password" value={forgotForm.newPassword} onChange={(event) => setForgotForm({ ...forgotForm, newPassword: event.target.value })} /><button type="button" className="password-toggle" aria-label={showForgotPassword ? "Hide password" : "Show password"} onClick={() => setShowForgotPassword((current) => !current)}>{showForgotPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></label>{forgotError && <p className="form-error">{forgotError}</p>}<button className="primary-button" type="submit" disabled={forgotBusy}>{forgotBusy ? "Saving..." : "Reset password"}</button></form>}<button className="auth-switch" onClick={() => { setForgotError(""); setForgotStep("request"); setForgotForm({ identifier: "", code: "", newPassword: "" }); switchAuthMode("signin"); }}>Back to sign in</button></> : registrationSent ? <div className="confirmation"><CheckCircle2 size={30} /><h1>Registration submitted</h1><p>Your account has been created and is <strong>pending administrator approval</strong>. You will be able to sign in once an admin activates your account.</p><button className="primary-button" onClick={() => { setRegistrationSent(false); switchAuthMode("signin"); }}>Back to sign in</button></div> : <><p className="eyebrow">CIVILIAN ACCOUNT REQUEST</p><h1>Create your account</h1><p className="heading-sub">Public registration creates a civilian / pet-owner account. BHW, viewer, and administrator accounts are created by an administrator.</p><form className="auth-form" onSubmit={signUp}><label>Username<input required minLength={3} maxLength={80} value={registrationForm.username} onChange={(event) => setRegistrationForm({ ...registrationForm, username: event.target.value })} /></label><label>Full name<input required maxLength={120} value={registrationForm.fullName} onChange={(event) => setRegistrationForm({ ...registrationForm, fullName: event.target.value })} /></label><label>Contact number<input required inputMode="numeric" pattern="09[0-9]{9}" placeholder="09171234567" value={registrationForm.contact} onChange={(event) => setRegistrationForm({ ...registrationForm, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} /></label><label>Valid ID photo<input required type="file" accept="image/*" onChange={(event) => setIdImageFile(event.target.files?.[0] ?? null)} /></label><label>Password<div className="password-field"><input required minLength={8} type={showRegisterPassword ? "text" : "password"} autoComplete="new-password" value={registrationForm.password} onChange={(event) => setRegistrationForm({ ...registrationForm, password: event.target.value })} /><button type="button" className="password-toggle" aria-label={showRegisterPassword ? "Hide password" : "Show password"} onClick={() => setShowRegisterPassword((current) => !current)}>{showRegisterPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></label><p className="terms-intro">Please review our <button type="button" className="terms-link" onClick={() => setShowTermsModal(true)}>Terms and Conditions</button> before registering.</p><label className="terms-check"><input required type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span className="terms-check-copy">I have read and agree to <span className="terms-agreement-phrase">the <button type="button" className="terms-link" onClick={(event) => { event.stopPropagation(); setShowTermsModal(true); }}>Terms and Conditions</button></span>.</span></label>{authError && <p className="form-error">{authError}</p>}<button className="primary-button" type="submit">Submit for verification</button></form><p className="auth-switch-row">Already have an account? <button type="button" className="auth-inline-link" onClick={() => { setAuthError(""); switchAuthMode("signin"); }}>Sign in</button></p></>}</section>{showTermsModal && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowTermsModal(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="terms-title"><div className="modal-heading"><div><p className="eyebrow">PLEASE READ</p><h2 id="terms-title">Terms and Conditions</h2></div><button className="icon-button" aria-label="Close Terms and Conditions" onClick={() => setShowTermsModal(false)}><X size={18} /></button></div><div className="terms-modal-body"><p>By registering, you confirm the information, contact number, and ID you submit are accurate, current, and belong to you. You are responsible for keeping your password confidential and for activity under your account.</p><p>This account is for registering your own animals and tracking their vaccination records. Civilian accounts are approved manually: your account stays pending, and may be rejected or later suspended, until an administrator verifies your ID and finds the submitted information accurate.</p><p>Data you provide â€” including owner, contact, animal, and location details â€” is used only for barangay animal health record-keeping, vaccination scheduling and outreach, and stray/pound tracking, and may be reviewed by BHW and administrator staff. Account actions may be logged for security and audit purposes.</p><p>Vaccination records kept here are for barangay monitoring only and do not replace an official veterinary certificate.</p></div><div className="modal-actions"><button type="button" className="primary-button" onClick={() => setShowTermsModal(false)}>Close</button></div></section></div>}</main>;
   }
 
   function selectTab(tab: WorkspaceTab) {
@@ -1671,7 +1316,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
         <div className="page-content workspace-page-enter" key={activeTab}>
           <div className="page-heading"><div><p className="eyebrow">{formatTodayLabel()}</p><h1>{activeTab === "Overview" ? `${getTimeGreeting()}, ${authUser?.fullName.split(" ")[0] ?? "Maria"}.` : activeTab}</h1><p className="heading-sub">{activeTab === "Overview" ? "Here is what needs your attention across the barangay." : "Barangay Estefania animal health operations"}</p></div></div>
 
-          {activeTab === "Overview" && showNotice && <div className="notice"><div className="notice-icon"><Syringe size={19} /></div><div><strong>Vaccination coverage is at {dashboardStats.registered ? Math.round((dashboardStats.vaccinated / dashboardStats.registered) * 100) : 0}%</strong><p>{dashboardStats.dueSoon} animals are due for their next vaccination.</p></div>{isStaff && <button type="button" className="notice-action" onClick={() => selectTab("Planning")}>View plan <span>→</span></button>}<button className="notice-close" aria-label="Dismiss notice" onClick={() => setShowNotice(false)}>×</button></div>}
+          {activeTab === "Overview" && showNotice && <div className="notice"><div className="notice-icon"><Syringe size={19} /></div><div><strong>Vaccination coverage is at {dashboardStats.registered ? Math.round((dashboardStats.vaccinated / dashboardStats.registered) * 100) : 0}%</strong><p>{dashboardStats.dueSoon} animals are due for their next vaccination.</p></div>{isStaff && <button type="button" className="notice-action" onClick={() => selectTab("Planning")}>View plan <span>â†’</span></button>}<button className="notice-close" aria-label="Dismiss notice" onClick={() => setShowNotice(false)}>Ã—</button></div>}
 
           {activeTab !== "Overview" && <section className="workspace-panel">
             {activeTab === "Registry" && (isViewer ? <RoleBlocked role={userRole} message="The animal registry is not available for viewer accounts. Viewers can access Overview and Feedback only." /> : <div className="module-content">
@@ -1689,17 +1334,17 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                 {activeRegistryFilterCount > 0 && <button type="button" className="secondary-button registry-clear-filters" onClick={() => setRegistryFilters({ breed: "All", species: "All", owner: "All", location: "All", classification: "All" })}>Clear filters ({activeRegistryFilterCount})</button>}
               </div>
               <p className="registry-filter-count" role="status" aria-live="polite">Showing {filteredRegistryAnimals.length} of {animalRecords.length} animals{query.trim() ? " matching the search and selected filters." : " matching the selected filters."}</p>
-              <div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th></tr></thead><tbody>{pagedRegistryAnimals.map((animal) => <tr key={`module-${animal.id}`} className="row-clickable" onClick={() => openAnimalDetail(animal)}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredRegistryAnimals.length === 0 && <div className="empty-state">No animal records match the search and filters.</div>}</div>
+              <div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th></tr></thead><tbody>{pagedRegistryAnimals.map((animal) => <tr key={`module-${animal.id}`} className="row-clickable" onClick={() => openAnimalDetail(animal)}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "â€”"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredRegistryAnimals.length === 0 && <div className="empty-state">No animal records match the search and filters.</div>}</div>
               {registryPageCount > 1 && (
                 <div className="registry-pagination">
-                  <button className="secondary-button" disabled={registryPageSafe === 0} onClick={() => setRegistryPage((p) => Math.max(0, p - 1))}>← Previous</button>
+                  <button className="secondary-button" disabled={registryPageSafe === 0} onClick={() => setRegistryPage((p) => Math.max(0, p - 1))}>â† Previous</button>
                   <span className="registry-pagination-label">Page {registryPageSafe + 1} of {registryPageCount}</span>
-                  <button className="secondary-button" disabled={registryPageSafe >= registryPageCount - 1} onClick={() => setRegistryPage((p) => Math.min(registryPageCount - 1, p + 1))}>Next →</button>
+                  <button className="secondary-button" disabled={registryPageSafe >= registryPageCount - 1} onClick={() => setRegistryPage((p) => Math.min(registryPageCount - 1, p + 1))}>Next â†’</button>
                 </div>
               )}
             </div>)}
-            {activeTab === "Planning" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PROGRAM PLANNING</p><h2>Vaccination plan</h2><p>Prioritize expired vaccinations and upcoming vaccination drives.</p></div><span className="module-chip"><CalendarDays size={14} /> 90-day scheduling window</span></div><div className="registry-filter-controls planning-location-filter"><LocationSearch label="Location" value={planningLocation} options={riskPurokNames} allLabel="All locations" placeholder="Search locations..." onChange={setPlanningLocation} /></div><div className="planning-grid"><div className="planning-list"><h3>Needs immediate action</h3>{planningAnimals.filter((animal) => animal.status === "Expired").map((animal) => <div className="planning-row" key={`overdue-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}{planningAnimals.filter((animal) => animal.status === "Expired").length === 0 && <p className="module-muted"><CheckCircle2 size={16} /> No expired vaccinations.</p>}</div><div className="planning-list"><h3>Vaccinations due within 90 days</h3>{planningAnimals.filter((animal) => animal.status !== "Expired").map((animal) => <div className="planning-row" key={`due-${animal.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} · {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}</div></div></div> : <RoleBlocked role={userRole} message="Vaccination planning is only available for staff accounts (admin, bhw)." />)}
-            {activeTab === "Appointments" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">CLINIC WORKFLOW</p><h2>Vaccination appointments</h2><p>Schedule upcoming vaccination visits and assign them to a BHW or admin staff member.</p></div></div><form className="feedback-form" onSubmit={submitAppointment}><label>Animal<select required value={appointmentForm.animalId} onChange={(event) => setAppointmentForm({ ...appointmentForm, animalId: event.target.value })}><option value="">Select an animal needing vaccination</option>{schedulableAnimals.map((animal) => <option key={animal.id} value={animal.id}>{animal.name} — {animal.owner} ({animal.purok})</option>)}</select></label><label>Assign to<select required value={appointmentForm.assignedTo} onChange={(event) => setAppointmentForm({ ...appointmentForm, assignedTo: event.target.value })}><option value="">Select staff</option>{teamMembers.map((member) => <option key={member.id} value={member.id}>{member.fullName} ({member.role})</option>)}</select></label><label>Scheduled date<input required type="date" min={todayLocalIso()} value={appointmentForm.scheduledDate} onChange={(event) => setAppointmentForm({ ...appointmentForm, scheduledDate: event.target.value })} /></label><label>Notes <small>(optional)</small><textarea rows={3} value={appointmentForm.notes} onChange={(event) => setAppointmentForm({ ...appointmentForm, notes: event.target.value })} /></label>{appointmentError && <p className="form-error">{appointmentError}</p>}<button className="primary-button" type="submit"><CalendarClock size={16} /> Schedule appointment</button></form><div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Owner</th><th>Assigned to</th><th>Scheduled date</th><th>Status</th></tr></thead><tbody>{appointments.map((appointment) => <tr key={`appt-${appointment.id}`}><td>{appointment.animalName}</td><td>{appointment.ownerName}</td><td>{appointment.assignedName}</td><td>{formatVaccineDate(appointment.scheduledDate)}</td><td><select className="pound-status-select" value={appointment.status} onChange={(event) => void changeAppointmentStatus(appointment.id, event.target.value as AppointmentStatus)}><option>Scheduled</option><option>Completed</option><option>Missed</option><option>Cancelled</option></select></td></tr>)}</tbody></table>{appointments.length === 0 && <div className="empty-state">No appointments scheduled yet.</div>}</div></div> : <RoleBlocked role={userRole} message="Appointments are only available for staff accounts (admin, bhw)." />)}
+            {activeTab === "Planning" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">PROGRAM PLANNING</p><h2>Vaccination plan</h2><p>Prioritize expired vaccinations and upcoming vaccination drives.</p></div><span className="module-chip"><CalendarDays size={14} /> 90-day scheduling window</span></div><div className="registry-filter-controls planning-location-filter"><LocationSearch label="Location" value={planningLocation} options={riskPurokNames} allLabel="All locations" placeholder="Search locations..." onChange={setPlanningLocation} /></div><div className="planning-grid"><div className="planning-list"><h3>Needs immediate action</h3>{planningAnimals.filter((animal) => animal.status === "Expired").map((animal) => <div className="planning-row" key={`overdue-${animal.id}`}><span className="planning-icon danger"><Bell size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} Â· {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}{planningAnimals.filter((animal) => animal.status === "Expired").length === 0 && <p className="module-muted"><CheckCircle2 size={16} /> No expired vaccinations.</p>}</div><div className="planning-list"><h3>Vaccinations due within 90 days</h3>{planningAnimals.filter((animal) => animal.status !== "Expired").map((animal) => <div className="planning-row" key={`due-${animal.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{animal.name}</strong><small>{animal.owner} Â· {animal.purok}</small></span><em>{animal.nextDue}</em></div>)}</div></div></div> : <RoleBlocked role={userRole} message="Vaccination planning is only available for staff accounts (admin, bhw)." />)}
+            {activeTab === "Appointments" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">CLINIC WORKFLOW</p><h2>{isAdmin ? "Vaccination appointments" : "Appointments assigned to me"}</h2><p>{isAdmin ? "Schedule upcoming vaccination visits and assign them to a BHW or admin staff member." : "View the vaccination visits assigned to your account and update their status."}</p></div></div>{isAdmin && <form className="feedback-form" onSubmit={submitAppointment}><label>Animal<select required value={appointmentForm.animalId} onChange={(event) => setAppointmentForm({ ...appointmentForm, animalId: event.target.value })}><option value="">Select an animal needing vaccination</option>{schedulableAnimals.map((animal) => <option key={animal.id} value={animal.id}>{animal.name} â€” {animal.owner} ({animal.purok})</option>)}</select></label><label>Assign to<select required value={appointmentForm.assignedTo} onChange={(event) => setAppointmentForm({ ...appointmentForm, assignedTo: event.target.value })}><option value="">Select staff</option>{teamMembers.map((member) => <option key={member.id} value={member.id}>{member.fullName} ({member.role})</option>)}</select></label><label>Scheduled date<input required type="date" min={todayLocalIso()} value={appointmentForm.scheduledDate} onChange={(event) => setAppointmentForm({ ...appointmentForm, scheduledDate: event.target.value })} /></label><label>Notes <small>(optional)</small><textarea rows={3} value={appointmentForm.notes} onChange={(event) => setAppointmentForm({ ...appointmentForm, notes: event.target.value })} /></label>{appointmentError && <p className="form-error">{appointmentError}</p>}<button className="primary-button" type="submit"><CalendarClock size={16} /> Schedule appointment</button></form>}<div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Owner</th><th>Assigned to</th><th>Scheduled date</th><th>Status</th></tr></thead><tbody>{appointments.map((appointment) => <tr key={`appt-${appointment.id}`}><td>{appointment.animalName}</td><td>{appointment.ownerName}</td><td>{appointment.assignedName}</td><td>{formatVaccineDate(appointment.scheduledDate)}</td><td><select className="pound-status-select" value={appointment.status} onChange={(event) => void changeAppointmentStatus(appointment.id, event.target.value as AppointmentStatus)}><option>Scheduled</option><option>Completed</option><option>Missed</option><option>Cancelled</option></select></td></tr>)}</tbody></table>{appointments.length === 0 && <div className="empty-state">{isAdmin ? "No appointments scheduled yet." : "No appointments are assigned to you yet."}</div>}</div></div> : <RoleBlocked role={userRole} message="Appointments are only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Reports" && (isStaff ? (
               <div className="module-content report-module">
                 <div className="module-intro">
@@ -1758,7 +1403,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                       {reportAnimals.filter((animal) => animal.status === "Due soon" || animal.status === "Expired").map((animal) => (
                         <div className="planning-row" key={`expiry-${animal.id}`}>
                           <span className="planning-icon danger"><Bell size={15} /></span>
-                          <span><strong>{animal.name} — {animal.owner}</strong><small>{animal.contact || "No contact recorded"} · {animal.nextDue}</small></span>
+                          <span><strong>{animal.name} â€” {animal.owner}</strong><small>{animal.contact || "No contact recorded"} Â· {animal.nextDue}</small></span>
                           <em>{animal.status}</em>
                         </div>
                       ))}
@@ -1792,7 +1437,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                 <article className="risk-summary-alert"><strong>{riskSummary.aboveRiskTarget}</strong><span>Puroks above 30% at-risk share</span></article>
                 <article className="risk-summary-high"><strong>{riskSummary.highRiskPuroks}</strong><span>Puroks above 50% at-risk share</span></article>
               </div>
-              <p className="risk-explainer"><strong>Risk calculation:</strong> At-risk share = (unvaccinated + expired) ÷ registered animals. Unvaccinated means no vaccination history; expired means the last recorded vaccination was more than one year ago. A purok is moderate when more than 30% are at risk and high when more than 50% are at risk. The separate 70% coverage target counts animals vaccinated within one year, including those due in the next 30 days. Select a purok card to view its animal records.</p>
+              <p className="risk-explainer"><strong>Risk calculation:</strong> At-risk share = (unvaccinated + expired) Ã· registered animals. Unvaccinated means no vaccination history; expired means the last recorded vaccination was more than one year ago. A purok is moderate when more than 30% are at risk and high when more than 50% are at risk. The separate 70% coverage target counts animals vaccinated within one year, including those due in the next 30 days. Select a purok card to view its animal records.</p>
               <div className="risk-filter-bar">
                 <span className="risk-filter-label">Filter by risk level:</span>
                 {(["All", "HIGH", "MODERATE", "LOW", "NO DATA"] as const).map((level) => (
@@ -1830,7 +1475,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
                     <article><strong>{selectedRiskRow.dueSoon}</strong><span>Due within 30 days</span></article>
                   </div>}
                   <div className="table-wrap risk-purok-table"><table><thead><tr><th>Animal</th><th>Species / type</th><th>Owner / contact</th><th>Vaccination status</th><th>Vaccine</th><th>Last / next vaccination</th></tr></thead><tbody>{selectedRiskAnimals.map((animal) => <tr key={`purok-${selectedRiskPurok}-${animal.id}`}>
-                    <td><strong>{animal.name}</strong></td><td>{animal.species} · {animal.classification ?? "Pet"}</td><td>{animal.owner}<small>{animal.contact || "No contact recorded"}</small></td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td><td>{animal.vaccineType || "Not recorded"}</td><td>Last: {formatVaccineDate(animal.vaccineDate)}<small>Next: {animal.nextDue}</small></td>
+                    <td><strong>{animal.name}</strong></td><td>{animal.species} Â· {animal.classification ?? "Pet"}</td><td>{animal.owner}<small>{animal.contact || "No contact recorded"}</small></td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td><td>{animal.vaccineType || "Not recorded"}</td><td>Last: {formatVaccineDate(animal.vaccineDate)}<small>Next: {animal.nextDue}</small></td>
                   </tr>)}</tbody></table>{selectedRiskAnimals.length === 0 && <div className="empty-state">No animal records are assigned to this purok.</div>}</div>
                 </section>
               </div>}
@@ -1840,7 +1485,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
               <LeafletMap animals={animalRecords.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species, classification: animal.classification ?? "Pet", owner: animal.owner, purok: animal.purok, vaccinated: animal.vaccinated, status: animal.status, vaccineDate: animal.vaccineDate, nextDueDate: animal.nextDueDate, vaccineType: animal.vaccineType, breed: animal.breed, age: animal.age, contact: animal.contact, latitude: animal.latitude, longitude: animal.longitude }))} puroks={purokOptions} onAnimalSelect={(animalId) => { const animal = animalRecords.find((record) => String(record.id) === String(animalId)); if (animal) void openAnimalDetail(animal); }} />
               <div className="map-legend" role="list" aria-label="Vaccination status legend"><span role="listitem"><i className="map-status-dot vaccinated" /> Vaccinated</span><span role="listitem"><i className="map-status-dot expiring" /> Expiring soon</span><span role="listitem"><i className="map-status-dot overdue" /> Expired</span><span role="listitem"><i className="map-status-dot unvaccinated" /> Unvaccinated</span></div>
             </div> : <RoleBlocked role={userRole} message="Coverage map is only available for staff accounts (admin, bhw)." />)}
-            {activeTab === "Pound" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">STRAY &amp; POUND</p><h2>Stray dog directory</h2><p>Track impounded and stray animals through intake, observation, and outcome.</p></div><span className="module-chip"><HomeIcon size={14} /> {strayAnimals.length} strays</span></div><div className="pound-filters"><PurokSuggestionSearch ariaLabel="Search strays" placeholder="Search name, purok, or impound area..." value={poundQuery} options={riskPurokNames} onChange={setPoundQuery} /><select value={poundStatusFilter} onChange={(event) => setPoundStatusFilter(event.target.value as PoundStatus | "All")}><option value="All">All statuses</option>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></div>{poundError && <p className="form-error">{poundError}</p>}{strayAnimals.length === 0 ? <div className="empty-state">No stray animals match the current filters.</div> : <div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th><th>Pound status</th></tr></thead><tbody>{strayAnimals.map((animal) => <tr key={`pound-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "—"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td><td><select className="pound-status-select" value={animal.poundStatus ?? "Under Observation"} onChange={(event) => changePoundStatus(animal.id, event.target.value as PoundStatus)}>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></td></tr>)}</tbody></table></div>}</div> : <RoleBlocked role={userRole} message="Stray and pound records are only available for staff accounts (admin, bhw)." />)}
+            {activeTab === "Pound" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">STRAY &amp; POUND</p><h2>Stray dog directory</h2><p>Track impounded and stray animals through intake, observation, and outcome.</p></div><span className="module-chip"><HomeIcon size={14} /> {strayAnimals.length} strays</span></div><div className="pound-filters"><PurokSuggestionSearch ariaLabel="Search strays" placeholder="Search name, purok, or impound area..." value={poundQuery} options={riskPurokNames} onChange={setPoundQuery} /><select value={poundStatusFilter} onChange={(event) => setPoundStatusFilter(event.target.value as PoundStatus | "All")}><option value="All">All statuses</option>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></div>{poundError && <p className="form-error">{poundError}</p>}{strayAnimals.length === 0 ? <div className="empty-state">No stray animals match the current filters.</div> : <div className="table-wrap module-table"><table><thead><tr><th>Animal</th><th>Civilian / contact</th><th>Pin area</th><th>Impound area</th><th>Last vaccinated</th><th>Next due</th><th>Status</th><th>Pound status</th></tr></thead><tbody>{strayAnimals.map((animal) => <tr key={`pound-${animal.id}`}><td><strong>{animal.name}</strong><small>{animal.species}</small></td><td>{animal.owner}<small>{animal.contact || "No contact"}</small></td><td>{animal.purok}</td><td>{animal.impoundArea || "â€”"}</td><td>{formatVaccineDate(animal.vaccineDate)}</td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td><td><select className="pound-status-select" value={animal.poundStatus ?? "Under Observation"} onChange={(event) => changePoundStatus(animal.id, event.target.value as PoundStatus)}>{POUND_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></td></tr>)}</tbody></table></div>}</div> : <RoleBlocked role={userRole} message="Stray and pound records are only available for staff accounts (admin, bhw)." />)}
             {activeTab === "Feedback" && (isStaff ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Client feedback</h2><p>Feedback submitted by clients, for admin and BHW review.</p></div></div>{feedbackListError && <p className="form-error">{feedbackListError}</p>}{feedbackItems.length === 0 ? <div className="empty-state">No feedback submitted yet.</div> : <div className="table-wrap module-table"><table><thead><tr><th>From</th><th>Category</th><th>Message</th><th>Received</th><th>Status</th></tr></thead><tbody>{feedbackItems.map((item) => <tr key={`feedback-${item.id}`}><td>{item.senderName}</td><td>{item.category}</td><td>{item.message}</td><td>{new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</td><td><select className="pound-status-select" value={item.status} onChange={(event) => void changeFeedbackStatus(item.id, event.target.value as "New" | "Reviewed" | "Resolved")}><option>New</option><option>Reviewed</option><option>Resolved</option></select></td></tr>)}</tbody></table></div>}</div> : isClient ? <div className="module-content"><div className="module-intro"><div><p className="eyebrow">SUPPORT CHANNEL</p><h2>Feedback and suggestions</h2><p>Send notes to the barangay animal health team.</p></div></div>{feedbackSent ? <div className="feedback-success"><CheckCircle2 size={22} /><div><strong>Feedback submitted</strong><p>Thank you. Your message has been recorded for review.</p></div><button className="secondary-button" onClick={() => setFeedbackSent(false)}>Send another</button></div> : <form className="feedback-form" onSubmit={submitFeedback}><label>Category<select value={feedbackCategory} onChange={(event) => setFeedbackCategory(event.target.value)}><option>Suggestion</option><option>Complaint</option><option>Compliment</option></select></label><label>Message<textarea required rows={5} placeholder="Tell us how to improve our service." value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} /></label><button className="primary-button" type="submit"><MessageSquare size={16} /> Submit feedback</button></form>}</div> : <RoleBlocked role={userRole} message="Feedback is only available for client and staff accounts (admin, bhw)." />)}
             {activeTab === "Team" && (isStaff ? <div className="module-content">
               <div className="module-intro"><div><p className="eyebrow">MANAGEMENT</p><h2>Team members</h2><p>Staff access for the Barangay Estefania health team.</p></div>{isAdmin && <CreateUserAccountForm createAccount={createAdminManagedAccount} />}</div>
@@ -1860,13 +1505,13 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
             <article className="stat-card"><div className="stat-top"><span className="stat-icon amber"><CalendarDays size={18} /></span><span className="trend neutral">This month</span></div><p className="stat-number">{dashboardStats.dueSoon}</p><p className="stat-label">Due for vaccination</p><div className="stat-foot">Needs scheduling</div></article>
           </div>
 
-          {isStaff && <div className="section-grid dashboard-insights-grid"><section className="panel dashboard-insight-panel"><div className="panel-heading"><div><h2>Upcoming appointments</h2><p>Scheduled visits from the live appointment list</p></div><button className="text-button" onClick={() => setActiveTab("Appointments")}>View all →</button></div>{dashboardAppointments.length === 0 ? <p className="module-muted"><CalendarClock size={16} /> No upcoming appointments scheduled.</p> : <div className="purok-list">{dashboardAppointments.map((appointment) => <div className="planning-row" key={`dashboard-appt-${appointment.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{appointment.animalName}</strong><small>{appointment.ownerName} · Assigned to {appointment.assignedName}</small></span><em>{formatVaccineDate(appointment.scheduledDate)}</em></div>)}</div>}</section><section className="panel dashboard-insight-panel"><div className="panel-heading"><div><h2>Never vaccinated by purok</h2><p>Highest never-vaccinated share, based on registered animals</p></div><button className="text-button" onClick={() => setActiveTab("Risk")}>View risk →</button></div>{dashboardRiskRows.length === 0 ? <p className="module-muted">No purok data available.</p> : <div className="purok-list">{dashboardRiskRows.map((row) => <div className="coverage-row dashboard-risk-row" key={row.purok}><div className="coverage-meta"><span>{row.purok}</span><strong>{row.unvaccinated} / {row.total} <em>{row.unvaccinatedRate}%</em></strong></div><div className="progress"><span style={{ width: `${row.unvaccinatedRate}%` }} /></div></div>)}</div>}</section></div>}
+          {isStaff && <div className="section-grid dashboard-insights-grid"><section className="panel dashboard-insight-panel"><div className="panel-heading"><div><h2>Upcoming appointments</h2><p>Scheduled visits from the live appointment list</p></div><button className="text-button" onClick={() => setActiveTab("Appointments")}>View all â†’</button></div>{dashboardAppointments.length === 0 ? <p className="module-muted"><CalendarClock size={16} /> No upcoming appointments scheduled.</p> : <div className="purok-list">{dashboardAppointments.map((appointment) => <div className="planning-row" key={`dashboard-appt-${appointment.id}`}><span className="planning-icon warn"><CalendarDays size={15} /></span><span><strong>{appointment.animalName}</strong><small>{appointment.ownerName} Â· Assigned to {appointment.assignedName}</small></span><em>{formatVaccineDate(appointment.scheduledDate)}</em></div>)}</div>}</section><section className="panel dashboard-insight-panel"><div className="panel-heading"><div><h2>Never vaccinated by purok</h2><p>Highest never-vaccinated share, based on registered animals</p></div><button className="text-button" onClick={() => setActiveTab("Risk")}>View risk â†’</button></div>{dashboardRiskRows.length === 0 ? <p className="module-muted">No purok data available.</p> : <div className="purok-list">{dashboardRiskRows.map((row) => <div className="coverage-row dashboard-risk-row" key={row.purok}><div className="coverage-meta"><span>{row.purok}</span><strong>{row.unvaccinated} / {row.total} <em>{row.unvaccinatedRate}%</em></strong></div><div className="progress"><span style={{ width: `${row.unvaccinatedRate}%` }} /></div></div>)}</div>}</section></div>}
 
-          <section className="panel registry-panel"><div className="panel-heading registry-heading"><div><h2>{isClient ? "Your recent registry activity" : "Recent registry activity"}</h2><p>Showing up to 5 most recently added animals</p></div><div className="registry-tools"><PurokSuggestionSearch ariaLabel="Search registry" placeholder="Search registry..." value={query} options={riskPurokNames} onChange={setQuery} />{!isViewer && <button className="text-button" onClick={() => setActiveTab("Registry")}>View registry →</button>}</div></div>{loadError && <p className="form-error load-error">{loadError}</p>}<div className="table-wrap"><table><thead><tr><th>Animal</th><th>Owner</th><th>Purok</th><th>Next vaccination</th><th>Status</th></tr></thead><tbody>{filteredAnimals.slice(0, 5).map((animal) => <tr key={animal.id} className="row-clickable" onClick={() => openAnimalDetail(animal)}><td><div className="animal-cell"><span className="animal-avatar">{animal.species === "Dog" ? <Dog size={16} /> : <Cat size={16} />}</span><span><strong>{animal.name}</strong><small>{animal.species}</small></span></div></td><td>{animal.owner}</td><td><span className="location"><MapPin size={13} /> {animal.purok}</span></td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredAnimals.length === 0 && <div className="empty-state">No animals match “{query}”.</div>}</div></section>
+          <section className="panel registry-panel"><div className="panel-heading registry-heading"><div><h2>{isClient ? "Your recent registry activity" : "Recent registry activity"}</h2><p>Showing up to 5 most recently added animals</p></div><div className="registry-tools"><PurokSuggestionSearch ariaLabel="Search registry" placeholder="Search registry..." value={query} options={riskPurokNames} onChange={setQuery} />{!isViewer && <button className="text-button" onClick={() => setActiveTab("Registry")}>View registry â†’</button>}</div></div>{loadError && <p className="form-error load-error">{loadError}</p>}<div className="table-wrap"><table><thead><tr><th>Animal</th><th>Owner</th><th>Purok</th><th>Next vaccination</th><th>Status</th></tr></thead><tbody>{filteredAnimals.slice(0, 5).map((animal) => <tr key={animal.id} className="row-clickable" onClick={() => openAnimalDetail(animal)}><td><div className="animal-cell"><span className="animal-avatar">{animal.species === "Dog" ? <Dog size={16} /> : <Cat size={16} />}</span><span><strong>{animal.name}</strong><small>{animal.species}</small></span></div></td><td>{animal.owner}</td><td><span className="location"><MapPin size={13} /> {animal.purok}</span></td><td>{animal.nextDue}</td><td><span className={`status ${statusStyles[animal.status]}`}><i />{animal.status}</span></td></tr>)}</tbody></table>{filteredAnimals.length === 0 && <div className="empty-state">No animals match â€œ{query}â€.</div>}</div></section>
           </div>
         </div>
       </section>
-      {showRegister && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowRegister(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="register-title"><div className="modal-heading"><div><p className="eyebrow">NEW RECORD</p><h2 id="register-title">Register an animal</h2></div><button className="icon-button" aria-label="Close registration form" onClick={() => setShowRegister(false)}><X size={18} /></button></div><form className="animal-form" onSubmit={registerAnimal}><label>Animal name<input required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: capitalizeFirstLetter(event.target.value) })} placeholder="e.g. Bantay" /></label><label>Species<select value={form.species} onChange={(event) => { const species = event.target.value as Animal["species"]; setForm({ ...form, species, breed: "", vaccineType: firstVaccineFor(species) }); }}><option>Dog</option><option>Cat</option></select></label><label>Classification<select value={form.classification} onChange={(event) => setForm({ ...form, classification: event.target.value as "Pet" | "Stray" })}><option>Pet</option><option>Stray</option></select></label><label>Neuter status<select value={form.neutered} onChange={(event) => setForm({ ...form, neutered: event.target.value as "Neutered" | "Not neutered" })}><option>Not neutered</option><option>Neutered</option></select></label><label>Breed<select value={form.breed} onChange={(event) => setForm({ ...form, breed: event.target.value })}><option value="">Select breed</option>{BREED_OPTIONS.filter((breed) => breed.species === form.species).map((breed) => <option key={breed.id} value={breed.name}>{breed.name}</option>)}</select></label><label>Sex<input required maxLength={20} value={form.sex} onChange={(event) => setForm({ ...form, sex: event.target.value })} /></label><label>Age (months)<input type="number" min="0" max="360" value={form.age} onChange={(event) => setForm({ ...form, age: event.target.value })} placeholder="e.g. 36" /></label><label>Color / markings<input maxLength={60} value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} placeholder="e.g. Brown" /></label><label>Civilian / owner name<input required maxLength={120} value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} placeholder="Full name" /></label><label>Contact number<input required inputMode="numeric" pattern="09[0-9]{9}" value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} placeholder="09171234567" /></label><LocationSearch label="Geospatial pin area" value={form.purok} options={purokOptions.map((purok) => purok.name)} placeholder="Search puroks..." exactOnly onChange={(purok) => setForm((current) => ({ ...current, purok }))} /><label>Impound area <small>(optional)</small><input maxLength={120} value={form.impoundArea} onChange={(event) => setForm({ ...form, impoundArea: event.target.value })} placeholder="e.g. Barangay kennel A" /></label><label>Pet photos for identification<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => setPetImageFiles(Array.from(event.target.files ?? []))} /><small>Add clear photos so owners and BHW can recognize this pet in its profile. Up to 3 photos, 5MB each.</small></label><label>Last vaccination<input type="date" max={todayLocalIso()} value={form.vaccineDate} onChange={(event) => { const vaccineDate = event.target.value; setForm((current) => ({ ...current, vaccineDate, nextDue: vaccineDate ? addMonthsToDateIso(vaccineDate, 12) : "" })); }} /></label><label>Vaccine type<select value={form.vaccineType} onChange={(event) => setForm({ ...form, vaccineType: event.target.value })}>{vaccineOptions.filter((vaccine) => vaccine.species === "Both" || vaccine.species === form.species).map((vaccine) => <option key={vaccine.name} value={vaccine.name}>{vaccine.name}</option>)}</select></label><label>Next vaccination<input type="date" min={form.vaccineDate || undefined} value={form.nextDue} onChange={(event) => setForm({ ...form, nextDue: event.target.value })} /></label><div className="map-picker-field"><div className="map-picker-hint"><small>Search is focused on Barangay Estefania using an approximate area. You can also click the map or use your current location.</small><button type="button" className="secondary-button" onClick={useMyLocation}><MapPin size={13} /> Use my location</button></div><div className="map-picker-search"><Search size={14} /><input type="text" placeholder="Search places in Estefania..." autoComplete="off" value={locationQuery} onChange={(event) => { const value = event.target.value; setLocationQuery(value); if (value.trim().length < 3) { setLocationSuggestions([]); setIsSearchingLocation(false); } else { setIsSearchingLocation(true); } }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); if (locationSuggestions[0]) selectLocationSuggestion(locationSuggestions[0]); } }} />{isSearchingLocation && <Loader2 size={14} className="admin-spin" />}{locationSuggestions.length > 0 && <ul className="map-picker-suggestions">{locationSuggestions.map((suggestion, index) => <li key={index}><button type="button" onClick={() => selectLocationSuggestion(suggestion)}>{suggestion.label}</button></li>)}</ul>}</div><LeafletMap animals={form.latitude && form.longitude ? [{ id: "picked", name: "Selected location", species: form.species, classification: form.classification, owner: form.owner || "—", purok: form.purok, vaccinated: false, status: "Pending", latitude: Number(form.latitude), longitude: Number(form.longitude) }] : []} puroks={purokOptions} pickMode onPickCoordinates={pickCoordinates} onMapReady={(handle) => { pickerMapRef.current = handle; }} /></div><label>Notes <small>(optional)</small><textarea rows={3} maxLength={400} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Temperament, medical notes, etc." /></label>{formError && <p className="form-error">{formError}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowRegister(false)}>Cancel</button><button className="primary-button" disabled={isSaving}>{isSaving ? "Registering..." : "Register animal"}</button></div></form></section></div>}
+      {showRegister && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowRegister(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="register-title"><div className="modal-heading"><div><p className="eyebrow">NEW RECORD</p><h2 id="register-title">Register an animal</h2></div><button className="icon-button" aria-label="Close registration form" onClick={() => setShowRegister(false)}><X size={18} /></button></div><form className="animal-form" onSubmit={registerAnimal}><label>Animal name<input required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: capitalizeFirstLetter(event.target.value) })} placeholder="e.g. Bantay" /></label><label>Species<select value={form.species} onChange={(event) => { const species = event.target.value as Animal["species"]; setForm({ ...form, species, breed: "", vaccineType: firstVaccineFor(species) }); }}><option>Dog</option><option>Cat</option></select></label><label>Classification<select value={form.classification} onChange={(event) => setForm({ ...form, classification: event.target.value as "Pet" | "Stray" })}><option>Pet</option><option>Stray</option></select></label><label>Neuter status<select value={form.neutered} onChange={(event) => setForm({ ...form, neutered: event.target.value as "Neutered" | "Not neutered" })}><option>Not neutered</option><option>Neutered</option></select></label><label>Breed<select value={form.breed} onChange={(event) => setForm({ ...form, breed: event.target.value })}><option value="">Select breed</option>{BREED_OPTIONS.filter((breed) => breed.species === form.species).map((breed) => <option key={breed.id} value={breed.name}>{breed.name}</option>)}</select></label><label>Sex<input required maxLength={20} value={form.sex} onChange={(event) => setForm({ ...form, sex: event.target.value })} /></label><label>Age (months)<input type="number" min="0" max="360" value={form.age} onChange={(event) => setForm({ ...form, age: event.target.value })} placeholder="e.g. 36" /></label><label>Color / markings<input maxLength={60} value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} placeholder="e.g. Brown" /></label><label>Civilian / owner name<input required maxLength={120} value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} placeholder="Full name" /></label><label>Contact number<input required inputMode="numeric" pattern="09[0-9]{9}" value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value.replace(/\D/g, "").slice(0, 11) })} placeholder="09171234567" /></label><LocationSearch label="Geospatial pin area" value={form.purok} options={purokOptions.map((purok) => purok.name)} placeholder="Search puroks..." exactOnly onChange={(purok) => setForm((current) => ({ ...current, purok }))} /><label>Impound area <small>(optional)</small><input maxLength={120} value={form.impoundArea} onChange={(event) => setForm({ ...form, impoundArea: event.target.value })} placeholder="e.g. Barangay kennel A" /></label><label>Pet photos for identification<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => setPetImageFiles(Array.from(event.target.files ?? []))} /><small>Add clear photos so owners and BHW can recognize this pet in its profile. Up to 3 photos, 5MB each.</small></label><label>Last vaccination<input type="date" max={todayLocalIso()} value={form.vaccineDate} onChange={(event) => { const vaccineDate = event.target.value; setForm((current) => ({ ...current, vaccineDate, nextDue: vaccineDate ? addMonthsToDateIso(vaccineDate, 12) : "" })); }} /></label><label>Vaccine type<select value={form.vaccineType} onChange={(event) => setForm({ ...form, vaccineType: event.target.value })}>{vaccineOptions.filter((vaccine) => vaccine.species === "Both" || vaccine.species === form.species).map((vaccine) => <option key={vaccine.name} value={vaccine.name}>{vaccine.name}</option>)}</select></label><label>Next vaccination<input type="date" min={form.vaccineDate || undefined} value={form.nextDue} onChange={(event) => setForm({ ...form, nextDue: event.target.value })} /></label><div className="map-picker-field"><div className="map-picker-hint"><small>Search is focused on Barangay Estefania using an approximate area. You can also click the map or use your current location.</small><button type="button" className="secondary-button" onClick={useMyLocation}><MapPin size={13} /> Use my location</button></div><div className="map-picker-search"><Search size={14} /><input type="text" placeholder="Search places in Estefania..." autoComplete="off" value={locationQuery} onChange={(event) => { const value = event.target.value; setLocationQuery(value); if (value.trim().length < 3) { setLocationSuggestions([]); setIsSearchingLocation(false); } else { setIsSearchingLocation(true); } }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); if (locationSuggestions[0]) selectLocationSuggestion(locationSuggestions[0]); } }} />{isSearchingLocation && <Loader2 size={14} className="admin-spin" />}{locationSuggestions.length > 0 && <ul className="map-picker-suggestions">{locationSuggestions.map((suggestion, index) => <li key={index}><button type="button" onClick={() => selectLocationSuggestion(suggestion)}>{suggestion.label}</button></li>)}</ul>}</div><LeafletMap animals={form.latitude && form.longitude ? [{ id: "picked", name: "Selected location", species: form.species, classification: form.classification, owner: form.owner || "â€”", purok: form.purok, vaccinated: false, status: "Pending", latitude: Number(form.latitude), longitude: Number(form.longitude) }] : []} puroks={purokOptions} pickMode onPickCoordinates={pickCoordinates} onMapReady={(handle) => { pickerMapRef.current = handle; }} /></div><label>Notes <small>(optional)</small><textarea rows={3} maxLength={400} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Temperament, medical notes, etc." /></label>{formError && <p className="form-error">{formError}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowRegister(false)}>Cancel</button><button className="primary-button" disabled={isSaving}>{isSaving ? "Registering..." : "Register animal"}</button></div></form></section></div>}
       {selectedAnimal && <AnimalDetailPanel animal={selectedAnimal} history={vaccinationHistory} vaccines={vaccineOptions.filter((vaccine) => vaccine.species === "Both" || vaccine.species === selectedAnimal.species).map((vaccine) => vaccine.name)} canManage={isStaff} onClose={() => setSelectedAnimal(null)} onRecordAdded={() => openAnimalDetail(selectedAnimal)} onDeleted={(warning) => { setAnimalRecords((current) => current.filter((a) => a.id !== selectedAnimal.id)); setSelectedAnimal(null); if (warning) setLoadError(warning); }} onUpdated={(fields) => { const patch = { name: fields.name, breed: fields.breed || undefined, age: fields.age ? Number(fields.age) : undefined, sex: fields.sex || undefined, color: fields.color || undefined, owner: fields.ownerName, contact: fields.contactNumber, impoundArea: fields.impoundArea, notes: fields.notes || undefined }; setAnimalRecords((current) => current.map((a) => (a.id === selectedAnimal.id ? { ...a, ...patch } : a))); setSelectedAnimal((current) => (current ? { ...current, ...patch } : current)); }} />}
       <ConfirmDialog
         open={confirmDialog !== null}
@@ -1878,149 +1523,6 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
         onCancel={() => setConfirmDialog(null)}
       />
     </main>
-  );
-}
-
-function AppointmentManager({ animals, teamMembers }: { animals: Animal[]; teamMembers: TeamMember[] }) {
-  const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
-  const [animalId, setAnimalId] = useState("");
-  const [staffId, setStaffId] = useState("");
-  const [appointmentAt, setAppointmentAt] = useState("");
-  const [location, setLocation] = useState("Barangay health station");
-  const [notes, setNotes] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function refreshAppointments() {
-    const result = await getAppointments();
-    if (result.error) setError(result.error);
-    else setAppointments(result.items ?? []);
-  }
-
-  useEffect(() => {
-    void refreshAppointments();
-  }, []);
-
-  async function scheduleAppointment(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setSuccess("");
-    setBusy(true);
-    const animal = animals.find((item) => String(item.id) === animalId);
-    const result = await createAppointment({
-      animalId: Number(animalId),
-      assignedTo: staffId,
-      scheduledDate: appointmentAt,
-      notes,
-    });
-    setBusy(false);
-    if (result.error) { setError(result.error); return; }
-    setSuccess("Appointment scheduled and the owner has been notified.");
-    setAnimalId("");
-    setStaffId("");
-    setAppointmentAt("");
-    setNotes("");
-    await refreshAppointments();
-  }
-
-  async function changeStatus(appointment: AppointmentItem, status: AppointmentStatus) {
-    setError("");
-    setSuccess("");
-    setBusy(true);
-    const result = await updateAppointmentStatus(appointment.id, status);
-    setBusy(false);
-    if (result.error) { setError(result.error); return; }
-    setSuccess(`Appointment marked ${status.toLowerCase()} and the owner notified.`);
-    await refreshAppointments();
-  }
-
-  return (
-    <div className="module-content appointment-manager">
-      <div className="module-intro">
-        <div>
-          <p className="eyebrow">VACCINATION APPOINTMENTS</p>
-          <h2>Schedule and assign appointments</h2>
-          <p>Create upcoming vaccination visits and assign responsible BHW or admin staff.</p>
-        </div>
-      </div>
-
-      <form className="appointment-form" onSubmit={scheduleAppointment}>
-        <label>Animal
-          <select value={animalId} onChange={(event) => setAnimalId(event.target.value)} required>
-            <option value="">Select animal</option>
-            {animals.filter((animal) => typeof animal.id === "number").map((animal) => <option key={animal.id} value={animal.id}>{animal.name} - {animal.owner}</option>)}
-          </select>
-        </label>
-        <label>Assigned staff
-          <select required value={staffId} onChange={(event) => setStaffId(event.target.value)}>
-            <option value="">Unassigned</option>
-            {teamMembers.filter((member) => member.status === "active").map((member) => <option key={member.id} value={member.id}>{member.fullName} ({member.role})</option>)}
-          </select>
-        </label>
-        <label>Date and time
-          <input type="datetime-local" value={appointmentAt} onChange={(event) => setAppointmentAt(event.target.value)} required />
-        </label>
-          <label>Location
-            <input value={location} onChange={(event) => setLocation(event.target.value)} required />
-          </label>
-        <label className="appointment-notes">Notes
-          <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Instructions for staff or the owner" />
-        </label>
-        {error && <p className="form-error">{error}</p>}
-        {success && <p className="appointment-success">{success}</p>}
-        <div className="modal-actions"><button className="primary-button" type="submit" disabled={busy}>{busy ? "Saving..." : "Schedule appointment"}</button></div>
-      </form>
-
-      <div className="appointment-list">
-        <h3>Scheduled appointments</h3>
-        {appointments.length === 0 ? <p className="module-muted">No vaccination appointments scheduled.</p> : appointments.map((appointment) => (
-          <article className="appointment-row" key={appointment.id}>
-            <div>
-              <strong>{appointment.animalName}</strong>
-              <small>{appointment.ownerName} · {appointment.assignedName}</small>
-              <span>{new Date(appointment.scheduledDate).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" })}</span>
-            </div>
-            <div className="appointment-actions">
-              <span className={`appointment-status appointment-${appointment.status.toLowerCase()}`}>{appointment.status}</span>
-              {appointment.status !== "Completed" && appointment.status !== "Cancelled" && <>
-                <button type="button" className="secondary-button" disabled={busy} onClick={() => changeStatus(appointment, "Scheduled")}>Confirm</button>
-                <button type="button" className="secondary-button" disabled={busy} onClick={async () => { const value = window.prompt("Enter the new appointment date (YYYY-MM-DD)", appointment.scheduledDate.slice(0, 10)); if (!value) return; const newDate = value.trim().slice(0, 10); setBusy(true); setError(""); setSuccess(""); const result = await updateAppointmentStatus(appointment.id, "Scheduled", newDate); setBusy(false); if (result.error) { setError(result.error); return; } setSuccess("Appointment rescheduled; the owner and assigned staff were notified."); await refreshAppointments(); }}>Reschedule</button>
-                <button type="button" className="primary-button" disabled={busy} onClick={() => changeStatus(appointment, "Completed")}>Complete</button>
-                <button type="button" className="danger-button" disabled={busy} onClick={() => changeStatus(appointment, "Cancelled")}>Cancel</button>
-              </>}
-            </div>
-          </article>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Coverage({ name, value, count }: { name: string; value: number; count: string }) {
-  return <div className="coverage-row"><div className="coverage-meta"><span>{name}</span><strong>{count} <em>{value}%</em></strong></div><div className="progress"><span style={{ width: `${value}%` }} /></div></div>;
-}
-
-type ReportBreakdownRow = { label: string; count: number; vaccinated: number; rate: number };
-
-function ReportBreakdownTable({ title, rows }: { title: string; rows: ReportBreakdownRow[] }) {
-  return (
-    <article className="report-breakdown-card">
-      <h3>{title}</h3>
-      {rows.length === 0 ? <p className="module-muted">No records in range.</p> : (
-        <div className="report-breakdown-table">
-          <div className="report-breakdown-head"><span>Category</span><span>Vaccinated</span><span>Total</span><span>Coverage</span></div>
-          {rows.map((row) => (
-            <div className="report-breakdown-row" key={row.label}>
-              <strong>{row.label}</strong>
-              <span>{row.vaccinated}</span>
-              <span>{row.count}</span>
-              <em>{row.rate}%</em>
-            </div>
-          ))}
-        </div>
-      )}
-    </article>
   );
 }
 
@@ -2059,7 +1561,7 @@ function Landing({ onSignIn, isTransitioning }: { onSignIn: () => void; isTransi
             <span><strong>VacciTrack</strong><small>BRGY. ESTEFANIA</small></span>
           </button>
           <nav aria-label="Public navigation">
-            <button className="landing-nav-action" onClick={onSignIn}>Sign in <span>→</span></button>
+            <button className="landing-nav-action" onClick={onSignIn}>Sign in <span>â†’</span></button>
           </nav>
         </header>
       </div>
@@ -2067,11 +1569,11 @@ function Landing({ onSignIn, isTransitioning }: { onSignIn: () => void; isTransi
         <div className="landing-hero-image" />
         <div className="landing-hero-overlay" />
         <div className="landing-hero-content">
-          <div className="landing-kicker landing-kicker-light">● &nbsp; CLOUD-BASED &nbsp;·&nbsp; BARANGAY ESTEFANIA, BACOLOD CITY 6100</div>
+          <div className="landing-kicker landing-kicker-light">â— &nbsp; CLOUD-BASED &nbsp;Â·&nbsp; BARANGAY ESTEFANIA, BACOLOD CITY 6100</div>
           <h1>Animal Vaccination<br /><em>Monitoring System</em></h1>
           <p>Real-time tracking of immunization compliance for dogs and cats across every purok, with coverage reports and practical planning tools.</p>
           <div className="landing-hero-actions">
-            <button className="landing-primary-action" onClick={onSignIn}>Access the system <span>→</span></button>
+            <button className="landing-primary-action" onClick={onSignIn}>Access the system <span>â†’</span></button>
           </div>
         </div>
       </section>

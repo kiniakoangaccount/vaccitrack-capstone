@@ -783,10 +783,18 @@ create policy "Users can read own animal vaccination history"
   ));
 
 drop policy if exists "Staff can manage appointments" on public.appointments;
-create policy "Staff can manage appointments"
+drop policy if exists "Admins can manage appointments" on public.appointments;
+create policy "Admins can manage appointments"
   on public.appointments for all to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')))
-  with check (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'bhw')));
+  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'))
+  with check (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+
+drop policy if exists "Assigned BHW can view appointments" on public.appointments;
+create policy "Assigned BHW can view appointments"
+  on public.appointments for select to authenticated
+  using (assigned_to = auth.uid() and exists (
+    select 1 from public.profiles where id = auth.uid() and role = 'bhw'
+  ));
 
 drop policy if exists "Users can read own animal appointments" on public.appointments;
 create policy "Users can read own animal appointments"
