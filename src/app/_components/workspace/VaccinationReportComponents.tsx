@@ -1,4 +1,4 @@
-import type { ReportData, ReportId } from "./workspace-types";
+import type { ReportData, ReportId } from "@/app/_features/workspace/workspace-types";
 
 export function ReportSectionView({ report }: { report: ReportData }) {
   return (

@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
 import { ShieldCheck, Bell, ChevronDown, Settings as SettingsIcon, Trash2, Edit2, MapPin, Save, Menu, X, ArrowLeft } from "lucide-react";
-import ConfirmDialog from "./ConfirmDialog";
-import SkeletonBlock from "./Skeleton";
-import WorkspaceLoadingScreen from "./WorkspaceLoadingScreen";
+import ConfirmDialog from "@/app/_components/shared/ConfirmDialog";
+import SkeletonBlock from "@/app/_components/shared/Skeleton";
+import WorkspaceLoadingScreen from "@/app/_components/shared/WorkspaceLoadingScreen";
 
 function initials(fullName: string) {
   return fullName.trim().split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "VT";

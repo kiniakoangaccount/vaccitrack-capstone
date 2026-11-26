@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
-import { updateProfile, updateNotificationPreferences, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp, type ReminderLanguage } from "./profile-actions";
+import { updateProfile, updateNotificationPreferences, requestAccountOtp, changeUsernameWithOtp, changePasswordWithOtp, type ReminderLanguage } from "@/app/_features/profile/profile-actions";
 import { ShieldCheck, Bell, EyeOff, User, Key, CheckCircle2, AlertCircle, Menu, X, ArrowLeft } from "lucide-react";
-import WorkspaceLoadingScreen from "./WorkspaceLoadingScreen";
+import WorkspaceLoadingScreen from "@/app/_components/shared/WorkspaceLoadingScreen";
 
 function initials(fullName: string) {
   return fullName.trim().split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "VT";

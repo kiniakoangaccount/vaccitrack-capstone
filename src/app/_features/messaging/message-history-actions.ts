@@ -1,7 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase-admin";
-import { getAdminSession } from "./vaccitrack_super_hidden_admin/actions";
+import { getAdminSession } from "@/app/vaccitrack_super_hidden_admin/actions";
 
 const PAGE_SIZE = 20;
 const MAX_PAGE = 1_000_000;

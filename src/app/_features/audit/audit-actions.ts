@@ -2,7 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getAuthenticatedUser } from "@/lib/supabase-server";
-import { getAdminSession } from "./vaccitrack_super_hidden_admin/actions";
+import { getAdminSession } from "@/app/vaccitrack_super_hidden_admin/actions";
 
 const UNAUTHORIZED = { error: "Unauthorized." };
 const AUDIT_ACTIONS = ["INSERT", "UPDATE", "DELETE", "SMS_SENT", "SMS_ATTEMPT"] as const;

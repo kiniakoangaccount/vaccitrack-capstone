@@ -1,6 +1,6 @@
 import { DOG_BREEDS, CAT_BREEDS } from "@/lib/breed-data";
 import { VACCINE_DATA } from "@/lib/vaccine-data";
-import type { Animal, AnimalFilters } from "./workspace-types";
+import type { Animal, AnimalFilters } from "@/app/_features/workspace/workspace-types";
 
 export function matchesAnimalFilters(animal: Animal, filters: AnimalFilters): boolean {
   const breed = animal.breed?.trim() || "Unspecified";

@@ -9,19 +9,19 @@ import AuditPanel from "./AuditPanel";
 import MessageHistoryPanel from "./MessageHistoryPanel";
 import InvitesPanel from "./InvitesPanel";
 import { createSuperAdminUser, listStaffInvites, type StaffInvite } from "./crud-actions";
-import CreateUserAccountForm from "@/app/CreateUserAccountForm";
+import CreateUserAccountForm from "@/app/_components/workspace/CreateUserAccountForm";
 import SmsTestForm from "./SmsTestForm";
 import {
   ShieldCheck, Users, PawPrint, Activity, Bell,
   LogOut, MessageSquare, Clock, XCircle,
   UserPlus, MapPin, Menu,
 } from "lucide-react";
-import { SmsComposer } from "@/app/SmsComposer";
+import { SmsComposer } from "@/app/_components/workspace/SmsComposer";
 import AdminMapPanel from "./AdminMapPanel";
 import PuroksPanel from "./PuroksPanel";
 import type { ManagedPurok } from "./purok-actions";
 import { purokOptions, getAnimalStatus, getVaccinationDueDate } from "@/lib/map-data";
-import type { MapAnimal } from "../../LeafletMap";
+import type { MapAnimal } from "@/app/_components/maps/LeafletMap";
 
 type Tab = "overview" | "users" | "pending" | "feedback" | "audit" | "invites" | "map" | "puroks" | "sms" | "messages";
 

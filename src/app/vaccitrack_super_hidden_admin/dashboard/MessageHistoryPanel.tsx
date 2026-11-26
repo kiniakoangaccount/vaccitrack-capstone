@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle, ChevronLeft, ChevronRight, MessageSquare, RefreshCw } from "lucide-react";
-import { fetchSentMessagePage, type SentMessageRow } from "../../message-history-actions";
-import SkeletonBlock from "../../Skeleton";
+import { fetchSentMessagePage, type SentMessageRow } from "@/app/_features/messaging/message-history-actions";
+import SkeletonBlock from "@/app/_components/shared/Skeleton";
 
 const PAGE_SIZE = 20;
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import LocationSearch from "./LocationSearch";
-import PurokSuggestionSearch from "./PurokSuggestionSearch";
+import LocationSearch from "@/app/_components/maps/LocationSearch";
+import PurokSuggestionSearch from "@/app/_components/maps/PurokSuggestionSearch";
 import L from "leaflet";
 import "leaflet.markercluster";
 import "leaflet/dist/leaflet.css";

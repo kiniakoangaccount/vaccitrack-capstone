@@ -1,10 +1,12 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Activity,
+  ArrowRight,
   Bell,
   Cat,
   CheckCircle2,
@@ -31,33 +33,33 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
-import { registerUser } from "./register-action";
-import { searchLocation, type LocationSuggestion } from "./geocode-action";
-import { resolveUsernameAuthIdentifier } from "./signin-action";
-import { getResetChannels, requestPasswordReset, resetPasswordWithOtp } from "./forgot-password-actions";
-import { exportAnimalsCsv } from "./audit-actions";
-import { markAllNotificationsRead, markNotificationRead } from "./notification-actions";
-import { queueVaccinationReminders } from "./reminder-actions";
-import { updatePoundStatus, type PoundStatus } from "./pound-actions";
-import { SmsComposer } from "./SmsComposer";
-import { getTeamMembers, type TeamMember } from "./team-actions";
-import { getFeedbackList, updateFeedbackStatus, type FeedbackItem } from "./feedback-actions";
-import { createAppointment, getAppointments, updateAppointmentStatus, type AppointmentItem, type AppointmentStatus } from "./appointment-actions";
-import LocationSearch from "./LocationSearch";
-import PurokSuggestionSearch from "./PurokSuggestionSearch";
+import { registerUser } from "@/app/_features/auth/register-action";
+import { searchLocation, type LocationSuggestion } from "@/app/_features/maps/geocode-action";
+import { resolveUsernameAuthIdentifier } from "@/app/_features/auth/signin-action";
+import { getResetChannels, requestPasswordReset, resetPasswordWithOtp } from "@/app/_features/auth/forgot-password-actions";
+import { exportAnimalsCsv } from "@/app/_features/audit/audit-actions";
+import { markAllNotificationsRead, markNotificationRead } from "@/app/_features/notifications/notification-actions";
+import { queueVaccinationReminders } from "@/app/_features/notifications/reminder-actions";
+import { updatePoundStatus, type PoundStatus } from "@/app/_features/animals/pound-actions";
+import { SmsComposer } from "@/app/_components/workspace/SmsComposer";
+import { getTeamMembers, type TeamMember } from "@/app/_features/team/team-actions";
+import { getFeedbackList, updateFeedbackStatus, type FeedbackItem } from "@/app/_features/feedback/feedback-actions";
+import { createAppointment, getAppointments, updateAppointmentStatus, type AppointmentItem, type AppointmentStatus } from "@/app/_features/appointments/appointment-actions";
+import LocationSearch from "@/app/_components/maps/LocationSearch";
+import PurokSuggestionSearch from "@/app/_components/maps/PurokSuggestionSearch";
 import { isWithinEstefaniaSearchArea, purokOptions, getAnimalStatus, getVaccinationDueDate } from "@/lib/map-data";
 import { capitalizeFirstLetter } from "@/lib/animal-names";
 import { VACCINE_DATA } from "@/lib/vaccine-data";
 import { addMonthsToDateIso, todayLocalIso } from "@/lib/dates";
 import dynamic from "next/dynamic";
-import type { LeafletMapHandle } from "./LeafletMap";
-import type { VaccinationHistoryRow } from "./AnimalDetailPanel";
-import ConfirmDialog from "./ConfirmDialog";
-import SkeletonBlock from "./Skeleton";
-import WorkspaceLoadingScreen from "./WorkspaceLoadingScreen";
-import CreateUserAccountForm from "./CreateUserAccountForm";
-import { createAdminManagedAccount } from "./user-account-actions";
-import { loadAnimalRecords, loadRiskPurokNames } from "./workspace-data";
+import type { LeafletMapHandle } from "@/app/_components/maps/LeafletMap";
+import type { VaccinationHistoryRow } from "@/app/_components/animals/AnimalDetailPanel";
+import ConfirmDialog from "@/app/_components/shared/ConfirmDialog";
+import SkeletonBlock from "@/app/_components/shared/Skeleton";
+import WorkspaceLoadingScreen from "@/app/_components/shared/WorkspaceLoadingScreen";
+import CreateUserAccountForm from "@/app/_components/workspace/CreateUserAccountForm";
+import { createAdminManagedAccount } from "@/app/_features/auth/user-account-actions";
+import { loadAnimalRecords, loadRiskPurokNames } from "@/app/_features/workspace/workspace-data";
 import {
   ageGroupLabel,
   AGE_GROUP_ORDER,
@@ -73,9 +75,9 @@ import {
   matchesAnimalFilters,
   statusStyles,
   summarizeReportDimension,
-} from "./animal-analytics";
-import { ReportExportMenu, ReportSectionView } from "./VaccinationReportComponents";
-import type { Animal, AnimalFilters, ReportData, ReportId, UserNotification } from "./workspace-types";
+} from "@/app/_features/animals/animal-analytics";
+import { ReportExportMenu, ReportSectionView } from "@/app/_components/workspace/VaccinationReportComponents";
+import type { Animal, AnimalFilters, ReportData, ReportId, UserNotification } from "@/app/_features/workspace/workspace-types";
 
 const POUND_STATUSES: PoundStatus[] = ["Under Observation", "Up for Adoption", "Reclaimed"];
 
@@ -128,7 +130,7 @@ function AnimalDetailLoadingSkeleton() {
   );
 }
 
-const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false, loading: MapLoadingSkeleton });
+const LeafletMap = dynamic(() => import("@/app/_components/maps/LeafletMap"), { ssr: false, loading: MapLoadingSkeleton });
 const AuditPanel = dynamic(() => import("./vaccitrack_super_hidden_admin/dashboard/AuditPanel"), {
   loading: () => (
     <div className="deferred-panel-status audit-deferred-skeleton" role="status" aria-label="Loading audit log">
@@ -138,7 +140,7 @@ const AuditPanel = dynamic(() => import("./vaccitrack_super_hidden_admin/dashboa
     </div>
   ),
 });
-const AnimalDetailPanel = dynamic(() => import("./AnimalDetailPanel"), {
+const AnimalDetailPanel = dynamic(() => import("@/app/_components/animals/AnimalDetailPanel"), {
   loading: AnimalDetailLoadingSkeleton,
 });
 
@@ -1316,7 +1318,7 @@ export default function Home({ initialAuthMode = "landing" }: { initialAuthMode?
         <div className="page-content workspace-page-enter" key={activeTab}>
           <div className="page-heading"><div><p className="eyebrow">{formatTodayLabel()}</p><h1>{activeTab === "Overview" ? `${getTimeGreeting()}, ${authUser?.fullName.split(" ")[0] ?? "Maria"}.` : activeTab}</h1><p className="heading-sub">{activeTab === "Overview" ? "Here is what needs your attention across the barangay." : "Barangay Estefania animal health operations"}</p></div></div>
 
-          {activeTab === "Overview" && showNotice && <div className="notice"><div className="notice-icon"><Syringe size={19} /></div><div><strong>Vaccination coverage is at {dashboardStats.registered ? Math.round((dashboardStats.vaccinated / dashboardStats.registered) * 100) : 0}%</strong><p>{dashboardStats.dueSoon} animals are due for their next vaccination.</p></div>{isStaff && <button type="button" className="notice-action" onClick={() => selectTab("Planning")}>View plan <span>â†’</span></button>}<button className="notice-close" aria-label="Dismiss notice" onClick={() => setShowNotice(false)}>Ã—</button></div>}
+          {activeTab === "Overview" && showNotice && <div className="notice"><div className="notice-icon"><Syringe size={19} /></div><div><strong>Vaccination coverage is at {dashboardStats.registered ? Math.round((dashboardStats.vaccinated / dashboardStats.registered) * 100) : 0}%</strong><p>{dashboardStats.dueSoon} animals are due for their next vaccination.</p></div>{isStaff && <button type="button" className="notice-action" onClick={() => selectTab("Planning")}>View plan <ArrowRight size={16} aria-hidden="true" /></button>}<button className="notice-close" aria-label="Dismiss notice" onClick={() => setShowNotice(false)}><X size={16} aria-hidden="true" /></button></div>}
 
           {activeTab !== "Overview" && <section className="workspace-panel">
             {activeTab === "Registry" && (isViewer ? <RoleBlocked role={userRole} message="The animal registry is not available for viewer accounts. Viewers can access Overview and Feedback only." /> : <div className="module-content">
@@ -1561,6 +1563,7 @@ function Landing({ onSignIn, isTransitioning }: { onSignIn: () => void; isTransi
             <span><strong>VacciTrack</strong><small>BRGY. ESTEFANIA</small></span>
           </button>
           <nav aria-label="Public navigation">
+            <Link href="/guide" className="landing-guide-link">User guide</Link>
             <button className="landing-nav-action" onClick={onSignIn}>Sign in <span>â†’</span></button>
           </nav>
         </header>

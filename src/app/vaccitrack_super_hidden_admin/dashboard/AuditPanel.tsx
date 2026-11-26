@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { fetchAuditLogPage } from "../../audit-actions";
+import { fetchAuditLogPage } from "@/app/_features/audit/audit-actions";
 import { ChevronLeft, ChevronRight, Filter, ScanLine } from "lucide-react";
-import SkeletonBlock from "../../Skeleton";
+import SkeletonBlock from "@/app/_components/shared/Skeleton";
 
 interface AuditRow {
   id: number;

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Send, Users } from "lucide-react";
-import { getSmsRecipientOptions, previewSmsRecipients, sendCustomSms } from "./sms-actions";
-import SkeletonBlock from "./Skeleton";
+import { getSmsRecipientOptions, previewSmsRecipients, sendCustomSms } from "@/app/_features/messaging/sms-actions";
+import SkeletonBlock from "@/app/_components/shared/Skeleton";
 
 type SmsAudience =
   | { mode: "individual"; recipientId: string }

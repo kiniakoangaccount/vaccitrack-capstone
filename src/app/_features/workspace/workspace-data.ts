@@ -1,7 +1,7 @@
 import type { createClient } from "@/lib/supabase";
 import { getAnimalStatus, getVaccinationDueDate } from "@/lib/map-data";
-import { formatDueDate } from "./animal-analytics";
-import type { Animal, SupabaseAnimalRecord } from "./workspace-types";
+import { formatDueDate } from "@/app/_features/animals/animal-analytics";
+import type { Animal, SupabaseAnimalRecord } from "@/app/_features/workspace/workspace-types";
 
 // Keep the initial load and realtime refresh on the same query and mapping.
 export async function loadAnimalRecords(

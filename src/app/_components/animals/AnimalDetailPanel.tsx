@@ -3,11 +3,11 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Cat, CheckCircle2, Dog, Edit2, MapPin, Plus, Save, Syringe, Trash2, X } from "lucide-react";
-import { addVaccinationRecord } from "./vaccination-actions";
-import { deleteAnimalRecord, updateAnimalRecord, type AnimalEditFields } from "./animal-actions";
+import { addVaccinationRecord } from "@/app/_features/animals/vaccination-actions";
+import { deleteAnimalRecord, updateAnimalRecord, type AnimalEditFields } from "@/app/_features/animals/animal-actions";
 import { addMonthsToDateIso, todayLocalIso } from "@/lib/dates";
 import { capitalizeFirstLetter } from "@/lib/animal-names";
-import ConfirmDialog from "./ConfirmDialog";
+import ConfirmDialog from "@/app/_components/shared/ConfirmDialog";
 
 export interface AnimalDetail {
   id: number | string;

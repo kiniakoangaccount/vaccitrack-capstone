@@ -1,4 +1,4 @@
-import type { PoundStatus } from "./pound-actions";
+import type { PoundStatus } from "@/app/_features/animals/pound-actions";
 
 export type Animal = {
   id: number | string;

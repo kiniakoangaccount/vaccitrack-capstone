@@ -3,8 +3,8 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { PawPrint, CheckCircle2, Eye, EyeOff } from "lucide-react";
-import ProfilePhotoInput from "../../ProfilePhotoInput";
-import { registerViaInvite } from "../../invite-register-action";
+import ProfilePhotoInput from "@/app/_components/workspace/ProfilePhotoInput";
+import { registerViaInvite } from "@/app/_features/auth/invite-register-action";
 
 export default function InviteRegisterForm({ token, role, roleLabel }: { token: string; role: string; roleLabel: string }) {
   const [form, setForm] = useState({ username: "", fullName: "", contact: "", password: "" });

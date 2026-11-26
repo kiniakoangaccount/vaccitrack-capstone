@@ -3,8 +3,8 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { CheckCircle2, Eye, EyeOff, PawPrint, X } from "lucide-react";
-import ProfilePhotoInput from "../ProfilePhotoInput";
-import { registerUser } from "../register-action";
+import ProfilePhotoInput from "@/app/_components/workspace/ProfilePhotoInput";
+import { registerUser } from "@/app/_features/auth/register-action";
 
 export default function RegistrationForm() {
   const [form, setForm] = useState({ username: "", fullName: "", contact: "", password: "" });

@@ -1,7 +1,7 @@
 "use client";
 
 import { PawPrint } from "lucide-react";
-import SkeletonBlock from "./Skeleton";
+import SkeletonBlock from "@/app/_components/shared/Skeleton";
 
 export default function WorkspaceLoadingScreen({
   title = "Preparing your workspace",

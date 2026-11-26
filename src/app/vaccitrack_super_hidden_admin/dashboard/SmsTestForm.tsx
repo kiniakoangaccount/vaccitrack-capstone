@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AlertTriangle, CheckCircle2, Send } from "lucide-react";
-import { sendSuperAdminTestSms } from "../../sms-actions";
+import { sendSuperAdminTestSms } from "@/app/_features/messaging/sms-actions";
 import AdminConfirmDialog from "./AdminConfirmDialog";
 
 const DEFAULT_TEST_MESSAGE = "This is a test SMS. If you received it, message delivery is working.";

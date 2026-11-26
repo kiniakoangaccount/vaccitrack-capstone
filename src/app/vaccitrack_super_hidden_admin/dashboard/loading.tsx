@@ -1,4 +1,4 @@
-import SkeletonBlock from "../../Skeleton";
+import SkeletonBlock from "@/app/_components/shared/Skeleton";
 
 export default function Loading() {
   return (
