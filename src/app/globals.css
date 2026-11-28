@@ -172,6 +172,9 @@ html[data-theme="dark"] .automatic-schedule-summary .automatic-schedule-unschedu
 .animal-detail-notes { margin: 16px 0 0; padding: 12px 14px; color: var(--muted); background: #fbfdfb; border: 1px solid var(--line); border-radius: 7px; font-size: 14px; line-height: 1.6; }
 .animal-detail-history-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .animal-detail-history-head h3 { margin: 0; color: #344b40; font-family: var(--font-display), sans-serif; font-size: 18px; }
+.animal-immunization-intro { margin: -6px 0 14px; color: #718078; font-size: 13px; line-height: 1.5; }
+.immunization-group { display: grid; gap: 11px; padding: 12px; background: #fbfdfb; border: 1px solid var(--line); border-radius: 8px; }
+.immunization-group h4 { margin: 0; color: #28735d; font-size: 13px; letter-spacing: .25px; }
 .animal-identification-photos { margin-top: 16px; }
 .animal-identification-photos h3 { margin: 0 0 10px; color: #344b40; font-family: var(--font-display), sans-serif; font-size: 18px; }
 .animal-identification-photos p { margin: 0 0 10px; color: #91a098; font-size: 14px; }

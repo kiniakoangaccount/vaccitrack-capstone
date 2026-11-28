@@ -45,6 +45,20 @@ export interface VaccinationHistoryRow {
   created_at: string;
 }
 
+function getImmunizationGroup(vaccineType: string | null, species: string): string {
+  const name = (vaccineType ?? "").toLowerCase();
+  if (/rabies|anti-rabies|rabisin|defensor|imrab/.test(name)) return "Rabies";
+  if (species === "Dog") {
+    if (/bordetella|kennel cough/.test(name)) return "Bordetella / kennel cough";
+    if (/lepto/.test(name)) return "Leptospirosis";
+    if (/distemper|parvovirus|adenovirus|hepatitis|parainfluenza|dhpp|dhlpp|core/.test(name)) return "Canine core vaccines";
+  } else {
+    if (/leukemia|felv/.test(name)) return "Feline leukemia (FeLV)";
+    if (/rhinotracheitis|calicivirus|panleukopenia|fvrcp|rcp|core/.test(name)) return "Feline core vaccines (FVRCP)";
+  }
+  return "Other immunizations";
+}
+
 interface AnimalDetailPanelProps {
   animal: AnimalDetail;
   history: VaccinationHistoryRow[];
@@ -67,6 +81,21 @@ export default function AnimalDetailPanel({
   onUpdated,
 }: AnimalDetailPanelProps) {
   const lastVaccinated = history[0]?.vaccine_date ?? animal.vaccineDate;
+  const vaccineOptionsByGroup = vaccines.reduce<Record<string, string[]>>((groups, vaccine) => {
+    const groupName = getImmunizationGroup(vaccine, animal.species);
+    groups[groupName] = [...(groups[groupName] ?? []), vaccine];
+    return groups;
+  }, {});
+  const immunizationGroups = history.reduce<Record<string, { record: VaccinationHistoryRow; shotNumber: number }[]>>((groups, record) => {
+    const vaccineName = record.vaccine_type ?? "Other / not specified";
+    const groupName = getImmunizationGroup(record.vaccine_type, animal.species);
+    const entries = groups[groupName] ?? [];
+    const earlierEntries = entries.filter((entry) => (entry.record.vaccine_type ?? "Other / not specified") === vaccineName).length;
+    const totalShots = history.filter((entry) => (entry.vaccine_type ?? "Other / not specified") === vaccineName).length;
+    const shotNumber = totalShots - earlierEntries;
+    groups[groupName] = [...entries, { record, shotNumber }];
+    return groups;
+  }, {});
   const formattedLastVaccinated = lastVaccinated
     ? new Date(`${lastVaccinated}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
     : "Not vaccinated";
@@ -289,7 +318,7 @@ export default function AnimalDetailPanel({
                 </label>
                 <label>Vaccine type
                   <select value={vaccineType} onChange={(e) => setVaccineType(e.target.value)}>
-                    {vaccines.map((v) => <option key={v} value={v}>{v}</option>)}
+                    {Object.entries(vaccineOptionsByGroup).map(([groupName, options]) => <optgroup key={groupName} label={groupName}>{options.map((v) => <option key={v} value={v}>{v}</option>)}</optgroup>)}
                     {!vaccines.includes(vaccineType) && vaccineType && <option value={vaccineType}>{vaccineType}</option>}
                   </select>
                 </label>
@@ -311,21 +340,27 @@ export default function AnimalDetailPanel({
 
             {saved && <p className="module-muted"><CheckCircle2 size={15} /> Vaccination recorded successfully.</p>}
 
+            <p className="animal-immunization-intro">Recorded immunization types and shots for this {animal.species.toLowerCase()}. Add each vaccine dose as a separate history entry.</p>
             {history.length === 0 ? (
               <p className="animal-detail-empty">No vaccination records yet.</p>
             ) : (
               <div className="vaccination-timeline">
-                {history.map((h) => (
-                  <div className="vaccination-entry" key={h.id}>
-                    <span className="vaccination-dot" />
-                    <div>
-                      <strong>{h.vaccine_type ?? "Vaccination"}</strong>
-                      <small>{new Date(`${h.vaccine_date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</small>
-                      {h.next_due_date && <small>Next due: {new Date(`${h.next_due_date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</small>}
-                      {h.administered_by && <small>By: {h.administered_by}</small>}
-                      {h.notes && <small className="vaccination-notes">{h.notes}</small>}
-                    </div>
-                  </div>
+                {Object.entries(immunizationGroups).map(([groupName, entries]) => (
+                  <section className="immunization-group" key={groupName}>
+                    <h4>{groupName}</h4>
+                    {entries.map(({ record: h, shotNumber }) => (
+                      <div className="vaccination-entry" key={h.id}>
+                        <span className="vaccination-dot" />
+                        <div>
+                          <strong>{h.vaccine_type ?? "Other / not specified"}</strong>
+                          <small>Recorded dose {shotNumber} · {new Date(`${h.vaccine_date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</small>
+                          {h.next_due_date && <small>Next due: {new Date(`${h.next_due_date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</small>}
+                          {h.administered_by && <small>Administered by: {h.administered_by}</small>}
+                          {h.notes && <small className="vaccination-notes">{h.notes}</small>}
+                        </div>
+                      </div>
+                    ))}
+                  </section>
                 ))}
               </div>
             )}
