@@ -1728,3 +1728,28 @@ form input[type="radio"] { accent-color: var(--green); }
 @media (max-width: 840px) {
   .leaflet-map-toggles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Dashboard and risk summaries are split into clear status groups. */
+.overview-stat-groups { display: grid; gap: 13px; margin-bottom: 19px; }
+.overview-stat-group { min-width: 0; padding: 14px; background: var(--white); border: 1px solid var(--line); border-radius: 9px; }
+.overview-stat-group-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 2px 11px; }
+.overview-stat-group-heading h2 { margin: 0; color: var(--ink); font-size: 16px; font-weight: 750; }
+.overview-stat-group-heading p { margin: 0; color: var(--muted); font-size: 13px; }
+.overview-status-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 0; }
+.overview-followup-grid { grid-template-columns: minmax(220px, 290px); margin-bottom: 0; }
+.risk-summary-groups { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 10px; margin: 0 0 16px; }
+.risk-summary-group { min-width: 0; padding: 11px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+.risk-summary-group > h3 { margin: 0 0 9px; color: var(--muted); font-size: 12px; font-weight: 750; letter-spacing: .7px; text-transform: uppercase; }
+.risk-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.risk-summary article { min-height: 72px; padding: 10px 11px; background: var(--white); }
+.risk-summary strong { font-size: 25px; }
+@media (max-width: 1000px) {
+  .overview-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .risk-summary-groups { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .overview-stat-group-heading { display: block; }
+  .overview-stat-group-heading p { margin-top: 3px; }
+  .overview-followup-grid { grid-template-columns: minmax(0, 1fr); }
+  .risk-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
