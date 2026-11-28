@@ -188,6 +188,7 @@ html[data-theme="dark"] .automatic-schedule-summary .automatic-schedule-unschedu
 .vaccination-entry small { display: block; margin-top: 2px; color: #91a098; font-size: 13px; }
 .vaccination-entry .vaccination-notes { color: #6c897a; font-style: italic; }
 .booster-form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
+.booster-immunization-hint { grid-column: span 2; margin: 0; }
 .booster-form label { display: grid; gap: 6px; color: #607168; font-size: 14px; font-weight: 700; }
 .booster-form input, .booster-form select, .booster-form textarea { width: 100%; padding: 10px 11px; color: var(--ink); background: #fbfdfb; border: 1px solid #dce6df; border-radius: 5px; outline: 0; font-size: 16px; font-weight: 400; font-family: inherit; }
 .booster-form textarea { resize: vertical; }
@@ -196,7 +197,7 @@ html[data-theme="dark"] .automatic-schedule-summary .automatic-schedule-unschedu
 @media (max-width: 680px) {
   .animal-detail-grid, .animal-detail-fields, .booster-form { grid-template-columns: 1fr; }
   .animal-vaccination-status { grid-template-columns: 1fr; gap: 12px; }
-  .booster-notes, .booster-actions { grid-column: span 1; }
+  .booster-notes, .booster-actions, .booster-immunization-hint { grid-column: span 1; }
 }
 @media (max-width: 840px) { .landing-nav nav { display: flex; gap: 0; }.landing-nav nav a { display: none; }.landing-nav-action { padding-left: 0; border-left: 0; } }
 .landing-page { height: 100svh; overflow: hidden; display: flex; flex-direction: column; }

@@ -332,7 +332,7 @@ export default async function AdminDashboardPage({
               <div className="admin-page-heading">
                 <p className="eyebrow">IDENTITY VERIFICATION</p>
                 <h1>Pending accounts</h1>
-                <p className="heading-sub">Approve civilian registrations to grant access, or reject invalid submissions.</p>
+                <p className="heading-sub">Approve pet owner registrations to grant access, or reject invalid submissions.</p>
               </div>
               {!supaCfg ? <NotConfigured /> : <PendingPanel profiles={pendingProfiles} />}
             </>

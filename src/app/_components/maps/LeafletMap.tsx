@@ -402,7 +402,7 @@ export default function LeafletMap({
   return (
     <div className="leaflet-map-wrap">
       <div className="leaflet-map-toolbar">
-        <PurokSuggestionSearch className="map-purok-suggestions" ariaLabel="Search map" placeholder="Search animals or puroks on map..." value={mapSearch} options={puroks.map((purok) => purok.name)} onChange={setMapSearch} />
+        {!pickMode && <PurokSuggestionSearch className="map-purok-suggestions" ariaLabel="Search map" placeholder="Search animals or puroks on map..." value={mapSearch} options={puroks.map((purok) => purok.name)} onChange={setMapSearch} />}
         {!pickMode && <select aria-label="Filter by species" value={speciesFilter} onChange={(event) => setSpeciesFilter(event.target.value)}>
           <option value="All">All species</option>
           <option value="Dog">Dogs</option>

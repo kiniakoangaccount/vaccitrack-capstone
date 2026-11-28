@@ -68,7 +68,7 @@ export async function updateAnimalRecord(
   const name = capitalizeFirstLetter(fields.name.trim());
   const ownerName = fields.ownerName.trim();
   if (!name) return { error: "Animal name is required." };
-  if (!ownerName) return { error: "Civilian / owner name is required." };
+  if (!ownerName) return { error: "Pet owner name is required." };
 
   const { error } = await ctx.db.from("animals").update({
     name,

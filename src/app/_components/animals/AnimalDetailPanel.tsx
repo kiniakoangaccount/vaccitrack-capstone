@@ -167,7 +167,7 @@ export default function AnimalDetailPanel({
   async function submitEdit() {
     setEditError("");
     if (!editFields.name.trim()) { setEditError("Animal name is required."); return; }
-    if (!editFields.ownerName.trim()) { setEditError("Civilian / owner name is required."); return; }
+    if (!editFields.ownerName.trim()) { setEditError("Pet owner name is required."); return; }
     const updatedFields = { ...editFields, name: capitalizeFirstLetter(editFields.name.trim()) };
     setIsEditSaving(true);
     const { error: err } = await updateAnimalRecord(Number(animal.id), updatedFields);
@@ -249,7 +249,12 @@ export default function AnimalDetailPanel({
                   <input value={editFields.breed} onChange={(e) => setEditFields({ ...editFields, breed: e.target.value })} />
                 </label>
                 <label>Sex
-                  <input value={editFields.sex} onChange={(e) => setEditFields({ ...editFields, sex: e.target.value })} />
+                  <select value={editFields.sex} onChange={(e) => setEditFields({ ...editFields, sex: e.target.value })}>
+                    <option value="">Select sex</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    {editFields.sex && !["Male", "Female"].includes(editFields.sex) && <option value={editFields.sex}>{editFields.sex} (existing value)</option>}
+                  </select>
                 </label>
                 <label>Age (months)
                   <input type="number" min="0" max="360" value={editFields.age} onChange={(e) => setEditFields({ ...editFields, age: e.target.value })} />
@@ -257,7 +262,7 @@ export default function AnimalDetailPanel({
                 <label>Color / markings
                   <input value={editFields.color} onChange={(e) => setEditFields({ ...editFields, color: e.target.value })} />
                 </label>
-                <label>Civilian / owner name
+                <label>Pet owner name
                   <input value={editFields.ownerName} onChange={(e) => setEditFields({ ...editFields, ownerName: e.target.value })} />
                 </label>
                 <label>Contact number
@@ -303,13 +308,14 @@ export default function AnimalDetailPanel({
               <h3>Vaccination history</h3>
               {canManage && !showAddForm && (
                 <button className="secondary-button" onClick={() => setShowAddForm(true)}>
-                  <Plus size={14} /> Add booster
+                  <Plus size={14} /> Add vaccine / immunization
                 </button>
               )}
             </div>
 
             {showAddForm && (
               <div className="booster-form">
+                <p className="animal-immunization-intro booster-immunization-hint">Choose the vaccine or immunization given, then save this dated dose to the animal’s history.</p>
                 <label>Vaccination date
                   <input type="date" max={todayLocalIso()} value={vaccineDate} onChange={(e) => { const date = e.target.value; setVaccineDate(date); setNextDueDate(date ? addMonthsToDateIso(date, 12) : ""); }} />
                 </label>
@@ -332,7 +338,7 @@ export default function AnimalDetailPanel({
                 <div className="booster-actions">
                   <button className="secondary-button" onClick={() => setShowAddForm(false)}>Cancel</button>
                   <button className="primary-button" onClick={submitRecord} disabled={isSaving} data-loading={isSaving ? "true" : undefined} aria-busy={isSaving}>
-                    <Syringe size={14} /> {isSaving ? "Saving..." : "Record vaccination"}
+                    <Syringe size={14} /> {isSaving ? "Saving dose..." : "Save dose to history"}
                   </button>
                 </div>
               </div>

@@ -68,7 +68,7 @@ export default function RegistrationForm() {
       <section className="auth-card auth-card-register">
         <Link className="auth-back" href="/">Back to VacciTrack</Link>
         <div className="brand"><span className="brand-mark"><PawPrint size={20} /></span><span>VacciTrack</span></div>
-        <p className="eyebrow">CIVILIAN ACCOUNT REQUEST</p>
+        <p className="eyebrow">PET OWNER ACCOUNT REQUEST</p>
         <h1>Create your account</h1>
         <p className="heading-sub">Create a pet-owner account to manage your animals and vaccination records.</p>
         <form className="auth-form" onSubmit={submit}>
@@ -112,7 +112,7 @@ export default function RegistrationForm() {
             </div>
             <div className="terms-modal-body">
               <p>By registering, you confirm the information, contact number, and photo you submit are accurate, current, and belong to you. You are responsible for keeping your password confidential and for activity under your account.</p>
-              <p>This account is for registering your own animals and tracking their vaccination records. Civilian accounts are approved manually: your account stays pending, and may be rejected or later suspended, until an administrator reviews your photo and finds the submitted information accurate.</p>
+              <p>This account is for registering your own animals and tracking their vaccination records. Pet owner accounts are approved manually: your account stays pending, and may be rejected or later suspended, until an administrator reviews your photo and finds the submitted information accurate.</p>
               <p>Data you provide, including owner, contact, animal, and location details, is used only for barangay animal health record-keeping, vaccination scheduling and outreach, and stray/pound tracking, and may be reviewed by BHW and administrator staff. Account actions may be logged for security and audit purposes.</p>
             </div>
           </section>
